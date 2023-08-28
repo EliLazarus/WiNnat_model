@@ -1,9 +1,9 @@
 # Replication of the WiNDC national MGE model
 using MPSGE, JLD2
-cd(dirname(Base.source_path()))
+# cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
-P= load("nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
-S= load("nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
+P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
+S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
 n=8
 # function timeWiNnat(n::Int64)
 	# Indexes (set from the data files, via the notebook)
@@ -134,17 +134,9 @@ n=8
 		[Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi], 
 		[
 		 [Input(PA[i], id_0[i,j]) for i in sectorsi];
-		#For testing without nesting
-		[Input(PVA[va], va_0[va,j]) for va in valueadded]
+     	 [Input(Nest(:VA, 1., sum(va_0[va,j] for va in valueadded),
+		  [Input(PVA[va], va_0[va,j]) for va in valueadded]),sum(va_0[va,j] for va in valueadded))]
 		]
-	#   # 	[Input(
-	# 	# 				Nest(:VA, 1.,
-	# 	# 				sum(P[:va_0][year,va,j] for va in valueadded),
-	# 	# 					[Input(PVA[va], P[:va_0][year,va,j]) for va in valueadded]),
-	# 	# 				sum(P[:va_0][year,va,j] for va in valueadded)
-	# 	# 		    )
-	# 	# 	]
-	# 	# ]
 			)
 	end
 
@@ -157,23 +149,24 @@ n=8
 	for i in sectorsi 
 		# add!(WiNnat, Production(A[i], 2., 0.,
 		@production(WiNnat, A[i], 2., 0.,
-		[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i])) for i in sectorsi]; # Question re ta and ta0
+		[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
+		#  for i in sectorsi]; # Question re ta and ta0
 		Output(PFX, x_0[i])],
 
 		#For testing without nesting
-		[[Input(PY[i], y_0[i]) for i in sectorsi];
-		 [Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
-		 [Input(PM[m], md_0[m,i]) for m in margin]]
-		)
-		# )
+		[
+			# [Input(PY[i], y_0[i]) for i in sectorsi];
+		#  [Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
 
-		# [[Input(
-		# 	Nest(:dm, 2.,
-		# 	sum([P[:y_0][year,i], P[:m_0][year,i]]),
-		#     [Input(PY[i], P[:y_0][year,i]),
-		# 	 Input(PFX, P[:m_0][year,i], taxes=[Tax(:($tm[i]), RA)], price=:(1+$tm[i]))
-		# 	 ]), sum([P[:y_0][year,i], P[:m_0][year,i]]))];
-		# [Input(PM[m], P[:md_0][year,m,i]) for m in margin]])
+	    [Input(Nest(:dm, 2., sum(y_0[i]+m_0[i] for i in sectorsi),
+		    [Input(PY[i], y_0[i]),
+			 Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)], price=:(1+$(tm[i])*1))
+			 ]), sum(y_0[i]+m_0[i] for i in sectorsi)
+			 )];
+		[Input(PM[m], md_0[m,i]) for m in margin]
+		]
+		)
+
 	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
