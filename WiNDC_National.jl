@@ -136,7 +136,7 @@ n=3
 		[Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi], 
 		[
 		 [Input(PA[i], id_0[i,j]) for i in sectorsi];
-     	 [Input(Nest(:VA, 1., sum(va_0[va,j] for va in valueadded),
+     	 [Input(Nest(Symbol("VA$j"), 1., sum(va_0[va,j] for va in valueadded),
 		  [Input(PVA[va], va_0[va,j]) for va in valueadded]),sum(va_0[va,j] for va in valueadded))]
 		]
 			)
@@ -160,7 +160,7 @@ n=3
 			# [Input(PY[i], y_0[i]) for i in sectorsi];
 		#  [Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
 
-	    [Input(Nest(:dm, 2., sum(y_0[i]+m_0[i] for i in sectorsi),
+	    [Input(Nest(Symbol("dm$i"), 2., sum(y_0[i]+m_0[i] for i in sectorsi),
 		    [Input(PY[i], y_0[i]),
 			 Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)], price=:(1+$(tm[i])*1))
 			 ]), sum(y_0[i]+m_0[i] for i in sectorsi)
