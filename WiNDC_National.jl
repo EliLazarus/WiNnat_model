@@ -2,11 +2,62 @@
 using MPSGE, JLD2
 
 using JuMP,PATHSolver
+
+"""
+MP - I'm using JuMP v1.15 and MPSGE#new-jump to run this code.  
+"""
+
+
+""" 
+This function generates a GAMS-like report detailing both the values of the variables,
+but also the evaluation of the complementary constraint. Very useful for debugging as the
+complementary constraint should always have value 0.
+"""
+
+extract_variable_ref(v::NonlinearExpr) = v.args[1]
+extract_variable_ref(v::AffExpr) = collect(keys(v.terms))[1]
+extract_variable_ref(v::QuadExpr) = extract_variable_ref(v.aff)
+
+function generate_report(m::JuMP.Model;decimals::Int = 4)
+    #mcp_data = Complementarity.get_MCP_data(m)
+
+    #vars = all_variables(m)
+
+    #sols = Dict(zip(vars,value.(vars)));
+
+    mapping = Dict()
+    for ci in all_constraints(m; include_variable_in_set_constraints = false)
+        c = constraint_object(ci)
+        mapping[extract_variable_ref(c.func[2])] = c.func[1]
+    end
+
+    out = "var_name\t value\t\t margin\n"
+    for elm in all_variables(m)
+
+        val = round(value(elm),digits = decimals)
+        margin = "."
+        try
+            margin = round(value(mapping[elm]),digits = decimals)
+        catch
+            margin = "."
+        end
+        
+
+        out = out*"$elm\t\t $val\t\t $margin\n"
+    end
+
+    return(out)
+end
+
+
+
+
+
 # cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
 S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
-n=3
+n=8
 # function timeWiNnat(n::Int64)
 	# Indexes (set from the data files, via the notebook)
 	yr = S[:yr] # "Years in WiNDC Database",
@@ -22,8 +73,15 @@ n=3
 	year = Symbol(2017)
 	# PARAMETERS
 	# ty = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
-	ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
-	tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
+
+	ta = P[:ta_0][year,sectorsi]
+	tm = P[:tm_0][year,sectorsi]
+
+
+	# I've commented these out for now because, for some reason, parameters aren't playing
+	# nice. My guess is an extra variable is created somewhere
+	#ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
+	#tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
 
 	yr = Symbol(2017)
 
@@ -105,6 +163,10 @@ n=3
 	# tm0 = add!(WiNnat, Parameter(:tm0, indices = (sectorsi,), value=P[:tm_0][year,:].data)) #	"Import tariff";
 
 	# TODO Not sure what this is?
+
+	# MP - These are filters, they are defined further down the in the GAMS code,
+	# within a loop. Lines 289 - 292 in the GAMS code.
+
 	# Looks like a filters, but I don't see where they're set.
 
 	# sets	y_(j)	"Sectors with positive production",
@@ -179,21 +241,18 @@ n=3
 		 Endowment(PFX, bopdef_0)
 		]))
 
+
+	# Testing this with n=73 (highest it can be) and, wow, it take a long time.
+	# My guess is the evals and mangling into macros are slowing this down substantially.
+	# Making odow's changes https://github.com/anthofflab/MPSGE.jl/pull/122#issuecomment-1702142233
+	# _should_ both speed things up and make this way more clear to read. 
+
 	solve!(WiNnat, cumulative_iteration_limit=0)
 
 
-	for var in all_variables(m)
-		
-		print("$(var) ->")
-		try
-			val = value(var)
-		catch
-			print(". \n")
-			continue
-		end
-		
-		print(" $(value(var))\n")
-	end
+	m = WiNnat._jump_model
+	print(generate_report(m))
+
 
 	#solve!(WiNnat)
 	# solve!(WiNnat)
