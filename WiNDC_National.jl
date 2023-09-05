@@ -1,10 +1,12 @@
 # Replication of the WiNDC national MGE model
 using MPSGE, JLD2
+
+using JuMP,PATHSolver
 # cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
 S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
-n=8
+n=3
 # function timeWiNnat(n::Int64)
 	# Indexes (set from the data files, via the notebook)
 	yr = S[:yr] # "Years in WiNDC Database",
@@ -15,13 +17,13 @@ n=8
 	valueadded = S[:va] # "BEA Value added categories excluding othtax", va in GAMS
 	margin  = S[:m] # "Margins (trade or transport)"; m in GAMS
 
-	WiNnat = Model()
+	WiNnat = MPSGE.Model()
 
 	year = Symbol(2017)
 	# PARAMETERS
 	# ty = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
-	ta = add!(WiNnat, Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
-	tm = add!(WiNnat, Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
+	ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
+	tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
 
 	yr = Symbol(2017)
 
@@ -177,9 +179,23 @@ n=8
 		 Endowment(PFX, bopdef_0)
 		]))
 
-	# solve!(WiNnat, cumulative_iteration_limit=0)
+	solve!(WiNnat, cumulative_iteration_limit=0)
 
-	solve!(WiNnat)
+
+	for var in all_variables(m)
+		
+		print("$(var) ->")
+		try
+			val = value(var)
+		catch
+			print(". \n")
+			continue
+		end
+		
+		print(" $(value(var))\n")
+	end
+
+	#solve!(WiNnat)
 	# solve!(WiNnat)
 
 # end
