@@ -57,8 +57,9 @@ cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
 S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
-# n=73
-function timeWiNnat(n::Int64)
+S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:])
+n=71
+# function timeWiNnat(n::Int64)
 	# Indexes (set from the data files, via the notebook)
 	yr = S[:yr] # "Years in WiNDC Database",
 	sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
@@ -154,7 +155,7 @@ function timeWiNnat(n::Int64)
 		@production(WiNnat, Y[j], 0., 0.,
 		[Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi], 
 		[
-			[Input(PA[i], id_0[i,j]) for i in sectorsi];
+			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0];
 			# [Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]> 0.]; # filtering here breaks anything <73 sectors 
 		
 # For testing without nesting
@@ -165,7 +166,8 @@ function timeWiNnat(n::Int64)
 				   1.,
 				   sum(va_0[va,j] for va in valueadded),
 				   [ 
-					Input(PVA[va], va_0[va,j]) for va in valueadded]
+					Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.
+				   ] 
 				 ),
 				 	sum(va_0[va,j] for va in valueadded)
 			)
@@ -182,6 +184,7 @@ function timeWiNnat(n::Int64)
 	end
 
 	for i in sectorsi 
+		if m_0[i]>0
 		@production(WiNnat, A[i], 2., 0.,
 		[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
           # ta and ta0 should ultimately be parameters, testing as data for now
@@ -207,7 +210,7 @@ function timeWiNnat(n::Int64)
 		)
 
 	end
-
+end
 	add!(WiNnat, DemandFunction(RA, 1.,
 		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
 		[
@@ -221,13 +224,13 @@ function timeWiNnat(n::Int64)
 	# @time solve!(WiNnat, cumulative_iteration_limit=0)
 	solve!(WiNnat)
 
-	# m = WiNnat._jump_model
+	m = WiNnat._jump_model
 	# print(generate_report(m))
-	# Report = CSV.File(IOBuffer(generate_report(m)))
-	# CSV.write("FullReport.csv", Report, missingstring="missing")
+	Report = CSV.File(IOBuffer(generate_report(m)))
+	CSV.write("FullReport.csv", Report, missingstring="missing")
 	# solve!(WiNnat)
 
-end
+# end
 
 # timeWiNnat(73)
 # for t in [2 2 4 8]
@@ -236,4 +239,4 @@ end
 	# [@time timeWiNnat(t) for t in [2 2 8 32 73]]
 
 # @profview solve!(WiNnat)
-@profview timeWiNnat(73)
+# @profview timeWiNnat(73)
