@@ -57,12 +57,12 @@ cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
 S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
-S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:])
-n=71
-# function timeWiNnat(n::Int64)
+S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
+# n = 71   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
+function timeWiNnat(n::Int64)
 	# Indexes (set from the data files, via the notebook)
 	yr = S[:yr] # "Years in WiNDC Database",
-	sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
+	sectorsi  = S[:i][1:end] # "BEA Goods and sectors categories", is "i" in GAMS
 	sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
 	xfd = S[:fd] # "BEA Final demand categories",
 	ts = S[:ts] # "BEA Taxes and subsidies categories",
@@ -155,8 +155,7 @@ n=71
 		@production(WiNnat, Y[j], 0., 0.,
 		[Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi], 
 		[
-			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0];
-			# [Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]> 0.]; # filtering here breaks anything <73 sectors 
+			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0]; # filtering here breaks anything <71 sectors
 		
 # For testing without nesting
         #  [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.]
@@ -180,37 +179,37 @@ n=71
 		add!(WiNnat, Production(MS[m], 0., 1., 
 		[Output(PM[m], sum(ms_0[:,m]) ) ],
 		[Input(PY[i], ms_0[i,m]) for i in sectorsi])) 
-		# [Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0.])) # filtering here breaks anything <73 sectors
 	end
 
 	for i in sectorsi 
 		if m_0[i]>0
-		@production(WiNnat, A[i], 2., 0.,
-		[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
-          # ta and ta0 should ultimately be parameters, testing as data for now
-		Output(PFX, x_0[i])],
-	[
-# For testing without nesting
-		# 	[Input(PY[i], y_0[i]) ];  # Tried y_0[i]>0. ? y_0[i] : 1. , but no good 
-		#  [Input(PFX, m_0[i]>0. ? m_0[i] : 1., taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
-# With Nesting
-		[Input(Nest(Symbol("dm$i"),
-						2.,
-						sum(y_0[i]+m_0[i]),
-						[
-						 Input(PY[i], y_0[i] ),
-						 Input(PFX, m_0[i] , taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
-						] 
-					), sum(y_0[i]+m_0[i])
+				@production(WiNnat, A[i], 2., 0.,
+				[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
+				# ta and ta0 should ultimately be parameters, testing as data for now
+				Output(PFX, x_0[i])],
+				[
+		# For testing without nesting
+				# 	[Input(PY[i], y_0[i]) ];  # Tried y_0[i]>0. ? y_0[i] : 1. , but no good 
+				#  [Input(PFX, m_0[i]>0. ? m_0[i] : 1., taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
+		# With Nesting
+				[Input(Nest(Symbol("dm$i"),
+								2.,
+								sum(y_0[i]+m_0[i]),
+								[
+								Input(PY[i], y_0[i] ),
+								Input(PFX, m_0[i] , taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
+								] 
+							), sum(y_0[i]+m_0[i])
+						)
+				];
+
+				[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0.]
+				]
 				)
-		];
 
-		[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0.]
-		]
-		)
+			end
+		end
 
-	end
-end
 	add!(WiNnat, DemandFunction(RA, 1.,
 		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
 		[
@@ -224,19 +223,25 @@ end
 	# @time solve!(WiNnat, cumulative_iteration_limit=0)
 	solve!(WiNnat)
 
-	m = WiNnat._jump_model
-	# print(generate_report(m))
-	Report = CSV.File(IOBuffer(generate_report(m)))
-	CSV.write("FullReport.csv", Report, missingstring="missing")
-	# solve!(WiNnat)
-
-# end
-
-# timeWiNnat(73)
-# for t in [2 2 4 8]
-	# [@elapsed timeWiNnat(t) for t in [2 2 2 8 16]]
-	# [@time timeWiNnat(t) for t in [2 2 2 8 16]]
-	# [@time timeWiNnat(t) for t in [2 2 8 32 73]]
+end
 
 # @profview solve!(WiNnat)
-# @profview timeWiNnat(73)
+# @time solve!(WiNnat)
+
+##  Write the full algebraic model to a file for viewing
+	# open("WiNnat_Algebraic.txt", "w") do file
+	# 	show(file, algebraic_version(WiNnat))
+	# end
+
+	# m = WiNnat._jump_model
+	# # print(generate_report(m))
+	# Report = CSV.File(IOBuffer(generate_report(m)))
+	# CSV.write("FullReport.csv", Report, missingstring="missing")
+
+## For testing with variable numbers of sectors	
+	# timeWiNnat(73)
+	# [@elapsed timeWiNnat(t) for t in [2 2 2 8 16]]
+	# [@time timeWiNnat(t) for t in [2 2 2 8 16]]
+	# [@time timeWiNnat(t) for t in [2 2 8 73]]
+	@profview timeWiNnat(111)
+
