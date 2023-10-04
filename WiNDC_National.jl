@@ -60,9 +60,9 @@ n = 71   # This is for running with less sectors for quicker troubleshotting etc
 yr = S[:yr] # "Years in WiNDC Database",
 sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
 sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
-xfd = S[:fd] # "BEA Final demand categories",
+xfd = filter!(x -> x != :pce, S[:fd]) # "BEA Final demand categories",
 ts = S[:ts] # "BEA Taxes and subsidies categories",
-valueadded = S[:va] # "BEA Value added categories excluding othtax", va in GAMS
+valueadded = filter!(s -> s != :othtax, S[:va]) # "BEA Value added categories excluding othtax", va in GAMS
 margin  = S[:m] # "Margins (trade or transport)"; m in GAMS
 
 yr = Symbol(2017)
@@ -221,7 +221,7 @@ WiNnat = MPSGE.Model()
 		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
 		[
 		 	[Endowment(PY[i], fs_0[i]) for i in sectorsi];
-			[Endowment(PA[i], -sum(fd_0[i,:])) for i in sectorsi];  
+			[Endowment(PA[i], -sum(fd_0[i,x] for x in xfd)) for i in sectorsi];  
            	[Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
 		 	Endowment(PFX, bopdef_0)
 		]
