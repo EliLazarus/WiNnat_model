@@ -3,10 +3,6 @@ using MPSGE, JLD2, CSV
 
 using JuMP,PATHSolver
 
-"""
-MP - I'm using JuMP v1.15 and MPSGE#new-jump to run this code.  
-"""
-
 
 """ 
 This function generates a GAMS-like report detailing both the values of the variables,
@@ -53,84 +49,83 @@ end
 
 
 
-cd(dirname(Base.source_path()))
+# cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
-P= load("./nationaldata_ls/DAAData.jld2")["data"] # load in date from saved Notebook output Dict, named P
-S= load("./nationaldata_ls/Indices.jld2")["data"] # load in date from saved Notebook output Dict, named P
+P= load(joinpath(@__DIR__,"./nationaldata_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+S= load(joinpath(@__DIR__,"./nationaldata_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named P
 S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
-# n = 71   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
-function timeWiNnat(n::Int64)
-	# Indexes (set from the data files, via the notebook)
-	yr = S[:yr] # "Years in WiNDC Database",
-	sectorsi  = S[:i][1:end] # "BEA Goods and sectors categories", is "i" in GAMS
-	sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
-	xfd = S[:fd] # "BEA Final demand categories",
-	ts = S[:ts] # "BEA Taxes and subsidies categories",
-	valueadded = S[:va] # "BEA Value added categories excluding othtax", va in GAMS
-	margin  = S[:m] # "Margins (trade or transport)"; m in GAMS
+n = 71   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
 
-	WiNnat = MPSGE.Model()
+# Indexes (set from the data files, via the notebook)
+yr = S[:yr] # "Years in WiNDC Database",
+sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
+sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
+xfd = S[:fd] # "BEA Final demand categories",
+ts = S[:ts] # "BEA Taxes and subsidies categories",
+valueadded = S[:va] # "BEA Value added categories excluding othtax", va in GAMS
+margin  = S[:m] # "Margins (trade or transport)"; m in GAMS
 
-	year = Symbol(2017)
-	# PARAMETERS
-	# ty = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
+yr = Symbol(2017)
+# PARAMETERS
+# ty = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
 
-	ta = P[:ta_0][year,sectorsi]
-	tm = P[:tm_0][year,sectorsi]
+ta = P[:ta_0][yr,sectorsi]
+tm = P[:tm_0][yr,sectorsi]
 
 
-	# [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
-	# nice. My guess is an extra variable is created somewhere
-	#ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
-	#tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
+# [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
+# nice. My guess is an extra variable is created somewhere
+#ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
+#tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
 
-	yr = Symbol(2017)
+# Data For a single year, knock out one dimension
+y_0 = P[:y_0][yr,:] #	"Gross output",
+ys_0 = P[:ys_0][yr,:,:] #	"Sectoral supply",
+ty_0 = P[:ty_0][yr,:] #	"Output tax rate"
+fs_0 = P[:fs_0][yr,:] #	"Household supply", # All zeros
+id_0 = P[:id_0][yr,:,:] #	"Intermediate demand",
+fd_0 = P[:fd_0][yr,:,:] #	"Final demand",
+va_0 = P[:va_0][yr,:,:] #	"Value added",
+ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies",
+m_0 = P[:m_0][yr,:] #	"Imports",
+x_0 = P[:x_0][yr,:] #	"Exports of goods and services",
+mrg_0 = P[:mrg_0][yr,:] #	"Trade margins",
+trn_0 = P[:trn_0][yr,:] #	"Transportation costs",
+duty_0 = P[:ty_0][yr,:] #	"Import duties",
+sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products",
+tax_0 = P[:tax_0][yr,:] #	"Taxes on products",
+ms_0 = P[:ms_0][yr,:,:] #	"Margin supply",
+md_0 = P[:md_0][yr,:,:] #	"Margin demand",
+s_0 = P[:s_0][yr,:] #	"Aggregate supply",
+#Data Missing
+# d_0 = P[:d_0][yr,:] #	"Sales in the domestic market",
+a_0 = P[:a_0][yr,:] #	"Armington supply",
+bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
+ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
+tm_0 = P[:tm_0][yr,:] #	"Import tariff";
 
-	# Data For a single year, knock out one dimension
-		y_0 = P[:y_0][yr,:] #	"Gross output",
-		ys_0 = P[:ys_0][yr,:,:] #	"Sectoral supply",
-		ty_0 = P[:ty_0][yr,:] #	"Output tax rate"
-		fs_0 = P[:fs_0][yr,:] #	"Household supply",
-		id_0 = P[:id_0][yr,:,:] #	"Intermediate demand",
-		fd_0 = P[:fd_0][yr,:,:] #	"Final demand",
-		va_0 = P[:va_0][yr,:,:] #	"Value added",
-		ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies",
-		m_0 = P[:m_0][yr,:] #	"Imports",
-		x_0 = P[:x_0][yr,:] #	"Exports of goods and services",
-		mrg_0 = P[:mrg_0][yr,:] #	"Trade margins",
-		trn_0 = P[:trn_0][yr,:] #	"Transportation costs",
-		duty_0 = P[:ty_0][yr,:] #	"Import duties",
-		sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products",
-		tax_0 = P[:tax_0][yr,:] #	"Taxes on products",
-		ms_0 = P[:ms_0][yr,:,:] #	"Margin supply",
-		md_0 = P[:md_0][yr,:,:] #	"Margin demand",
-		s_0 = P[:s_0][yr,:] #	"Aggregate supply",
-		#Data Missing
-		# d_0 = P[:d_0][yr,:] #	"Sales in the domestic market",
-		a_0 = P[:a_0][yr,:] #	"Armington supply",
-		bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
-		ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
-		tm_0 = P[:tm_0][yr,:] #	"Import tariff";
+# ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
+# tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
 
-		# ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
-		# tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
+# ta0 = add!(WiNnat, Parameter(:ta0, indices = (sectorsi,), value=P[:ta_0][year,:].data)) #	"Tax net subsidy rate on intermediate demand",
+# tm0 = add!(WiNnat, Parameter(:tm0, indices = (sectorsi,), value=P[:tm_0][year,:].data)) #	"Import tariff";
 
-	# ta0 = add!(WiNnat, Parameter(:ta0, indices = (sectorsi,), value=P[:ta_0][year,:].data)) #	"Tax net subsidy rate on intermediate demand",
-	# tm0 = add!(WiNnat, Parameter(:tm0, indices = (sectorsi,), value=P[:tm_0][year,:].data)) #	"Import tariff";
+# These are filters which are actually set down in lines 269-273 in the gms code  :
 
-  # These are filters which are actually set down in lines 269-273 in the gms code  :
-  
-	# sets	y_(j)	"Sectors with positive production",
-	# 	a_(i)	"Sectors with absorption",
-	# 	py_(i)	"Goods with positive supply",
-	# 	xfd(fd) "Exogenous components of final demand";
+# sets	y_(j)	"Sectors with positive production",
+# 	a_(i)	"Sectors with absorption",
+# 	py_(i)	"Goods with positive supply",
+# 	xfd(fd) "Exogenous components of final demand";
 
-	# Filters from lines 269-273 in the GAMS version
+# Filters from lines 269-273 in the GAMS version
 # 	y_(j) = yes$sum(i,ys0(j,i));
 # 	a_(i) = yes$a0(i);
 # 	py_(i) = yes$sum(j,ys0(j,i));
 # 	xfd(fd) = yes$(not sameas(fd,'pce'));
 # *	xfd(fd) = yes$(not sameas('pce', fd));
+
+# function timeWiNnat(n::Int64)
+WiNnat = MPSGE.Model()
 
 	# sectors:
 	Y = add!(WiNnat, Sector(:Y, indices=(sectorsj,)))
@@ -148,100 +143,120 @@ function timeWiNnat(n::Int64)
 	PFX = add!(WiNnat, Commodity(:PFX))	#	Foreign exchnage
 
 	# consumers:
-	RA = add!(WiNnat, Consumer(:RA, benchmark = sum(fd_0) ))
+	RA = add!(WiNnat, Consumer(:RA, benchmark = sum(fd_0[:,:pce]) ))
 
 	# production functions
 	for j in sectorsj
 		@production(WiNnat, Y[j], 0., 0.,
-		[Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi], 
+		[	
+			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
+		], 
 		[
-			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0]; # filtering here breaks anything <71 sectors
-		
+			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0];
 # For testing without nesting
-        #  [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.]
+	# 		[Input(PVA[va], sum(va_0[va,j])) for va in valueadded]
+	# 	]
+	# 	)
+	# end
+
+	# for j in sectorsj
+	# 	@production(WiNnat, VA[va], 0., 1., 
+	# 	[Output(PVA[va], sum(va_0[va,j] for va in valueadded))],
+		
+    #       [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.])
+	# end
 #  With Nesting
-     	  [Input(Nest(
-				   Symbol("VA$j"),
-				   1.,
-				   sum(va_0[va,j] for va in valueadded),
-				   [ 
-					Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.
-				   ] 
-				 ),
-				 	sum(va_0[va,j] for va in valueadded)
-			)
-				    ]
+			[Input(Nest(
+					Symbol("VA$j"),
+					1.,
+					sum(va_0[:,j]),
+							[Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
+						),
+						sum(va_0[:,j] )
+				  )
+			]
 		]
 	)
 	end
 
 	for m in margin
 		add!(WiNnat, Production(MS[m], 0., 1., 
-		[Output(PM[m], sum(ms_0[:,m]) ) ],
-		[Input(PY[i], ms_0[i,m]) for i in sectorsi])) 
+		    [Output(PM[m], sum(ms_0[:,m]) ) ],
+		    [Input(PY[i], ms_0[i,m]) for i in sectorsi])) 
 	end
 
 	for i in sectorsi 
-		if m_0[i]>0
-				@production(WiNnat, A[i], 2., 0.,
-				[[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
-				# ta and ta0 should ultimately be parameters, testing as data for now
-				Output(PFX, x_0[i])],
-				[
-		# For testing without nesting
-				# 	[Input(PY[i], y_0[i]) ];  # Tried y_0[i]>0. ? y_0[i] : 1. , but no good 
-				#  [Input(PFX, m_0[i]>0. ? m_0[i] : 1., taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
-		# With Nesting
+		# if m_0[i]>0 && a_0[i] >0 && y_0[i] >0 && x_0[i]>0
+		@production(WiNnat, A[i], 2., 0.,
+		    [
+				[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
+			    # ta and ta0 should ultimately be parameters, testing as data for now
+				[Output(PFX, x_0[i])]],
+			[	
+# For testing without nesting
+		# 	[Input(PY[i], y_0[i]) ];  # Tried y_0[i]>0. ? y_0[i] : 1. , but no good 
+		#  [Input(PFX, m_0[i]>0. ? m_0[i] : 1., taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
+# With Nesting
 				[Input(Nest(Symbol("dm$i"),
-								2.,
-								sum(y_0[i]+m_0[i]),
-								[
-								Input(PY[i], y_0[i] ),
-								Input(PFX, m_0[i] , taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
-								] 
-							), sum(y_0[i]+m_0[i])
-						)
+					2.,
+					(y_0[i]+m_0[i]+m_0[i]*tm[i]),
+					[
+						Input(PY[i], y_0[i] ),
+						# if m_0[i]>0
+						Input(PFX, m_0[i] , taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
+						# end  #Aha! the value of tm*m_0 is the discrepency
+					] 
+					),
+					(y_0[i]+m_0[i]+m_0[i]*tm[i]))
 				];
-
-				[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0.]
-				]
+				[Input(PM[m], md_0[m,i]) for m in margin]
+			]
 				)
-
-			end
-		end
+		# end
+	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
 		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
 		[
-		 [Endowment(PY[i], fs_0[i]) for i in sectorsi];
-		 [Endowment(PA[i], -sum(fd_0[i,x] for x in xfd)) for i in sectorsi];
-		 [Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
-		 Endowment(PFX, bopdef_0)
-		]))
+		 	[Endowment(PY[i], fs_0[i]) for i in sectorsi];
+			[Endowment(PA[i], -sum(fd_0[i,:])) for i in sectorsi];  
+           	[Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
+		 	Endowment(PFX, bopdef_0)
+		]
+		))
 
 	# MPSGE.build(WiNnat)
 	# @time solve!(WiNnat, cumulative_iteration_limit=0)
-	solve!(WiNnat)
+	# solve!(WiNnat, cumulative_iteration_limit=0)
+	# return WiNnat
+# end
+# set_value(PFX, 1.)  
+# set_fixed!(PFX, true)
+set_fixed!(RA, true)
 
-end
+# WiNnat = timeWiNnat(71)
+solve!(WiNnat, cumulative_iteration_limit=0)
 
 # @profview solve!(WiNnat)
-# @time solve!(WiNnat)
+# @time MPSGE.build(WiNnat);
+# @time solve!(WiNnat, cumulative_iteration_limit=0)
 
 ##  Write the full algebraic model to a file for viewing
-	# open("WiNnat_Algebraic.txt", "w") do file
+	# open("WiNnat_Algebraic2.txt", "w") do file
 	# 	show(file, algebraic_version(WiNnat))
 	# end
 
+	# open("Report.txt", "w") do file
+	# 	write(file, generate_report(WiNnat._jump_model))
+	# end
 	# m = WiNnat._jump_model
 	# # print(generate_report(m))
-	# Report = CSV.File(IOBuffer(generate_report(m)))
+	# Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model)))
 	# CSV.write("FullReport.csv", Report, missingstring="missing")
-
+	
 ## For testing with variable numbers of sectors	
-	# timeWiNnat(73)
+	# timeWiNnat()
 	# [@elapsed timeWiNnat(t) for t in [2 2 2 8 16]]
-	# [@time timeWiNnat(t) for t in [2 2 2 8 16]]
+	# []@time timeWiNnat(t) for t in [2 2 2 8 16]]
 	# [@time timeWiNnat(t) for t in [2 2 8 73]]
-	@profview timeWiNnat(111)
-
+	# @profview timeWiNnat(111)
