@@ -186,33 +186,35 @@ WiNnat = MPSGE.Model()
 	end
 
 	for i in sectorsi 
-		# if m_0[i]>0 && a_0[i] >0 && y_0[i] >0 && x_0[i]>0
+		 if a_0[i] >0 #&& y_0[i] >0 && x_0[i]>0
 		@production(WiNnat, A[i], 2., 0.,
 		    [
 				[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
 			    # ta and ta0 should ultimately be parameters, testing as data for now
 				[Output(PFX, x_0[i])]],
 			[	
-# For testing without nesting
-		# 	[Input(PY[i], y_0[i]) ];  # Tried y_0[i]>0. ? y_0[i] : 1. , but no good 
-		#  [Input(PFX, m_0[i]>0. ? m_0[i] : 1., taxes=[Tax(:($(tm[i])*1), RA)], price=(1+tm_0[i]))];
-# With Nesting
 				[Input(Nest(Symbol("dm$i"),
 					2.,
 					(y_0[i]+m_0[i]+m_0[i]*tm[i]),
+					if m_0[i]>0 && y_0[i]>0
 					[
 						Input(PY[i], y_0[i] ),
-						# if m_0[i]>0
-						Input(PFX, m_0[i] , taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
-						# end  #Aha! the value of tm*m_0 is the discrepency
-					] 
+						Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
+					]
+					elseif y_0[i]>0
+						[
+							Input(PY[i], y_0[i] )
+						]
+					else
+						[]
+					end
 					),
 					(y_0[i]+m_0[i]+m_0[i]*tm[i]))
 				];
-				[Input(PM[m], md_0[m,i]) for m in margin]
+				[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0]
 			]
 				)
-		# end
+		end
 	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
