@@ -46,9 +46,6 @@ function generate_report(m::JuMP.Model;decimals::Int = 4)
 end
 
 
-
-
-
 # cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 P= load(joinpath(@__DIR__,"./nationaldata_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
@@ -72,7 +69,9 @@ yr = Symbol(2017)
 ta = P[:ta_0][yr,sectorsi]
 tm = P[:tm_0][yr,sectorsi]
 
-
+#Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
+ta[:] =zeros(71) 
+tm[:] =zeros(71)
 # [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
 # nice. My guess is an extra variable is created somewhere
 #ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
@@ -97,18 +96,17 @@ tax_0 = P[:tax_0][yr,:] #	"Taxes on products",
 ms_0 = P[:ms_0][yr,:,:] #	"Margin supply",
 md_0 = P[:md_0][yr,:,:] #	"Margin demand",
 s_0 = P[:s_0][yr,:] #	"Aggregate supply",
-#Data Missing
-# d_0 = P[:d_0][yr,:] #	"Sales in the domestic market",
 a_0 = P[:a_0][yr,:] #	"Armington supply",
 bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
 ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
 tm_0 = P[:tm_0][yr,:] #	"Import tariff";
 
+#Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
+ta_0[:] =zeros(73) 
+tm_0[:] =zeros(73)
+
 # ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
 # tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
-
-# ta0 = add!(WiNnat, Parameter(:ta0, indices = (sectorsi,), value=P[:ta_0][year,:].data)) #	"Tax net subsidy rate on intermediate demand",
-# tm0 = add!(WiNnat, Parameter(:tm0, indices = (sectorsi,), value=P[:tm_0][year,:].data)) #	"Import tariff";
 
 # These are filters which are actually set down in lines 269-273 in the gms code  :
 
@@ -153,19 +151,6 @@ WiNnat = MPSGE.Model()
 		], 
 		[
 			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0];
-# For testing without nesting
-	# 		[Input(PVA[va], sum(va_0[va,j])) for va in valueadded]
-	# 	]
-	# 	)
-	# end
-
-	# for j in sectorsj
-	# 	@production(WiNnat, VA[va], 0., 1., 
-	# 	[Output(PVA[va], sum(va_0[va,j] for va in valueadded))],
-		
-    #       [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.])
-	# end
-#  With Nesting
 			[Input(Nest(
 					Symbol("VA$j"),
 					1.,
@@ -186,7 +171,7 @@ WiNnat = MPSGE.Model()
 	end
 
 	for i in sectorsi 
-		 if a_0[i] >0 #&& y_0[i] >0 && x_0[i]>0
+		 if a_0[i] >0
 		@production(WiNnat, A[i], 2., 0.,
 		    [
 				[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
@@ -232,16 +217,18 @@ WiNnat = MPSGE.Model()
 	# solve!(WiNnat, cumulative_iteration_limit=0)
 	# return WiNnat
 # end
-# set_value(PFX, 1.)  
-# set_fixed!(PFX, true)
-set_fixed!(RA, true)
+# set_fixed!(RA, true)
 
 # WiNnat = timeWiNnat(71)
-solve!(WiNnat, cumulative_iteration_limit=0)
+solve!(WiNnat, cumulative_iteration_limit=10000)
+
+# Counterfactual solve
+# solve!(WiNnat, cumulative_iteration_limit=0)
+
 
 # @profview solve!(WiNnat)
 # @time MPSGE.build(WiNnat);
-# @time solve!(WiNnat, cumulative_iteration_limit=0)
+# @elapsed solve!(WiNnat, cumulative_iteration_limit=0)
 
 ##  Write the full algebraic model to a file for viewing
 	# open("WiNnat_Algebraic2.txt", "w") do file
@@ -253,8 +240,8 @@ solve!(WiNnat, cumulative_iteration_limit=0)
 	# end
 	# m = WiNnat._jump_model
 	# # print(generate_report(m))
-	# Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model)))
-	# CSV.write("FullReport.csv", Report, missingstring="missing")
+	Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model)))
+	CSV.write("FullReport.csv", Report, missingstring="missing")
 	
 ## For testing with variable numbers of sectors	
 	# timeWiNnat()
