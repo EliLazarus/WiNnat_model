@@ -48,13 +48,15 @@ end
 
 # cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
-P= load(joinpath(@__DIR__,"./nationaldata_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
-S= load(joinpath(@__DIR__,"./nationaldata_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+# P= load(joinpath(@__DIR__,"./nationaldata_ls - original/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+# S= load(joinpath(@__DIR__,"./nationaldata_ls - original/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+# New data from Mitch Oct 11
+P= load(joinpath(@__DIR__,"./national_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+S= load(joinpath(@__DIR__,"./national_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named P
 S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
 n = 71   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
 
 # Indexes (set from the data files, via the notebook)
-yr = S[:yr] # "Years in WiNDC Database",
 sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
 sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
 xfd = filter!(x -> x != :pce, S[:fd]) # "BEA Final demand categories",
@@ -85,14 +87,14 @@ fs_0 = P[:fs_0][yr,:] #	"Household supply", # All zeros
 id_0 = P[:id_0][yr,:,:] #	"Intermediate demand",
 fd_0 = P[:fd_0][yr,:,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,:] #	"Value added",
-ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies",
+# ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
 m_0 = P[:m_0][yr,:] #	"Imports",
 x_0 = P[:x_0][yr,:] #	"Exports of goods and services",
-mrg_0 = P[:mrg_0][yr,:] #	"Trade margins",
-trn_0 = P[:trn_0][yr,:] #	"Transportation costs",
-duty_0 = P[:ty_0][yr,:] #	"Import duties",
-sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products",
-tax_0 = P[:tax_0][yr,:] #	"Taxes on products",
+# mrg_0 = P[:mrg_0][yr,:] #	"Trade margins", Not in this model
+# trn_0 = P[:trn_0][yr,:] #	"Transportation costs",  Not in this model
+# duty_0 = P[:ty_0][yr,:] #	"Import duties", Not in this model
+# sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products", Not in this model
+# tax_0 = P[:tax_0][yr,:] #	"Taxes on products", Not in this model
 ms_0 = P[:ms_0][yr,:,:] #	"Margin supply",
 md_0 = P[:md_0][yr,:,:] #	"Margin demand",
 s_0 = P[:s_0][yr,:] #	"Aggregate supply",
@@ -102,8 +104,8 @@ ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
 tm_0 = P[:tm_0][yr,:] #	"Import tariff";
 
 #Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
-ta_0[:] =zeros(73) 
-tm_0[:] =zeros(73)
+ta_0[:] =zeros(71) 
+tm_0[:] =zeros(71)
 
 # ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
 # tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
@@ -167,7 +169,7 @@ WiNnat = MPSGE.Model()
 	for m in margin
 		add!(WiNnat, Production(MS[m], 0., 1., 
 		    [Output(PM[m], sum(ms_0[:,m]) ) ],
-		    [Input(PY[i], ms_0[i,m]) for i in sectorsi])) 
+		    [Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
 	end
 
 	for i in sectorsi 
@@ -215,15 +217,16 @@ WiNnat = MPSGE.Model()
 	# MPSGE.build(WiNnat)
 	# @time solve!(WiNnat, cumulative_iteration_limit=0)
 	# solve!(WiNnat, cumulative_iteration_limit=0)
+# For new data (GDX to match GAMS model), tolerance set slightly lower than the default (1e-6)
+	# solve!(WiNnat, cumulative_iteration_limit=0)#, convergence_tolerance=1e-5)
 	# return WiNnat
 # end
 # set_fixed!(RA, true)
 
 # WiNnat = timeWiNnat(71)
-solve!(WiNnat, cumulative_iteration_limit=10000)
 
 # Counterfactual solve
-# solve!(WiNnat, cumulative_iteration_limit=0)
+solve!(WiNnat, cumulative_iteration_limit=10000)#, convergence_tolerance=1e-0);
 
 
 # @profview solve!(WiNnat)
