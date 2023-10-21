@@ -15,34 +15,32 @@ extract_variable_ref(v::AffExpr) = collect(keys(v.terms))[1]
 extract_variable_ref(v::QuadExpr) = extract_variable_ref(v.aff)
 
 function generate_report(m::JuMP.Model;decimals::Int = 4)
-    #mcp_data = Complementarity.get_MCP_data(m)
+	#mcp_data = Complementarity.get_MCP_data(m)
+	#vars = all_variables(m)
+	#sols = Dict(zip(vars,value.(vars)));
 
-    #vars = all_variables(m)
+	mapping = Dict()
+	for ci in all_constraints(m; include_variable_in_set_constraints = false)
+		c = constraint_object(ci)
+		mapping[extract_variable_ref(c.func[2])] = c.func[1]
+	end
 
-    #sols = Dict(zip(vars,value.(vars)));
+	out = "var_name\t value\t\t margin\n"
+	for elm in all_variables(m)
 
-    mapping = Dict()
-    for ci in all_constraints(m; include_variable_in_set_constraints = false)
-        c = constraint_object(ci)
-        mapping[extract_variable_ref(c.func[2])] = c.func[1]
-    end
+		val = round(value(elm),digits = decimals)
+		margin = "."
+		try
+			margin = round(value(mapping[elm]),digits = decimals)
+		catch
+			margin = "."
+		end
+		
 
-    out = "var_name\t value\t\t margin\n"
-    for elm in all_variables(m)
+		out = out*"$elm\t\t $val\t\t $margin\n"
+	end
 
-        val = round(value(elm),digits = decimals)
-        margin = "."
-        try
-            margin = round(value(mapping[elm]),digits = decimals)
-        catch
-            margin = "."
-        end
-        
-
-        out = out*"$elm\t\t $val\t\t $margin\n"
-    end
-
-    return(out)
+	return(out)
 end
 
 
@@ -53,10 +51,13 @@ end
 # New data from Mitch Oct 11
 P= load(joinpath(@__DIR__,"./national_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./national_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named P
-S[:i] = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
-n = 71   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
+y_ = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
+a_ = filter!(x -> x != :fbt && x != :mvt && x != :gmt, copy(y_))
+# a_ = filter!(x -> x != :tex && x != :mvt && x != :wtt && x != :gmt && x != :fbt, y_)
 
 # Indexes (set from the data files, via the notebook)
+# n = 73   # This is for running with less sectors for quicker troubleshotting etc. Uncomment, set # sectors, and replace 'end' with 'n' in sectorsi  = S[:i][1:end]
+n = length(S[:i])
 sectorsi  = S[:i][1:n] # "BEA Goods and sectors categories", is "i" in GAMS
 sectorsj = copy(sectorsi) # "BEA Goods and sectors categories", is "j" in GAMS, somehow different
 xfd = filter!(x -> x != :pce, S[:fd]) # "BEA Final demand categories",
@@ -70,10 +71,11 @@ yr = Symbol(2017)
 
 ta = P[:ta_0][yr,sectorsi]
 tm = P[:tm_0][yr,sectorsi]
+tm2 = P[:tm_0][yr,sectorsi]
 
 #Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
-ta[:] =zeros(71) 
-tm[:] =zeros(71)
+ta[:] =zeros(n) 
+tm[:] =zeros(n)
 # [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
 # nice. My guess is an extra variable is created somewhere
 #ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
@@ -104,8 +106,8 @@ ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
 tm_0 = P[:tm_0][yr,:] #	"Import tariff";
 
 #Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
-ta_0[:] =zeros(71) 
-tm_0[:] =zeros(71)
+ta_0[:] =zeros(n) 
+tm_0[:] =zeros(n)
 
 # ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
 # tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
@@ -146,7 +148,7 @@ WiNnat = MPSGE.Model()
 	RA = add!(WiNnat, Consumer(:RA, benchmark = sum(fd_0[:,:pce]) ))
 
 	# production functions
-	for j in sectorsj
+	for j in y_
 		@production(WiNnat, Y[j], 0., 0.,
 		[	
 			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
@@ -168,49 +170,52 @@ WiNnat = MPSGE.Model()
 
 	for m in margin
 		add!(WiNnat, Production(MS[m], 0., 1., 
-		    [Output(PM[m], sum(ms_0[:,m]) ) ],
-		    [Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
+			[Output(PM[m], sum(ms_0[:,m]) ) ],
+			[Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
 	end
 
-	for i in sectorsi 
-		 if a_0[i] >0
-		@production(WiNnat, A[i], 2., 0.,
-		    [
-				[Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]))];
-			    # ta and ta0 should ultimately be parameters, testing as data for now
-				[Output(PFX, x_0[i])]],
-			[	
-				[Input(Nest(Symbol("dm$i"),
-					2.,
-					(y_0[i]+m_0[i]+m_0[i]*tm[i]),
-					if m_0[i]>0 && y_0[i]>0
-					[
-						Input(PY[i], y_0[i] ),
-						Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
-					]
-					elseif y_0[i]>0
-						[
-							Input(PY[i], y_0[i] )
-						]
-					else
-						[]
-					end
-					),
-					(y_0[i]+m_0[i]+m_0[i]*tm[i]))
+	for i in a_  
+			@production(WiNnat, A[i], 2., 0.,
+			[
+				[
+				Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]) )
 				];
-				[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0]
+				# ta and ta0 should ultimately be parameters, testing as data for now
+				[
+					Output(PFX, x_0[i])
+				]
 			]
+			,
+				[	
+					[
+						Input(Nest(Symbol("dm$i"),
+						2.,
+						(y_0[i]+m_0[i]+m_0[i]*tm[i]),
+						if m_0[i]>0 && y_0[i]>0
+							[
+								Input(PY[i], y_0[i] ),
+								Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
+							]
+						elseif y_0[i]>0
+							[
+								Input(PY[i], y_0[i] )
+							]
+						end
+								),
+						(y_0[i]+m_0[i]+m_0[i]*tm[i]))
+					];
+					[Input(PM[m], md_0[m,i]) for m in margin if md_0[m,i]>0]
+				]
 				)
-		end
 	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
 		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
 		[
-		 	[Endowment(PY[i], fs_0[i]) for i in sectorsi];
+			[Endowment(PY[i], fs_0[i]) for i in sectorsi];
 			[Endowment(PA[i], -sum(fd_0[i,x] for x in xfd)) for i in sectorsi];  
-           	[Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
-		 	Endowment(PFX, bopdef_0)
+			[Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
+			Endowment(PFX, bopdef_0)
 		]
 		))
 
@@ -226,6 +231,21 @@ WiNnat = MPSGE.Model()
 # WiNnat = timeWiNnat(71)
 
 # Counterfactual solve
+set_value((A[(:gmt)]), 1.0)
+set_value((A[(:mvt)]), 1.0)
+set_value((A[(:fbt)]), 1.0)
+set_fixed!(A[(:gmt)], true)
+set_fixed!(A[(:mvt)], true)
+set_fixed!(A[(:fbt)], true)
+# set_value((Y[(:gmt)]), 1.0)
+# set_value((Y[(:mvt)]), 1.0)
+# set_value((Y[(:fbt)]), 1.0)
+# set_fixed!(Y[(:gmt)], true)
+# set_fixed!(Y[(:mvt)], true)
+# set_fixed!(Y[(:fbt)], true)
+set_value(RA,  12453.8963)
+# # set_value(RA, 13138.7573) # Running without PA
+set_fixed!(RA, true)
 solve!(WiNnat, cumulative_iteration_limit=10000)#, convergence_tolerance=1e-0);
 
 
