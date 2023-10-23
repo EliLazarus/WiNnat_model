@@ -67,19 +67,6 @@ margin  = S[:m] # "Margins (trade or transport)"; m in GAMS
 
 yr = Symbol(2017)
 # PARAMETERS
-# ty = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
-
-ta = P[:ta_0][yr,sectorsi]
-tm = P[:tm_0][yr,sectorsi]
-tm2 = P[:tm_0][yr,sectorsi]
-
-#Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
-ta[:] =zeros(n) 
-tm[:] =zeros(n)
-# [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
-# nice. My guess is an extra variable is created somewhere
-#ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
-#tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
 
 # Data For a single year, knock out one dimension
 y_0 = P[:y_0][yr,:] #	"Gross output",
@@ -100,17 +87,22 @@ x_0 = P[:x_0][yr,:] #	"Exports of goods and services",
 ms_0 = P[:ms_0][yr,:,:] #	"Margin supply",
 md_0 = P[:md_0][yr,:,:] #	"Margin demand",
 s_0 = P[:s_0][yr,:] #	"Aggregate supply",
-a_0 = P[:a_0][yr,:] #	"Armington supply",
+a_0 = P[:a_0][yr,:][a_]  #	"Armington supply",
 bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
 ta_0 = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
 tm_0 = P[:tm_0][yr,:] #	"Import tariff";
+ta = P[:ta_0][yr,:] #	"Tax net subsidy rate on intermediate demand",
+tm = P[:tm_0][yr,:] #	"Import tariff";
 
 #Counterfactural, no import tariffs, no subsidy on intermediate demand. Comment out or not for now, but should be paramters so re-build not required. 
-ta_0[:] =zeros(n) 
-tm_0[:] =zeros(n)
+ta[:] =zeros(n) 
+tm[:] =zeros(n)
 
-# ta_0 = add!(WiNnat, Parameter(:ta_0, indices = (yr,i))) #	"Tax net subsidy rate on intermediate demand",
-# tm_0 = add!(WiNnat, Parameter(:tm_0, indices = (yr,i))) #	"Import tariff";
+# ty_0 = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate",
+# [Mitch] I've commented these out for now because, for some reason, parameters aren't playing
+# nice. My guess is an extra variable is created somewhere
+#ta_0 = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][year,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
+#tm_0 = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][year,sectorsi].data)) #	"Import tariff";
 
 # These are filters which are actually set down in lines 269-273 in the gms code  :
 
@@ -147,6 +139,9 @@ WiNnat = MPSGE.Model()
 	# consumers:
 	RA = add!(WiNnat, Consumer(:RA, benchmark = sum(fd_0[:,:pce]) ))
 
+	# DM = add!(WiNnat, Sector(:DM, indices=(sectorsi, )))
+	# PD = add!(WiNnat, Commodity(:PD, indices=(sectorsi,)))
+
 	# production functions
 	for j in y_
 		@production(WiNnat, Y[j], 0., 0.,
@@ -174,6 +169,25 @@ WiNnat = MPSGE.Model()
 			[Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
 	end
 
+	# for i in a_
+	# 	add!(WiNnat, Production(DM[i], 0., 2.,
+	# 	[Output(PD[i], 	(y_0[i]+m_0[i]+m_0[i]*tm[i]) ) ],
+	# 	if m_0[i]>0 && y_0[i]>0
+	# 		[
+	# 					[Input(PY[i], y_0[i] )];
+	# 					[Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm_0[i])*1)  )]
+	# 				]
+	# 			elseif y_0[i]>0
+	# 				[
+	# 					Input(PY[i], y_0[i] )
+	# 				]
+	# 		# [Input(PY[i], y_0[i])];
+	# 		# [Input(PFX, m_0[i], taxes=[Tax(:($(tm_0[i])*1), RA)],  price=:(1+$(tm_0[i])*1))]
+		
+	# end
+	# ))
+	# end
+
 	for i in a_  
 			@production(WiNnat, A[i], 2., 0.,
 			[
@@ -186,15 +200,17 @@ WiNnat = MPSGE.Model()
 				]
 			]
 			,
-				[	
-					[
+				[
+					[	
+					# [Input(PD[i], (y_0[i]+m_0[i]+m_0[i]*tm_0[i]))
+
 						Input(Nest(Symbol("dm$i"),
 						2.,
 						(y_0[i]+m_0[i]+m_0[i]*tm[i]),
 						if m_0[i]>0 && y_0[i]>0
 							[
 								Input(PY[i], y_0[i] ),
-								Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm[i])*1)  )
+								Input(PFX, m_0[i], taxes=[Tax(:($(tm[i])*1), RA)],  price=:(1+$(tm_0[i])*1)  )
 							]
 						elseif y_0[i]>0
 							[
@@ -221,7 +237,6 @@ WiNnat = MPSGE.Model()
 
 	# MPSGE.build(WiNnat)
 	# @time solve!(WiNnat, cumulative_iteration_limit=0)
-	# solve!(WiNnat, cumulative_iteration_limit=0)
 # For new data (GDX to match GAMS model), tolerance set slightly lower than the default (1e-6)
 	# solve!(WiNnat, cumulative_iteration_limit=0)#, convergence_tolerance=1e-5)
 	# return WiNnat
@@ -243,10 +258,13 @@ set_fixed!(A[(:fbt)], true)
 # set_fixed!(Y[(:gmt)], true)
 # set_fixed!(Y[(:mvt)], true)
 # set_fixed!(Y[(:fbt)], true)
+
+# For counterfactual, 
+# set_value(RA, 13138.7573) # Running without PA
 set_value(RA,  12453.8963)
-# # set_value(RA, 13138.7573) # Running without PA
 set_fixed!(RA, true)
-solve!(WiNnat, cumulative_iteration_limit=10000)#, convergence_tolerance=1e-0);
+	# solve!(WiNnat, cumulative_iteration_limit=0)
+	solve!(WiNnat, cumulative_iteration_limit=10000)#, convergence_tolerance=1e-0);
 
 
 # @profview solve!(WiNnat)
