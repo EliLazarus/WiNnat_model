@@ -1,4 +1,5 @@
 # Replication of the WiNDC national MGE model
+# r = now()
 using MPSGE, JLD2, CSV
 
 using JuMP,PATHSolver
@@ -46,7 +47,7 @@ function generate_report(m::JuMP.Model; decimals::Int = 15, mdecimals::Int = 4)
 end
 
 
-# cd(dirname(Base.source_path()))
+cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
 P= load(joinpath(@__DIR__,"./national_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
@@ -114,6 +115,17 @@ WiNnat = MPSGE.Model()
 	ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][yr,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
 	tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][yr,sectorsi].data)) #	"Import tariff";
 
+	# Elasticity parameters
+	t_elas_y =  add!(WiNnat, MPSGE.Parameter(:t_elas_y,  value=0.))
+	elas_y =    add!(WiNnat, MPSGE.Parameter(:elas_y,    value=0.))
+	elas_va =   add!(WiNnat, MPSGE.Parameter(:elas_va,   value=1.))
+	t_elas_m =  add!(WiNnat, MPSGE.Parameter(:t_elas_m,  value=0.))
+	elas_m =    add!(WiNnat, MPSGE.Parameter(:elas_m,    value=0.))
+	t_elas_a =  add!(WiNnat, MPSGE.Parameter(:t_elas_a,  value=2.))
+	elas_a =    add!(WiNnat, MPSGE.Parameter(:elas_a,    value=0.))
+	elas_dm =   add!(WiNnat, MPSGE.Parameter(:elas_dm,   value=2.))
+	d_elas_ra = add!(WiNnat, MPSGE.Parameter(:d_elas_ra, value=1.))
+
 	# sectors:
 	Y = add!(WiNnat, Sector(:Y, indices=(sectorsj,)))
 	A = add!(WiNnat, Sector(:A, indices=(sectorsi,)))
@@ -122,7 +134,7 @@ WiNnat = MPSGE.Model()
 
 	# commodities:
 	# Should be filtered for sectors in $a0(i)	? Seems to work better to just loop of a_
-	PA  = add!(WiNnat, Commodity(:PA, indices=(sectorsi, ))) #	Armington price
+	PA  = add!(WiNnat, Commodity(:PA, indices=(a_, ))) #	Armington price
 	# Should be filtered for sectors in $py_(i)   ? py_ is the same as y_
 	PY  = add!(WiNnat, Commodity(:PY, indices=(sectorsi,))) #	Supply
 	PVA = add!(WiNnat, Commodity(:PVA, indices=(valueadded,))) #		Value-added
@@ -135,14 +147,18 @@ WiNnat = MPSGE.Model()
 	# production functions
 	for j in y_
 		@production(WiNnat, Y[j], 0., 0.,
+		# @production(WiNnat, Y[j], :($(t_elas_y)*1), 0.,
+		# @production(WiNnat, Y[j], :($(t_elas_y)*1), :($(elas_y)*1),
+		# @production(WiNnat, Y[j], 0., :($(elas_y)*1),
 		[	
 			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
 		], 
 		[
-			[Input(PA[i], id_0[i,j]) for i in sectorsi if id_0[i,j]>0];
+			[Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(Nest(
 					Symbol("VA$j"),
 					1.,
+					# :($(elas_va)*1),
 					sum(va_0[:,j]),
 							[Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
 						),
@@ -154,13 +170,15 @@ WiNnat = MPSGE.Model()
 	end
 
 	for m in margin
-		add!(WiNnat, Production(MS[m], 0., 1., 
+		add!(WiNnat, Production(MS[m], 0., 0., 
+		# add!(WiNnat, Production(MS[m], :($(t_elas_m)*1), :($(elas_m)*1), 
 			[Output(PM[m], sum(ms_0[:,m]) ) ],
 			[Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
 	end
 
 	for i in a_  
-			@production(WiNnat, A[i], 2., 0.,
+		# @production(WiNnat, A[i], :($(t_elas_a)*1), :($(elas_a)*1),
+		@production(WiNnat, A[i], 2., 0.,
 			[
 				[
 				Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]) )
@@ -174,6 +192,7 @@ WiNnat = MPSGE.Model()
 					[	
 						Input(Nest(Symbol("dm$i"),
 						2.,
+						# :($(elas_dm)*1),
 						(y_0[i]+m_0[i]+m_0[i]*get_value(tm[tm[i].subindex])),
 						if m_0[i]>0 && y_0[i]>0
 							[
@@ -194,10 +213,11 @@ WiNnat = MPSGE.Model()
 	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
-		[Demand(PA[i], fd_0[i,:pce]) for i in sectorsi],
+	# add!(WiNnat, DemandFunction(RA, :($(d_elas_ra)*1),
+		[Demand(PA[i], fd_0[i,:pce]) for i in a_],
 		[
 			[Endowment(PY[i], fs_0[i]) for i in sectorsi];
-			[Endowment(PA[i], -sum(fd_0[i,x] for x in xfd)) for i in sectorsi];  
+			[Endowment(PA[i], -sum(fd_0[i,x] for x in xfd)) for i in a_];  
 			[Endowment(PVA[va], sum(va_0[va,:])) for va in valueadded];
 			Endowment(PFX, bopdef_0)
 		]
@@ -211,18 +231,30 @@ WiNnat = MPSGE.Model()
 # WiNnat = timeWiNnat(71)
 
 # Counterfactual solve
-# set_value((A[(:gmt)]), 1.0)
-# set_value((A[(:mvt)]), 1.0)
-# set_value((A[(:fbt)]), 1.0)
-# set_fixed!(A[(:gmt)], true)
-# set_fixed!(A[(:mvt)], true)
-# set_fixed!(A[(:fbt)], true)
+set_value((A[(:gmt)]), 1.0)
+set_value((A[(:mvt)]), 1.0)
+set_value((A[(:fbt)]), 1.0)
+set_fixed!(A[(:gmt)], true)
+set_fixed!(A[(:mvt)], true)
+set_fixed!(A[(:fbt)], true)
 
+# 13138.7573
 set_fixed!(RA, true)
-solve!(WiNnat, cumulative_iteration_limit=0);
 
-Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals = 6)));
-CSV.write("FullReportBmrk.csv", Report, missingstring="missing", bom=true)
+# function timetest()
+# 	ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (sectorsi,), value=P[:ta_0][yr,sectorsi].data)) #	"Tax net subsidy rate on intermediate demand",
+# 	tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (sectorsi,), value=P[:tm_0][yr,sectorsi].data)) #	"Import tariff";
+set_value(RA, 13138.7573)
+# time = []
+# for i in 1:4
+# r = now()
+solve!(WiNnat, cumulative_iteration_limit=0);
+# push!(time, now()-r)
+# println(now() - r)
+# end
+# time
+# Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals = 6)));
+# CSV.write("FullReportBmrk.csv", Report, missingstring="missing", bom=true)
 
 # Counterfactual
 for i in sectorsi
@@ -230,8 +262,66 @@ for i in sectorsi
 	set_value(tm[i], 0.)
 end
 set_value(RA,  12453.8963) #So far, this updated default normalization value needs to be set, value from GAMS output. 
+
+# time = []
+# for i in 1:4
+# r = now()
+
+# s = 152; e = 295 #indexes for Y through to MS
+# outh =[:elas_a_dra transpose(all_variables(WiNnat._jump_model)[s:e])]
+# CSV.write("SensElas_a.csv", Tables.table(outh), missingstring="missing", bom=true)
+# using Distributions
+# function SensitivityTest()
+# pdr = rand(Gamma(1,1))
+# set_value(elas_a, pdr)
+
 solve!(WiNnat, cumulative_iteration_limit=10000);#, convergence_tolerance=1e-0);
 
+# out = [pdr  transpose(JuMP.value.(all_variables(WiNnat._jump_model)[s:e]))]
+# CSV.write("SensElas_a.csv", Tables.table(out), missingstring="missing", bom=true, append=true)
+# end
+# for i in 1:100
+# 	SensitivityTest()
+# end
+
+# using DataFrames
+# Senseoutput = DataFrame(CSV.File(joinpath(@__DIR__,"SensElas_a.csv"), header = 2, skipto=3))
+
+# using Plots
+# fv = 125; lv=145; 	w=3
+# saveplots =[]
+# for i in fv:lv
+# 	display(plot(Senseoutput[:,1],Senseoutput[:,i], seriestype=:scatter,
+# 	title=(names(Senseoutput)[i]), label=false, 
+# 	ylim=(minimum(Senseoutput[:,i]), maximum(Senseoutput[:,i])),
+# 	xaxis=("Elasticity of Substitution for Sector A",font(8)), yaxis=("Difference in Sector activity",font(8)),
+# 	 titlefontsize=10, markersize=3, markerstrokewidth=0))
+# sleep(.5)
+# 	push!(saveplots, plot(Senseoutput[:,1],Senseoutput[:,i], seriestype=:scatter,
+# 	 title=(names(Senseoutput)[i]), label=false, 
+# 	#  ylim=(minimum(Senseoutput[:,i]), maximum(Senseoutput[:,i])),
+# 	#  margin=5*Plots.mm,
+# 	 xaxis=("Elasticity of Substitution for Sector A",font(6)), yaxis=("Difference in Sector activity",font(6)),
+# 	  titlefontsize=8, markersize=3, markerstrokewidth=0,
+# 	#   size=(100,200)
+# 	  ))
+# end
+# plot((saveplots...), layout=(Int((lv-fv+1)/w),w), size=(700,1200), bottom_margin=-1*Plots.mm, top_margin=1*Plots.mm, left_margin=7*Plots.mm)
+# savefig("A-MS_ElasA.png")
+
+
+# push!(time, now()-r)
+# println(now() - r)
+# end
+# println(time)
+# @time timetest()
+# timearray=[]
+# n = 15
+# for in in 1:n
+# tmel = @elapsed timetest()
+# push!(timearray, tmel)
+# end
+# println(timearray, sum(timearray/n))
 # @profview solve!(WiNnat)
 # @time MPSGE.build(WiNnat);
 # @elapsed solve!(WiNnat, cumulative_iteration_limit=0)
@@ -245,7 +335,7 @@ solve!(WiNnat, cumulative_iteration_limit=10000);#, convergence_tolerance=1e-0);
 	# 	write(file, generate_report(WiNnat._jump_model))
 	# end
 
-	Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals=6)));
+	Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, decimals=4, mdecimals=6)));
 	CSV.write("FullReportCounter.csv", (Report), missingstring="missing", bom=true)
 	
 ## For testing with variable numbers of sectors	
