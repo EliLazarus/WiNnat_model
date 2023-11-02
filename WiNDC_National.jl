@@ -26,7 +26,7 @@ function generate_report(m::JuMP.Model; decimals::Int = 15, mdecimals::Int = 4)
 		mapping[extract_variable_ref(c.func[2])] = c.func[1]
 	end
 
-	out = "var_name\t value\t\t margin\n"
+	out = "var_name,value,margin\n"
 	for elm in all_variables(m)
 
 		# val = round(value(elm),digits = decimals)
@@ -40,7 +40,7 @@ function generate_report(m::JuMP.Model; decimals::Int = 15, mdecimals::Int = 4)
 		end
 		
 
-		out = out*"$elm\t\t $val\t\t $margin\n"
+		out = out*"\"$elm\",$val,$margin\n"
 	end
 
 	return(out)
@@ -335,7 +335,7 @@ solve!(WiNnat, cumulative_iteration_limit=10000);#, convergence_tolerance=1e-0);
 	# 	write(file, generate_report(WiNnat._jump_model))
 	# end
 
-	Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, decimals=4, mdecimals=6)));
+	Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, decimals=8, mdecimals=6)));
 	CSV.write("FullReportCounter.csv", (Report), missingstring="missing", bom=true)
 	
 ## For testing with variable numbers of sectors	
