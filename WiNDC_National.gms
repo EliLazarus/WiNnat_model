@@ -8,7 +8,7 @@ $if not set matbal $set matbal ls
 $set sep %system.dirsep%
 
 *$if not set ds $set ds gdx%sep%nationaldata_%matbal%.gdx
-$if not set ds $set ds nationaldata_%matbal%.gdx
+$if not set ds $set ds national_%matbal%%sep%nationaldata_%matbal%.gdx
 
 *$if not set run $set run 1997*2017
 $if not set run $set run 2017
@@ -137,6 +137,13 @@ $demand:RA  s:1
 
 $report:
 	v:C(i)		d:PA(i)		demand:RA
+       v:CWI    W:RA
+       V:DPYA(i)     I:PY(i)      prod:A(i)
+       V:DPYMS(m,i)  I:PY(i)        prod:MS(m)
+       v:SPAA(i) O:PA(i)       prod:A(i)
+       v:SPMMS(m)       O:PM(m)    prod:MS(m)
+*       v:DPMA(i,m)    I:PM(m)      prod:A(i)
+       v:DPARA(i)          D:PA(i)      demand:RA
 
 $offtext
 $SYSINCLUDE mpsgeset accounting -mt=1
@@ -291,19 +298,21 @@ loop(run(yr),
 
 $include %gams.scrdir%accounting.gen
 	solve accounting using mcp;
-	abort$round(accounting.objval,3) "Benchmark replication fails for the MGE model.";
+	abort$round(accounting.objval,4) "Benchmark replication fails for the MGE model.";
 
-$onechov >%gams.scrdir%report.gms
-report("Y",i,"%replacement%") =Y.L(i);
-report("A",i,"%replacement%") =A.L(i);
+*$onechov >%gams.scrdir%report.gms
+*report("Y",i,"%replacement%") =Y.L(i);
+*report("A",i,"%replacement%") =A.L(i);
+*report("RA", "%replacement%") = RA.L;
+*report("CWI", "%replacement%") = CWI.L;
 
-$offecho
-
-$set replacement BchMGE
-$include %gams.scrdir%report
-
-*REPORT("Y",i,"benchmarkmge") = Y.L(i);
-*REPORT("A",i,"benchmarkmge") = A.L(i);
+*$offecho
+*
+*$set replacement BchMGE
+*$include %gams.scrdir%report
+*
+REPORT("Y",i,"benchmarkmge") = Y.L(i);
+REPORT("A",i,"benchmarkmge") = A.L(i);
 *	2. MCP model
 
 	accounting_mcp.iterlim = 0;
@@ -312,10 +321,10 @@ $include %gams.scrdir%accounting_mcp.gen
 	RA.FX = sum(i,fd0(i,"pce"));
 
 	solve accounting_mcp using mcp;
-	abort$round(accounting_mcp.objval,3) "Benchmark replication fails for the MCP model.";
+	abort$round(accounting_mcp.objval,6) "Benchmark replication fails for the MCP model.";
 
 $set replacement BchMCP
-$include %gams.scrdir%report
+*$include %gams.scrdir%report
 
 *REPORT("Y",i,"benchmark-mcp") = Y.L(i);
 *REPORT("A",i,"benchmark-mcp") = A.L(i);
@@ -329,25 +338,43 @@ $include %gams.scrdir%report
 	accounting.iterlim = 10000;
 $include %gams.scrdir%accounting.gen
 	solve accounting using mcp;
-	abort$round(accounting.objval,3) "Counterfactural simulation fails for the MGE model.";
+	abort$round(accounting.objval,6) "Counterfactural simulation fails for the MGE model.";
 
 $set replacement CntrMGE
-$include %gams.scrdir%report
+*$include %gams.scrdir%report
 
-*REPORT("Y",i,"Countermge") = Y.L(i);
-*REPORT("A",i,"Countermge") = A.L(i);
+REPORT("Y",i,"Countermge") = Y.L(i);
+REPORT("A",i,"Countermge") = A.L(i);
+REPORT("DPARA",i,"Countermge") = DPARA.L(i);
+REPORT("SPAA",i,"Countermge") = SPAA.L(i)/A.L(i);
+REPORT("DPYA",i,"Countermge") = DPYA.L(i)/A.L(i);
+*REPORT("DPYMS","m,i","Countermge") = DPYMS.L(m,i);
+*REPORT("DPYMS",i,"Countermge") = DPYMS.L(i);
+REPORT("SPMMS",m,"Countermge") = SPMMS.L(m)/MS.L(m);
+*REPORT("DPMA",i,m,"Countermge") = DPMA.L(i,m);
+*REPORT("SYPY",j,i, "Countermge") = SYPY.L(j,i);
+REPORT("Y",i,"Countermge") = Y.L(i);
+REPORT("A",i,"Countermge") = A.L(i);
+REPORT("MS",m,"Countermge") = MS.L(m);
+REPORT("PA",i,"Countermge") = PA.L(i);
+REPORT("PY",i,"Countermge") = PY.L(i);
+REPORT("PVA",va,"Countermge") = PVA.L(va);
+REPORT("PM",m,"Countermge") = PM.L(M);
+REPORT("PFX","","Countermge") = PFX.L;
+REPORT("RA","","Countermge") = RA.L;
 
 *	4. Verify that the MGE solution also solves the MCP model.
 
 $include %gams.scrdir%accounting_mcp.gen
 
 	solve accounting_mcp using mcp;
-	abort$round(accounting_mcp.objval,3) "Counterfactural solution fails for the MCP model.";
+	abort$round(accounting_mcp.objval,4) "Counterfactural solution fails for the MCP model.";
 );
 
 $set replacement CntrMCP
-$include %gams.scrdir%report
+*$include %gams.scrdir%report
 *REPORT("Y",i,"CounterMCP") = Y.L(i);
 *REPORT("A",i,"CounterMCP") = A.L(i);
 
+option decimals=8;
 display REPORT;
