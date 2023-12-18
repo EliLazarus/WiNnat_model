@@ -420,7 +420,7 @@ function SensitivityTest(param, n, dist)
 end
 
 ## Run heading function once, and then can run ST in batches
-# Example of first elasticity parameter
+# Example: for the first elasticity parameter
 # SensitivityTestHead(t_elas_y)
 # SensitivityTest(t_elas_y, 5, Gamma(1,2))
 
