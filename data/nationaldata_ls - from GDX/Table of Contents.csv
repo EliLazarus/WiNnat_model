@@ -1,0 +1,30 @@
+Name,Type,Dim,Count,Explanatory text,,,,,
+a_0,parameter,2,1428,Armington supply,,,,,"Can't save this in an xlsx, but can run it"
+bopdef_0,parameter,1,21,Balance of payments deficit,,,,,
+duty_0,parameter,2,0,Import duties,,,,,Sub ExporttoCSVs()
+fd,set,1,18,BEA Final demand categories,,,,,                    Dim xWs As Worksheet
+fd_0,parameter,3,4988,Final demand,,,,,                    Dim xcsvFile As String
+fs_0,parameter,2,0,Household supply,,,,,                    For Each xWs In Application.ActiveWorkbook.Worksheets
+i,set,1,71,BEA Goods and sectors categories,,,,,                        xWs.Copy
+id_0,parameter,3,70711,Intermediate demand,,,,,"                        xcsvFile = CurDir & ""\"" & xWs.Name & "".csv"""
+m,set,1,2,Margins (trade or transport),,,,,"                        Application.ActiveWorkbook.SaveAs Filename:=xcsvFile, _"
+md_0,parameter,3,2856,Margin demand,,,,,"                        FileFormat:=xlCSV, CreateBackup:=False"
+mrg_0,parameter,2,0,Trade margins,,,,,                        Application.ActiveWorkbook.Saved = True
+ms_0,parameter,3,2982,Margin supply,,,,,                       Application.ActiveWorkbook.Close
+m_0,parameter,2,924,Imports,,,,,                   Next
+r,set,1,51,Regions in WiNDC Database,,,,,               End Sub
+sbd_0,parameter,2,0,Subsidies on products,,,,,
+s_0,parameter,2,1491,Aggregate supply,,,,,
+tax_0,parameter,2,0,Taxes on products,,,,,
+ta_0,parameter,2,1258,Tax net subsidy rate on intermediate demand,,,,,
+tm_0,parameter,2,510,Import tariff,,,,,
+trn_0,parameter,2,0,Transportation costs,,,,,
+ts,set,1,2,BEA Taxes and subsidies categories,,,,,
+ts_0,parameter,3,0,Taxes and subsidies,,,,,
+ty_0,parameter,2,1386,Output tax rate,,,,,
+va,set,1,2,Value-added accounts excluding othtax,,,,,
+va_0,parameter,3,2982,Value added,,,,,
+x_0,parameter,2,1176,Exports of goods and services,,,,,
+yr,set,1,21,Years in WiNDC Database,,,,,
+ys_0,parameter,3,17470,Sectoral supply,,,,,
+y_0,parameter,2,1428,Gross output,,,,,

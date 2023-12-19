@@ -50,11 +50,11 @@ end
 cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
-P= load(joinpath(@__DIR__,"./national_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
-S= load(joinpath(@__DIR__,"./national_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named S
+P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named S
 # Alternate, Julia WiNDC generated data
-# P= load(joinpath(@__DIR__,"./nationaldata_julia/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
-# S= load(joinpath(@__DIR__,"./nationaldata_julia/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named S
+# P= load(joinpath(@__DIR__,"./data/nationaldata_julia/DAAData.jld2"))["data"] # load in date from saved Notebook output Dict, named P
+# S= load(joinpath(@__DIR__,"./data/nationaldata_julia/Indices.jld2"))["data"] # load in date from saved Notebook output Dict, named S
 
 y_ = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
 a_ = filter!(x -> x != :fbt && x != :mvt && x != :gmt, copy(y_))
