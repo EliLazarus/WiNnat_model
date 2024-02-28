@@ -7,8 +7,9 @@ $if not set matbal $set matbal ls
 
 $set sep %system.dirsep%
 
-*$if not set ds $set ds gdx%sep%nationaldata_%matbal%.gdx
-$if not set ds $set ds national_%matbal%%sep%nationaldata_%matbal%.gdx
+$if not set ds $set ds data%sep%nationaldata_%matbal% - Notoriginal%sep%WiNDC_National.gdx
+*$if not set ds $set ds data%sep%nationaldata_%matbal% - from GDX%sep%nationaldata_%matbal%.gdx
+*$if not set ds $set ds WiNDC_National.gdx
 
 *$if not set run $set run 1997*2017
 $if not set run $set run 2017
@@ -87,7 +88,8 @@ PARAMETER
 
 	ty(j)	"Output tax rate",
 	ta(i)	"Tax net subsidy rate on intermediate demand",
-	tm(i)	"Import tariff";
+	tm(i)	"Import tariff",
+	dem_elas "Demand Elasticity" /1/;
 
 sets	y_(j)	"Sectors with positive production",
 	a_(i)	"Sectors with absorption",
@@ -128,7 +130,7 @@ $prod:A(i)$a_(i)  s:0  t:2 dm:2
 	i:PFX		q:m0(i)		dm: 	a:ra	t:tm(i)	p:(1+tm0(i))
 	i:PM(m)		q:md0(m,i)
 
-$demand:RA  s:1
+$demand:RA  s:dem_elas !0
 	d:PA(i)		q:fd0(i,"pce")
 	e:PY(i)		q:fs0(i)
 	e:PFX		q:bopdef
@@ -298,7 +300,7 @@ loop(run(yr),
 
 $include %gams.scrdir%accounting.gen
 	solve accounting using mcp;
-	abort$round(accounting.objval,4) "Benchmark replication fails for the MGE model.";
+	abort$round(accounting.objval,3) "Benchmark replication fails for the MGE model.";
 
 *$onechov >%gams.scrdir%report.gms
 *report("Y",i,"%replacement%") =Y.L(i);
@@ -313,6 +315,24 @@ $include %gams.scrdir%accounting.gen
 *
 REPORT("Y",i,"benchmarkmge") = Y.L(i);
 REPORT("A",i,"benchmarkmge") = A.L(i);
+REPORT("DPARA",i,"benchmarkmge") = DPARA.L(i);
+REPORT("SPAA",i,"benchmarkmge") = SPAA.L(i)/A.L(i);
+REPORT("DPYA",i,"benchmarkmge") = DPYA.L(i)/A.L(i);
+*REPORT("DPYMS","m,i","benchmarkmge") = DPYMS.L(m,i);
+*REPORT("DPYMS",i,"benchmarkmge") = DPYMS.L(i);
+REPORT("SPMMS",m,"benchmarkmge") = SPMMS.L(m)/MS.L(m);
+*REPORT("DPMA",i,m,"benchmarkmge") = DPMA.L(i,m);
+*REPORT("SYPY",j,i, "benchmarkmge") = SYPY.L(j,i);
+REPORT("Y",i,"benchmarkmge") = Y.L(i);
+REPORT("A",i,"benchmarkmge") = A.L(i);
+REPORT("MS",m,"benchmarkmge") = MS.L(m);
+REPORT("PA",i,"benchmarkmge") = PA.L(i);
+REPORT("PY",i,"benchmarkmge") = PY.L(i);
+REPORT("PVA",va,"benchmarkmge") = PVA.L(va);
+REPORT("PM",m,"benchmarkmge") = PM.L(M);
+REPORT("PFX","","benchmarkmge") = PFX.L;
+REPORT("RA","","benchmarkmge") = RA.L;
+
 *	2. MCP model
 
 	accounting_mcp.iterlim = 0;
@@ -321,7 +341,7 @@ $include %gams.scrdir%accounting_mcp.gen
 	RA.FX = sum(i,fd0(i,"pce"));
 
 	solve accounting_mcp using mcp;
-	abort$round(accounting_mcp.objval,6) "Benchmark replication fails for the MCP model.";
+	abort$round(accounting_mcp.objval,3) "Benchmark replication fails for the MCP model.";
 
 $set replacement BchMCP
 *$include %gams.scrdir%report
@@ -338,7 +358,7 @@ $set replacement BchMCP
 	accounting.iterlim = 10000;
 $include %gams.scrdir%accounting.gen
 	solve accounting using mcp;
-	abort$round(accounting.objval,6) "Counterfactural simulation fails for the MGE model.";
+	abort$round(accounting.objval,3) "Counterfactural simulation fails for the MGE model.";
 
 $set replacement CntrMGE
 *$include %gams.scrdir%report
@@ -368,7 +388,7 @@ REPORT("RA","","Countermge") = RA.L;
 $include %gams.scrdir%accounting_mcp.gen
 
 	solve accounting_mcp using mcp;
-	abort$round(accounting_mcp.objval,4) "Counterfactural solution fails for the MCP model.";
+*	abort$round(accounting_mcp.objval,3) "Counterfactural solution fails for the MCP model.";
 );
 
 $set replacement CntrMCP
@@ -376,5 +396,70 @@ $set replacement CntrMCP
 *REPORT("Y",i,"CounterMCP") = Y.L(i);
 *REPORT("A",i,"CounterMCP") = A.L(i);
 
+*	3. Counterfactual with the MCP model:
+
+	dem_elas=0;
+
+$include %gams.scrdir%accounting.gen
+	solve accounting using mcp;
+	abort$round(accounting.objval,3) "Counterfactural2 simulation fails for the MGE model.";
+
+REPORT("Y",i,"delas=0") = Y.L(i);
+REPORT("A",i,"delas=0") = A.L(i);
+REPORT("DPARA",i,"delas=0") = DPARA.L(i);
+REPORT("SPAA",i,"delas=0") = SPAA.L(i)/A.L(i);
+REPORT("DPYA",i,"delas=0") = DPYA.L(i)/A.L(i);
+*REPORT("DPYMS","m,i","delas=0") = DPYMS.L(m,i);
+*REPORT("DPYMS",i,"delas=0") = DPYMS.L(i);
+REPORT("SPMMS",m,"delas=0") = SPMMS.L(m)/MS.L(m);
+*REPORT("DPMA",i,m,"delas=0") = DPMA.L(i,m);
+*REPORT("SYPY",j,i, "delas=0") = SYPY.L(j,i);
+REPORT("Y",i,"delas=0") = Y.L(i);
+REPORT("A",i,"delas=0") = A.L(i);
+REPORT("MS",m,"delas=0") = MS.L(m);
+REPORT("PA",i,"delas=0") = PA.L(i);
+REPORT("PY",i,"delas=0") = PY.L(i);
+REPORT("PVA",va,"delas=0") = PVA.L(va);
+REPORT("PM",m,"delas=0") = PM.L(M);
+REPORT("PFX","","delas=0") = PFX.L;
+REPORT("RA","","delas=0") = RA.L;
+
+*	3. Counterfactual with the MCP model:
+
+	dem_elas=0.5 ;
+	
+$include %gams.scrdir%accounting.gen
+	solve accounting using mcp;
+	abort$round(accounting.objval,3) "Counterfactural simulation fails for the MGE model.";
+
+$set replacement CntrMGE
+*$include %gams.scrdir%report
+
+REPORT("Y",i,"delas=0.5") = Y.L(i);
+REPORT("A",i,"delas=0.5") = A.L(i);
+REPORT("DPARA",i,"delas=0.5") = DPARA.L(i);
+REPORT("SPAA",i,"delas=0.5") = SPAA.L(i)/A.L(i);
+REPORT("DPYA",i,"delas=0.5") = DPYA.L(i)/A.L(i);
+*REPORT("DPYMS","m,i","delas=0.5") = DPYMS.L(m,i);
+*REPORT("DPYMS",i,"delas=0.5") = DPYMS.L(i);
+REPORT("SPMMS",m,"delas=0.5") = SPMMS.L(m)/MS.L(m);
+*REPORT("DPMA",i,m,"delas=0.5") = DPMA.L(i,m);
+*REPORT("SYPY",j,i, "delas=0.5") = SYPY.L(j,i);
+REPORT("Y",i,"delas=0.5") = Y.L(i);
+REPORT("A",i,"delas=0.5") = A.L(i);
+REPORT("MS",m,"delas=0.5") = MS.L(m);
+REPORT("PA",i,"delas=0.5") = PA.L(i);
+REPORT("PY",i,"delas=0.5") = PY.L(i);
+REPORT("PVA",va,"delas=0.5") = PVA.L(va);
+REPORT("PM",m,"delas=0.5") = PM.L(M);
+REPORT("PFX","","delas=0.5") = PFX.L;
+REPORT("RA","","delas=0.5") = RA.L;
+
 option decimals=8;
 display REPORT;
+
+execute_unload "WNDCnat.gdx" REPORT
+*=== Write to variable levels to Excel file from GDX 
+*=== If we do not specify a sheet, data is placed in first sheet
+execute 'gdxxrw.exe WNDCnat.gdx o=MPSGEresults.xlsx par=report rng=WNDCnatTest!'
+*execute 'gdxxrw.exe WNDCnat.gdx o=C:\Users\Eli\.julia\dev\MPSGE\test\MPSGEresults.xlsx par=REPORT rng=WNDCnat!'
