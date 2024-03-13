@@ -1,4 +1,7 @@
-	###  SENSITIVITY TESTS
+# For sensitivity tests, timing, and plotting
+using DataFrames, Plots, Tables, Dates, Distributions
+
+###  SENSITIVITY TESTS
 ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
 basecountervalues = [:t_elas_y           :elas_y           :elas_va           :t_elas_m           :elas_m           :t_elas_a           :elas_a           :elas_dm           :d_elas_ra              transpose(all_variables(WiNnat._jump_model)[[152:295;435:578],:])
 			get_value(t_elas_y) get_value(elas_y) get_value(elas_va) get_value(t_elas_m) get_value(elas_m) get_value(t_elas_a) get_value(elas_a) get_value(elas_dm) get_value(d_elas_ra) transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
