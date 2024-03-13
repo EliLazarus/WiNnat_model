@@ -208,15 +208,6 @@ set_fixed!(RA, false)
 solve!(WiNnat, cumulative_iteration_limit=10000)
 println("$year ","counter")
 
-##  Write the full algebraic model to a file for viewing
-	# open("WiNnat_Algebraic2.txt", "w") do file
-	# 	show(file, algebraic_version(WiNnat))
-	# end
-
-	# open("Report.txt", "w") do file
-	# 	write(file, generate_report(WiNnat._jump_model))
-	# end
-
 # 	###  SENSITIVITY TESTS
 # ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
 # # basecountervalues = [:t_elas_y           :elas_y           :elas_va           :t_elas_m           :elas_m           :t_elas_a           :elas_a           :elas_dm           :d_elas_ra              transpose(all_variables(WiNnat._jump_model)[[152:295;435:578],:])
