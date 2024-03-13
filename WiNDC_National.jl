@@ -5,62 +5,13 @@ using JuMP,PATHSolver
 # For sensitivity tests, timing, and plotting
 using DataFrames, Plots, Tables, Dates, Distributions
 
-""" 
-This function generates a GAMS-like report detailing both the values of the variables,
-but also the evaluation of the complementary constraint. Very useful for debugging as the
-complementary constraint should always have value 0.
-"""
-# for i in 1:length(all_constraints(WiNnat._jump_model; include_variable_in_set_constraints = false))
-# 	 try println(i,"::",extract_variable_ref(constraint_object(all_constraints(WiNnat._jump_model;include_variable_in_set_constraints = false)[i]).func[2]),": ", value(constraint_object(all_constraints(WiNnat._jump_model;include_variable_in_set_constraints 
-# 	= false)[i]).func[1]))
-#  	catch 
-# 	println(i, "::",extract_variable_ref(constraint_object(all_constraints(WiNnat._jump_model; include_variable_in_set_constraints= false)[i]).func[2]))
-# 	end
-# 	   end
-
-extract_variable_ref(v::NonlinearExpr) = v.args[1]
-extract_variable_ref(v::AffExpr) = collect(keys(v.terms))[1]
-extract_variable_ref(v::QuadExpr) = extract_variable_ref(v.aff)
-
-function generate_report(m::JuMP.Model; decimals::Int = 15, mdecimals::Int = 4)
-	#mcp_data = Complementarity.get_MCP_data(m)
-	#vars = all_variables(m)
-	#sols = Dict(zip(vars,value.(vars)));
-
-	mapping = Dict()
-	for ci in all_constraints(m; include_variable_in_set_constraints = false)
-		c = constraint_object(ci)
-		mapping[extract_variable_ref(c.func[2])] = c.func[1]
-	end
-
-	out = "var_name,value,margin\n"
-	for elm in all_variables(m)
-
-		# val = round(value(elm),digits = decimals)
-		val = JuMP.is_parameter(elm) ? round(JuMP.parameter_value(elm), digits = decimals) : round(JuMP.value(elm), digits=decimals)
-
-		margin = "."
-		try
-			margin = round(value(mapping[elm]),digits = mdecimals)
-		catch
-			margin = "."
-		end
-		
-
-		out = out*"\"$elm\",$val,$margin\n"
-	end
-
-	return(out)
-end
-
-
 cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
-# P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
+P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 # Alternate, Julia WiNDC generated data
-P= load(joinpath(@__DIR__,"./data/nationaldata_julia/JDAAData.jld2"))["data"] # load in Julia-generated data from saved Notebook output Dict, named P
+# P= load(joinpath(@__DIR__,"./data/nationaldata_julia/JDAAData.jld2"))["data"] # load in Julia-generated data from saved Notebook output Dict, named P
 # S= load(joinpath(@__DIR__,"./data/nationaldata_julia/JIndices.jld2"))["data"] # load in Julia-generated data from saved Notebook output Dict, named S : indexes are a bit different re :use, so use original or update filters
 
 y_ = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
@@ -106,7 +57,9 @@ tm_0 = P[:tm_0][yr,:][y_] #	"Import tariff"; Initial, for price
 
 # ty_0 = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate", Not in this model
 
-# Option to set model build and solve as function for time tests
+"""
+ Option to set model build and solve as function for benchmarking tests
+"""
 # function timeWiNnat(n::Int64)
 WiNnat = MPSGE.Model()
 
@@ -223,27 +176,14 @@ WiNnat = MPSGE.Model()
 		]
 		))
 
-# End of optional function version
 	# return WiNnat
 # end
-
 # @time solve!(WiNnat, cumulative_iteration_limit=0)
-# MPSGE.build(WiNnat)
-
-
-# Counterfactual solve
-# set_value((A[(:gmt)]), 1.0)
-# set_value((A[(:mvt)]), 1.0)
-# set_value((A[(:fbt)]), 1.0)
-# set_fixed!(A[(:gmt)], true)
-# set_fixed!(A[(:mvt)], true)
-# set_fixed!(A[(:fbt)], true)
-# set_value((PA[(:gmt)]), 1.0)
-# set_value((PA[(:mvt)]), 1.0)
-# set_value((PA[(:fbt)]), 1.0)
-# set_fixed!(PA[(:gmt)], true)
-# set_fixed!(PA[(:mvt)], true)
-# set_fixed!(PA[(:fbt)], true)
+# @time MPSGE.build(WiNnat)
+		
+"""
+ End of optional function version of model used for benchmarking
+"""
 
 set_value(RA, 13138.7573)
 set_fixed!(RA, true)
@@ -252,22 +192,22 @@ for i in a_
 	set_value(ta[i], P[:ta_0][yr,a_][i])
 	set_value(tm[i], P[:tm_0][yr,a_][i])
 end
-solve!(WiNnat, cumulative_iteration_limit=0)
+solve!(WiNnat, cumulative_iteration_limit=0)#, convergence_tolerance=1e-9)
 println("$year ","bnchmk")
 
-# Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals = 6)))
-# CSV.write("FullCounterTest2023-11-22.csv", Report, missingstring="missing", bom=true)
+Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals = 6)))
+CSV.write("./Results/FullReportCounter.csv", Report, missingstring="missing", bom=true)
 
 # Counterfactual
 for i in a_
 	set_value(ta[i], 0.)
 	set_value(tm[i], 0.)
 end
-# set_value(RA,  12453.8963154469) #So far, this updated default normalization value needs to be set, value from GAMS output. 12453.8963
+
 set_fixed!(RA, false)
 solve!(WiNnat, cumulative_iteration_limit=10000)
 println("$year ","counter")
-# end
+
 #, convergence_tolerance=1e-3);
 # @time timetest()
 # timearray=[]
