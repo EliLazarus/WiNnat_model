@@ -9,7 +9,7 @@ $set sep %system.dirsep%
 
 $if not set ds $set ds data%sep%nationaldata_%matbal% - Notoriginal%sep%WiNDC_National.gdx
 *$if not set ds $set ds data%sep%nationaldata_%matbal% - from GDX%sep%nationaldata_%matbal%.gdx
-*$if not set ds $set ds WiNDC_National.gdx
+*$if not set ds $set ds data%WiNDC_National.gdx
 
 *$if not set run $set run 1997*2017
 $if not set run $set run 2017
