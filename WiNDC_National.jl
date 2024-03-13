@@ -208,18 +208,6 @@ set_fixed!(RA, false)
 solve!(WiNnat, cumulative_iteration_limit=10000)
 println("$year ","counter")
 
-#, convergence_tolerance=1e-3);
-# @time timetest()
-# timearray=[]
-# for in in 1:n
-# tmel = @elapsed timetest()
-# push!(timearray, tmel)
-# end
-# println(timearray, sum(timearray/n))
-# @profview solve!(WiNnat)
-# @time MPSGE.build(WiNnat);
-# @elapsed solve!(WiNnat, cumulative_iteration_limit=0)
-
 ##  Write the full algebraic model to a file for viewing
 	# open("WiNnat_Algebraic2.txt", "w") do file
 	# 	show(file, algebraic_version(WiNnat))
@@ -228,16 +216,6 @@ println("$year ","counter")
 	# open("Report.txt", "w") do file
 	# 	write(file, generate_report(WiNnat._jump_model))
 	# end
-
-	# Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, decimals=8, mdecimals=6)));
-	# CSV.write("./Results/FullReportCounterTazpoint1PJfd_0"*Dates.format(now(),"yyyy-mm-dd,H-M")*".csv", (Report), missingstring="missing", bom=true)
-	# println("done ",value(WiNnat._jump_model[:RA]))
-# ## For testing with variable numbers of sectors	
-# 	# timeWiNnat()
-# 	# [@elapsed timeWiNnat(t) for t in [2 2 2 8 16]]
-# 	# []@time timeWiNnat(t) for t in [2 2 2 8 16]]
-# 	# [@time timeWiNnat(t) for t in [2 2 8 73]]
-# 	# @profview timeWiNnat(111)
 
 # 	###  SENSITIVITY TESTS
 # ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
