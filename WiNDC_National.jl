@@ -1,10 +1,7 @@
 # Replication of the WiNDC national MGE model
 using MPSGE, JLD2, CSV
 
-using JuMP,PATHSolver
-# For sensitivity tests, timing, and plotting
-using DataFrames, Plots, Tables, Dates, Distributions
-
+# Not best practise for data, 
 cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
@@ -16,7 +13,6 @@ S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in 
 
 y_ = filter!(x -> x != :oth && x!= :use, S[:i][:]) # These 2 sectors 'use' & 'oth' are in the indices list, but have no data (and therefore cause problems)
 a_ = filter!(x -> x != :fbt && x != :mvt && x != :gmt, copy(y_))
-# a_ = copy(y_)
 
 # Indexes (set from the data files, via the notebook)
 sectorsi = S[:i]#[:] # "BEA Goods and sectors categories", is "i" in GAMS
@@ -39,23 +35,23 @@ fs_0 = P[:fs_0][yr,:][y_] #	"Household supply", # All zeros
 id_0 = P[:id_0][yr,y_,y_] #	"Intermediate demand",
 fd_0 = P[:fd_0][yr,y_,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,y_] #	"Value added",
-# ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
+		# ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
 m_0 = P[:m_0][yr,:][y_] #	"Imports",
 x_0 = P[:x_0][yr,:][y_] #	"Exports of goods and services",
-# mrg_0 = P[:mrg_0][yr,:] #	"Trade margins", Not in this model
-# trn_0 = P[:trn_0][yr,:] #	"Transportation costs",  Not in this model
-# duty_0 = P[:ty_0][yr,:] #	"Import duties", Not in this model
-# sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products", Not in this model
-# tax_0 = P[:tax_0][yr,:] #	"Taxes on products", Not in this model
+		# mrg_0 = P[:mrg_0][yr,:] #	"Trade margins", Not in this model
+		# trn_0 = P[:trn_0][yr,:] #	"Transportation costs",  Not in this model
+		# duty_0 = P[:ty_0][yr,:] #	"Import duties", Not in this model
+		# sbd_0 = P[:sbd_0][yr,:] #	"Subsidies on products", Not in this model
+		# tax_0 = P[:tax_0][yr,:] #	"Taxes on products", Not in this model
 ms_0 = P[:ms_0][yr,y_,:] #	"Margin supply",
 md_0 = P[:md_0][yr,:,y_] #	"Margin demand",
-# s_0 = P[:s_0][yr,:] #	"Aggregate supply", Not in this model
+		# s_0 = P[:s_0][yr,:] #	"Aggregate supply", Not in this model
 a_0 = P[:a_0][yr,:][a_]  #	"Armington supply",
 bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
 ta_0 = P[:ta_0][yr,:][y_] #	"Tax net subsidy rate on intermediate demand", Initial, for price
 tm_0 = P[:tm_0][yr,:][y_] #	"Import tariff"; Initial, for price 
 
-# ty_0 = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate", Not in this model
+		# ty_0 = add!(WiNnat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate", Not in this model
 
 """
  Option to set model build and solve as function for benchmarking tests
@@ -64,19 +60,19 @@ tm_0 = P[:tm_0][yr,:][y_] #	"Import tariff"; Initial, for price
 WiNnat = MPSGE.Model()
 
 	# parameters
-	ta = add!(WiNnat, MPSGE.Parameter(:ta, indices = (a_,), value=P[:ta_0][yr,a_].data)) #	"Tax net subsidy rate on intermediate demand",
-	tm = add!(WiNnat, MPSGE.Parameter(:tm, indices = (a_,), value=P[:tm_0][yr,a_].data)) #	"Import tariff";
+	ta = add!(WiNnat, Parameter(:ta, indices = (a_,), value=P[:ta_0][yr,a_].data)) #	"Tax net subsidy rate on intermediate demand",
+	tm = add!(WiNnat, Parameter(:tm, indices = (a_,), value=P[:tm_0][yr,a_].data)) #	"Import tariff";
 
 	# Elasticity parameters
-	t_elas_y =  add!(WiNnat, MPSGE.Parameter(:t_elas_y,  value=0.))
-	elas_y =    add!(WiNnat, MPSGE.Parameter(:elas_y,    value=0.))
-	elas_va =   add!(WiNnat, MPSGE.Parameter(:elas_va,   value=1.))
-	t_elas_m =  add!(WiNnat, MPSGE.Parameter(:t_elas_m,  value=0.))
-	elas_m =    add!(WiNnat, MPSGE.Parameter(:elas_m,    value=0.))
-	t_elas_a =  add!(WiNnat, MPSGE.Parameter(:t_elas_a,  value=2.))
-	elas_a =    add!(WiNnat, MPSGE.Parameter(:elas_a,    value=0.))
-	elas_dm =   add!(WiNnat, MPSGE.Parameter(:elas_dm,   value=2.))
-	d_elas_ra = add!(WiNnat, MPSGE.Parameter(:d_elas_ra, value=1.))
+	t_elas_y =  add!(WiNnat, Parameter(:t_elas_y,  value=0.))
+	elas_y =    add!(WiNnat, Parameter(:elas_y,    value=0.))
+	elas_va =   add!(WiNnat, Parameter(:elas_va,   value=1.))
+	t_elas_m =  add!(WiNnat, Parameter(:t_elas_m,  value=0.))
+	elas_m =    add!(WiNnat, Parameter(:elas_m,    value=0.))
+	t_elas_a =  add!(WiNnat, Parameter(:t_elas_a,  value=2.))
+	elas_a =    add!(WiNnat, Parameter(:elas_a,    value=0.))
+	elas_dm =   add!(WiNnat, Parameter(:elas_dm,   value=2.))
+	d_elas_ra = add!(WiNnat, Parameter(:d_elas_ra, value=1.))
 
 	# sectors:
 	Y = add!(WiNnat, Sector(:Y, indices=(sectorsj,)))
@@ -96,11 +92,8 @@ WiNnat = MPSGE.Model()
 
 	# production functions
 	for j in y_
-	# Commenting in/out for options to use Floats or Parameters for elasticities (parameters for sensitivity tests)	
+	# Options to use Floats, or model parameters for elasticities, with syntax :($(t_elas_y)*1), e.g. to test elasticities in sensitivity tests.	
 		@production(WiNnat, Y[j], 0., 0.,
-		# @production(WiNnat, Y[j], :($(t_elas_y)*1), 0.,
-		# @production(WiNnat, Y[j], :($(t_elas_y)*1), :($(elas_y)*1),
-		# @production(WiNnat, Y[j], 0., :($(elas_y)*1),
 		[	
 			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
 		], 
@@ -108,8 +101,7 @@ WiNnat = MPSGE.Model()
 			[Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(Nest(
 					Symbol("VA$j"),
-					1.,
-					# :($(elas_va)*1),
+					1., # or :($(elas_va)*1),
 					sum(va_0[:,j]),
 							[Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
 						),
@@ -122,15 +114,11 @@ WiNnat = MPSGE.Model()
 
 	for m in margin
 		add!(WiNnat, Production(MS[m], 0., 0., 
-		# add!(WiNnat, Production(MS[m], 0, :($(elas_m)*1), 
-		# add!(WiNnat, Production(MS[m], :($(t_elas_m)*1), :($(elas_m)*1), 
 			[Output(PM[m], sum(ms_0[:,m]) ) ],
 			[Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
 	end
 
 	for i in a_  
-		# @production(WiNnat, A[i], 2, :($(elas_a)*1),
-		# @production(WiNnat, A[i], :($(t_elas_a)*1), :($(elas_a)*1),
 		@production(WiNnat, A[i], 2., 0.,
 			[
 				[
@@ -144,8 +132,7 @@ WiNnat = MPSGE.Model()
 				[
 					[	
 						Input(Nest(Symbol("dm$i"),
-						2.,
-						# :($(elas_dm)*1),
+						2., # or :($(elas_dm)*1),
 						(y_0[i]+m_0[i]+m_0[i]*get_value(tm[tm[i].subindex])),
 						if m_0[i]>0 && y_0[i]>0
 							[
@@ -166,7 +153,6 @@ WiNnat = MPSGE.Model()
 	end
 
 	add!(WiNnat, DemandFunction(RA, 1.,
-	# add!(WiNnat, DemandFunction(RA, :($(d_elas_ra)*1),
 		[Demand(PA[i], fd_0[i,:pce]) for i in a_],
 		[
 			[Endowment(PY[i], fs_0[i]) for i in a_];
@@ -193,10 +179,7 @@ for i in a_
 	set_value(tm[i], P[:tm_0][yr,a_][i])
 end
 solve!(WiNnat, cumulative_iteration_limit=0)#, convergence_tolerance=1e-9)
-println("$year ","bnchmk")
-
-Report = CSV.File(IOBuffer(generate_report(WiNnat._jump_model, mdecimals = 6)))
-CSV.write("./Results/FullReportCounter.csv", Report, missingstring="missing", bom=true)
+println("$datayear ","benchmark")
 
 # Counterfactual
 for i in a_
@@ -206,4 +189,4 @@ end
 
 set_fixed!(RA, false)
 solve!(WiNnat, cumulative_iteration_limit=10000)
-println("$year ","counter")
+println("$datayear ","Zero tax counterfactual")
