@@ -59,21 +59,21 @@ for r in regions
          ],
         [
          [Input(PA[r,g], id0[r,g,s]) for g in gsectors];
-            # [
-            #     Input(Nest(
-            #         Symbol("va$r$s"), 
-            #         1.,
-            # (ld0[r,s] + kd0[r,s]),
+            [
+                Input(Nest(
+                    Symbol("va$r$s"), 
+                    1.,
+            (ld0[r,s] + kd0[r,s]),
                 [
-                Input(PL[r],    ld0[r,s])];# ,# for r in regions),
-                [Input(PK[r,s],  kd0[r,s])# for r in regions) for s in sectors
+                Input(PL[r],    ld0[r,s]),#;# ,# for r in regions),
+                Input(PK[r,s],  kd0[r,s])# for r in regions) for s in sectors
                 ]
-        ]
-                # ),
-                # (ld0[r,s] + kd0[r,s])
-                # )
-            # ]
         # ]
+                ),
+                (ld0[r,s] + kd0[r,s])
+                )
+            ]
+        ]
         )
         end
     end
@@ -103,27 +103,25 @@ for r in regions
         ],
         [
             [Input(PM[r,m], md0[r,m,g]) for m in margins];
-            # [Input(Nest(Symbol("d$r$g"), 2., 
-                # sum(m0[r,g]), # TODO is this right, re the tax amount (being balanced by the price)?
-                [Input(PFX, m0[r,g], taxes = [Tax(:($(tm[r,g])*1), RA[r])], price= 1+(tm0[r,g]))]; # TODO I think this is meant to be a nest in the dm nest
-        # ),
-        # sum(m0[r,g]),
-    # )
-            # ];
-            # [Input(Nest(Symbol("dm$r$g"), 4.,
-                # (nd0[r,g] + dd0[r,g]),
-                [
-                Input(PN[g],    nd0[r,g])]; #,
-                [
-                Input(PD[r,g],  dd0[r,g])
-                ]
-        ]
-        # ),
-        # (nd0[r,g] + dd0[r,g])
+            [Input(Nest(Symbol("d$r$g"), 2., 
+                sum(m0[r,g]), # TODO is this right, re the tax amount (being balanced by the price)?
+                [Input(PFX, m0[r,g], taxes = [Tax(:($(tm[r,g])*1), RA[r])], price= 1+(tm0[r,g]))] # TODO I think this is meant to be a nest in the dm nest
+        ),
+        sum(m0[r,g]),
     )
-    # ]
-    #     ]  
-    #     )
+            ];
+            [Input(Nest(Symbol("dm$r$g"), 4.,
+                (nd0[r,g] + dd0[r,g]),
+                [
+                Input(PN[g],    nd0[r,g]),
+                Input(PD[r,g],  dd0[r,g])
+        ]
+        ),
+        (nd0[r,g] + dd0[r,g])
+    )
+    ]
+        ]  
+        )
     end
 end
 
@@ -143,23 +141,23 @@ for r in regions
 end
 
 
-# for r in regions
-#     @production(WState, C[r], 0, 1,
-#             [Output(PC[r],   c0[r])],
-#             [Input(PA[r,g], cd0[r,g]) for g in gsectors]
-#     )
-# end
+for r in regions
+    @production(WState, C[r], 0, 1,
+            [Output(PC[r],   c0[r])],
+            [Input(PA[r,g], cd0[r,g]) for g in gsectors]
+    )
+end
 
 
 for r in regions
     add!(WState, DemandFunction(RA[r], 0.,
         [Demand(PC[r], c0[r])],
         [
-            # [Endowment(PY[r,g], yh0[r,g]) for g in gsectors];
+            [Endowment(PY[r,g], yh0[r,g]) for g in gsectors];
             [Endowment(PFX, bopdef0[r] + hhadj0[r])];
-            # [Endowment(PA[r,g], -g0[r,g] - i0[r,g]) for g in gsectors];
+            [Endowment(PA[r,g], -g0[r,g] - i0[r,g]) for g in gsectors];
             [Endowment(PL[r], sum(ld0[r,s] for s in sectors))];
-            # [Endowment(PK[r,s], kd0[r,s]) for s in sectors]
+            [Endowment(PK[r,s], kd0[r,s]) for s in sectors]
         ]
         )
     )
