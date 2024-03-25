@@ -24,6 +24,14 @@ ld0 = ld0[yr,:,:]; yh0 = yh0[yr,:,:]; tm0 = tm0[yr,:,:]; ty0 = ty0[yr,:,:]; kd0 
 i0 = i0[yr,:,:]; xn0 = xn0[yr,:,:]; dm0 = dm0[yr,:,:,:]; ta0 = ta0[yr,:,:]; rx0 = rx0[yr,:,:]; 
 xd0 = xd0[yr,:,:]; id0 = id0[yr,:,:,:]; fe0 = fe0[yr,:]; nm0 = nm0[yr,:,:,:]; s0 = s0[yr,:,:]; c0 = c0[yr,:]; m0 = m0[yr,:,:]; a0 = a0[yr,:,:]; 
 
+# Indicies of sectors for gmargins to align 
+gmind = [1, 5, 8, 9, 11, 13, 15, 19, 24, 26, 29, 32, 33, 39, 40, 42, 44, 47, 49, 50, 51, 52, 54, 57, 58, 59, 61, 62, 63, 64, 66, 67, 68, 69, 70, 71]
+
+# Must use a value in gmind, or manually set the end of gmargins to the index at the position before that number in gmid. e.g. n=12 would be gmargins[1:5]
+n = 13
+sectors = sectors[1:n]
+gsectors =gsectors[1:n]
+gmargins = gmargins[1:findfirst(x->x==n,gmind)]
 WState = Model()
 
 ta = add!(WState, Parameter(:ta, indices = (regions,gsectors), value=P[:"ta0"][yr,regions,gsectors].data, description="Tax net subsidy rate on intermediate demand"))
@@ -52,10 +60,9 @@ RA = add!(WState, Consumer(:RA, indices = (regions,), description = "Representat
 
 for r in regions
     for s in sectors
-        if ld0[r,s]>0 || kd0[r,s] >0 && ys0[r,s]>0
     @production(WState, Y[r,s], 0., 0.,
         [
-         Output(PY[r,g], ys0[r,s,g], taxes = [Tax(:($(ty[r,s])*1), RA[r])], price=1-(ty0[r,s])) for g in gsectors if ys0[r,s,g]>0
+         Output(PY[r,g], ys0[r,s,g], taxes = [Tax(:($(ty[r,s])*1), RA[r])], price=1-(ty0[r,s])) for g in gsectors# if ys0[r,s,g]>0
          ],
         [
          [Input(PA[r,g], id0[r,g,s]) for g in gsectors];
@@ -68,14 +75,12 @@ for r in regions
                 Input(PL[r],    ld0[r,s]),#;# ,# for r in regions),
                 Input(PK[r,s],  kd0[r,s])# for r in regions) for s in sectors
                 ]
-        # ]
                 ),
                 (ld0[r,s] + kd0[r,s])
                 )
             ]
         ]
         )
-        end
     end
 end
 
@@ -165,7 +170,10 @@ end
 
 t=time()
 MPSGE.build(WState)
-println((time()-t)/60)
-# solve!(WState)
+println("n=",n," BuildState: ",(time()-t))
+
+t=time()
+solve!(WState, cumulative_iteration_limit=0)
+println("n=",n," SolveState0: ",(time()-t))
 
 # keys(DenseAxisArray)
