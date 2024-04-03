@@ -1,37 +1,30 @@
 using MPSGE
 using JLD2
 
-cd(dirname(Base.source_path()))
-
 #parms is too big for Github, so I'm running it from local
 P= load(joinpath(@__DIR__,"./data/WiNDC_state_data/parms.jld2"))#["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/WiNDC_state_data/sets.jld2"))#["data"] # load in data from saved Notebook output Dict, named S
 
-year = S[:"YR"]; sectors = S[:"S"]; margins = S[:"M"]; gmargins = S[:"GM"] # Margin related sectors;
-regions = S[:"R"]; gsectors = S[:"G"] #alias of s 
-
-cd0 = P[:"cd0"]; x0 = P[:"x0"]; bopdef0 = P[:"bopdef0"]; nd0 = P[:"nd0"]; md0 = P[:"md0"]; 
-hhadj0 = P[:"hhadj0"]; ys0 = P[:"ys0"]; gdp0 = P[:"gdp0"]; dd0 = P[:"dd0"]; g0 = P[:"g0"]; 
-ld0 = P[:"ld0"]; yh0 = P[:"yh0"]; tm0 = P[:"tm0"]; ty0 = P[:"ty0"]; kd0 = P[:"kd0"]; 
-i0 = P[:"i0"]; xn0 = P[:"xn0"]; dm0 = P[:"dm0"]; ta0 = P[:"ta0"]; rx0 = P[:"rx0"]; 
-xd0 = P[:"xd0"]; id0 = P[:"id0"]; fe0 = P[:"fe0"]; nm0 = P[:"nm0"]; s0 = P[:"s0"]; c0 = P[:"c0"]; m0 = P[:"m0"]; a0 = P[:"a0"]
-
-# Filter to the specific year
-yr = year[21] #21 = 2017 ## 1 = 1997 
-cd0 = cd0[yr,:,:]; x0 = x0[yr,:,:]; bopdef0 = bopdef0[yr,:]; nd0 = nd0[yr,:,:]; md0 = md0[yr,:,:,:];
-hhadj0 = hhadj0[yr,:]; ys0 = ys0[yr,:,:,:]; gdp0 = gdp0[yr,:]; dd0 = dd0[yr,:,:]; g0 = g0[yr,:,:]; 
-ld0 = ld0[yr,:,:]; yh0 = yh0[yr,:,:]; tm0 = tm0[yr,:,:]; ty0 = ty0[yr,:,:]; kd0 = kd0[yr,:,:]; 
-i0 = i0[yr,:,:]; xn0 = xn0[yr,:,:]; dm0 = dm0[yr,:,:,:]; ta0 = ta0[yr,:,:]; rx0 = rx0[yr,:,:]; 
-xd0 = xd0[yr,:,:]; id0 = id0[yr,:,:,:]; fe0 = fe0[yr,:]; nm0 = nm0[yr,:,:,:]; s0 = s0[yr,:,:]; c0 = c0[yr,:]; m0 = m0[yr,:,:]; a0 = a0[yr,:,:]; 
-
+### SET UP FOR RUNNING LIMITED NUMBER OF SECTORS ###
 # Indicies of sectors for gmargins to align 
 gmind = [1, 5, 8, 9, 11, 13, 15, 19, 24, 26, 29, 32, 33, 39, 40, 42, 44, 47, 49, 50, 51, 52, 54, 57, 58, 59, 61, 62, 63, 64, 66, 67, 68, 69, 70, 71]
-
-# Must use a value in gmind, or manually set the end of gmargins to the index at the position before that number in gmid. e.g. n=12 would be gmargins[1:5]
-n = 13
+# Must use a value in gmind, or manually set the *end index #* of gmargins to the index in gmind at the position before that number. e.g. n=12 would be gmargins[1:5]
+# This is because the (more sparse set of) sectors in gmargins need to align with the sectors in sectors and gsectors
+n = 24
+year = S[:"YR"]; sectors = S[:"S"]; margins = S[:"M"]; gmargins = S[:"GM"] # Margin related sectors;
+regions = S[:"R"]; gsectors = S[:"G"] #alias of s 
 sectors = sectors[1:n]
 gsectors =gsectors[1:n]
 gmargins = gmargins[1:findfirst(x->x==n,gmind)]
+
+# Load and filter data to the specific year, reduce 1 dimension
+yr = year[21] #21 = 2017 ## 1 = 1997 
+cd0 = P[:"cd0"][yr,:,:]; x0 = P[:"x0"][yr,:,:]; bopdef0 = P[:"bopdef0"][yr,:]; nd0 = P[:"nd0"][yr,:,:]; md0 = P[:"md0"][yr,:,:,:]; 
+hhadj0 = P[:"hhadj0"][yr,:]; ys0 = P[:"ys0"][yr,:,:,:]; gdp0 = P[:"gdp0"][yr,:]; dd0 = P[:"dd0"][yr,:,:]; g0 = P[:"g0"][yr,:,:]; 
+ld0 = P[:"ld0"][yr,:,:]; yh0 = P[:"yh0"][yr,:,:]; tm0 = P[:"tm0"][yr,:,:]; ty0 = P[:"ty0"][yr,:,:]; kd0 = P[:"kd0"][yr,:,:]; 
+i0 = P[:"i0"][yr,:,:]; xn0 = P[:"xn0"][yr,:,:]; dm0 = P[:"dm0"][yr,:,:,:]; ta0 = P[:"ta0"][yr,:,:]; rx0 = P[:"rx0"][yr,:,:]; 
+xd0 = P[:"xd0"][yr,:,:]; id0 = P[:"id0"][yr,:,:,:]; fe0 = P[:"fe0"][yr,:]; nm0 = P[:"nm0"][yr,:,:,:]; s0 = P[:"s0"][yr,:,:]; c0 = P[:"c0"][yr,:]; m0 = P[:"m0"][yr,:,:]; a0 = P[:"a0"][yr,:,:];
+
 WState = Model()
 
 ta = add!(WState, Parameter(:ta, indices = (regions,gsectors), value=P[:"ta0"][yr,regions,gsectors].data, description="Tax net subsidy rate on intermediate demand"))
