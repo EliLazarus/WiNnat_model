@@ -1,8 +1,6 @@
 using MPSGE
 using JLD2
 
-cd(dirname(Base.source_path()))
-
 #parms is too big for Github, so I'm running it from local
 P= load(joinpath(@__DIR__,"./data/WiNDC_state_data/parms.jld2"))#["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/WiNDC_state_data/sets.jld2"))#["data"] # load in data from saved Notebook output Dict, named S
@@ -32,6 +30,15 @@ xd0 = xd0[yr,:,:]; id0 = id0[yr,:,:,:]; fe0 = fe0[yr,:]; nm0 = nm0[yr,:,:,:]; s0
 sectors = sectors[1:n]
 gsectors =gsectors[1:n]
 gmargins = gmargins[1:findfirst(x->x==n,gmind)]
+
+# Load and filter data to the specific year, reduce 1 dimension
+yr = year[21] #21 = 2017 ## 1 = 1997 
+cd0 = P[:"cd0"][yr,:,:]; x0 = P[:"x0"][yr,:,:]; bopdef0 = P[:"bopdef0"][yr,:]; nd0 = P[:"nd0"][yr,:,:]; md0 = P[:"md0"][yr,:,:,:]; 
+hhadj0 = P[:"hhadj0"][yr,:]; ys0 = P[:"ys0"][yr,:,:,:]; gdp0 = P[:"gdp0"][yr,:]; dd0 = P[:"dd0"][yr,:,:]; g0 = P[:"g0"][yr,:,:]; 
+ld0 = P[:"ld0"][yr,:,:]; yh0 = P[:"yh0"][yr,:,:]; tm0 = P[:"tm0"][yr,:,:]; ty0 = P[:"ty0"][yr,:,:]; kd0 = P[:"kd0"][yr,:,:]; 
+i0 = P[:"i0"][yr,:,:]; xn0 = P[:"xn0"][yr,:,:]; dm0 = P[:"dm0"][yr,:,:,:]; ta0 = P[:"ta0"][yr,:,:]; rx0 = P[:"rx0"][yr,:,:]; 
+xd0 = P[:"xd0"][yr,:,:]; id0 = P[:"id0"][yr,:,:,:]; fe0 = P[:"fe0"][yr,:]; nm0 = P[:"nm0"][yr,:,:,:]; s0 = P[:"s0"][yr,:,:]; c0 = P[:"c0"][yr,:]; m0 = P[:"m0"][yr,:,:]; a0 = P[:"a0"][yr,:,:];
+
 WState = Model()
 
 ta = add!(WState, Parameter(:ta, indices = (regions,gsectors), value=P[:"ta0"][yr,regions,gsectors].data, description="Tax net subsidy rate on intermediate demand"))
