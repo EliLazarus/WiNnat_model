@@ -5,14 +5,28 @@ using JLD2
 P= load(joinpath(@__DIR__,"./data/WiNDC_state_data/parms.jld2"))#["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/WiNDC_state_data/sets.jld2"))#["data"] # load in data from saved Notebook output Dict, named S
 
-### SET UP FOR RUNNING LIMITED NUMBER OF SECTORS ###
+cd0 = P[:"cd0"]; x0 = P[:"x0"]; bopdef0 = P[:"bopdef0"]; nd0 = P[:"nd0"]; md0 = P[:"md0"]; 
+hhadj0 = P[:"hhadj0"]; ys0 = P[:"ys0"]; gdp0 = P[:"gdp0"]; dd0 = P[:"dd0"]; g0 = P[:"g0"]; 
+ld0 = P[:"ld0"]; yh0 = P[:"yh0"]; tm0 = P[:"tm0"]; ty0 = P[:"ty0"]; kd0 = P[:"kd0"]; 
+i0 = P[:"i0"]; xn0 = P[:"xn0"]; dm0 = P[:"dm0"]; ta0 = P[:"ta0"]; rx0 = P[:"rx0"]; 
+xd0 = P[:"xd0"]; id0 = P[:"id0"]; fe0 = P[:"fe0"]; nm0 = P[:"nm0"]; s0 = P[:"s0"]; c0 = P[:"c0"]; m0 = P[:"m0"]; a0 = P[:"a0"]
+
 # Indicies of sectors for gmargins to align 
 gmind = [1, 5, 8, 9, 11, 13, 15, 19, 24, 26, 29, 32, 33, 39, 40, 42, 44, 47, 49, 50, 51, 52, 54, 57, 58, 59, 61, 62, 63, 64, 66, 67, 68, 69, 70, 71]
-# Must use a value in gmind, or manually set the *end index #* of gmargins to the index in gmind at the position before that number. e.g. n=12 would be gmargins[1:5]
-# This is because the (more sparse set of) sectors in gmargins need to align with the sectors in sectors and gsectors
-n = 24
+# Must use a value in gmind, or manually set the end of gmargins to the index at the position before that number in gmid. e.g. n=12 would be gmargins[1:5]
+n = 71
+
 year = S[:"YR"]; sectors = S[:"S"]; margins = S[:"M"]; gmargins = S[:"GM"] # Margin related sectors;
 regions = S[:"R"]; gsectors = S[:"G"] #alias of s 
+
+# Filter to the specific year
+yr = year[21] #21 = 2017 ## 1 = 1997 
+cd0 = cd0[yr,:,:]; x0 = x0[yr,:,:]; bopdef0 = bopdef0[yr,:]; nd0 = nd0[yr,:,:]; md0 = md0[yr,:,:,:];
+hhadj0 = hhadj0[yr,:]; ys0 = ys0[yr,:,:,:]; gdp0 = gdp0[yr,:]; dd0 = dd0[yr,:,:]; g0 = g0[yr,:,:]; 
+ld0 = ld0[yr,:,:]; yh0 = yh0[yr,:,:]; tm0 = tm0[yr,:,:]; ty0 = ty0[yr,:,:]; kd0 = kd0[yr,:,:]; 
+i0 = i0[yr,:,:]; xn0 = xn0[yr,:,:]; dm0 = dm0[yr,:,:,:]; ta0 = ta0[yr,:,:]; rx0 = rx0[yr,:,:]; 
+xd0 = xd0[yr,:,:]; id0 = id0[yr,:,:,:]; fe0 = fe0[yr,:]; nm0 = nm0[yr,:,:,:]; s0 = s0[yr,:,:]; c0 = c0[yr,:]; m0 = m0[yr,:,:]; a0 = a0[yr,:,:]; 
+
 sectors = sectors[1:n]
 gsectors =gsectors[1:n]
 gmargins = gmargins[1:findfirst(x->x==n,gmind)]
