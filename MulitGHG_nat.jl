@@ -1,4 +1,4 @@
-using MPSGE, JLD2, CSV
+using MPSGE, JLD2, CSV, XLSX, DataFrames
 
 # Not best practise for data, 
 cd(dirname(Base.source_path()))
@@ -36,7 +36,7 @@ fd_0 = P[:fd_0][yr,y_,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,y_] #	"Value added",
 # va_0.data[:,:] = va_0.data./4
 vam_0 = deepcopy(va_0) #copy for structure
-vam_0.data[:,:].=0.0 # Set second VA nest to all zeros in the benchmark.
+vam_0.data[:,:].= va_0.data[:,:]/10^7 # Set second VA nest to all zeros in the benchmark.
 
 # ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
 m_0 = P[:m_0][yr,:][y_] #	"Imports",
@@ -65,6 +65,8 @@ MultiNat = MPSGE.Model()
 	# parameters
 	ta = add!(MultiNat, Parameter(:ta, indices = (a_,), value=P[:ta_0][yr,a_].data)) #	"Tax net subsidy rate on intermediate demand",
 	tm = add!(MultiNat, Parameter(:tm, indices = (a_,), value=P[:tm_0][yr,a_].data)) #	"Import tariff";
+	tch4 = add!(MultiNat, Parameter(:tch4, indices = (y_,), value=zeros(length(y_))))
+	tco2 = add!(MultiNat, Parameter(:tco2, indices = (y_,), value=zeros(length(y_))))
 
 	# Elasticity parameters
 	t_elas_y =  add!(MultiNat, Parameter(:t_elas_y,  value=0.))
@@ -87,6 +89,7 @@ MultiNat = MPSGE.Model()
 	PA  = add!(MultiNat, Commodity(:PA, indices=(a_, ))) #	Armington price
 	PY  = add!(MultiNat, Commodity(:PY, indices=(sectorsi,))) #	Supply
 	PVA = add!(MultiNat, Commodity(:PVA, indices=(valueadded,))) #		Value-added
+	PVAM = add!(MultiNat, Commodity(:PVAM, indices=(valueadded,))) #		Value-added
 	PM  = add!(MultiNat, Commodity(:PM, indices=(margin,))) #		Margin
 	PFX = add!(MultiNat, Commodity(:PFX))	#	Foreign exchnage
 
@@ -101,18 +104,18 @@ MultiNat = MPSGE.Model()
 			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
 		], 
 		[
-			[Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
+			[Input(PA[i], id_0[i,j], taxes=[Tax(:($(tco2[j])*1), RA)]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			
             [Input(Nest(
                 Symbol("VAtop$j"), #
-                0.,
+                2.,
                 sum(va_0[:,j])+sum(vam_0[:,j]),
                 [       
                 Input(Nest( #
                         Symbol("VA$j"),
                         1., # or :($(elas_va)*1),
                         sum(va_0[:,j]),
-                            [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
+                            [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
                         ),
                         sum(va_0[:,j] )
                         ) #
@@ -121,7 +124,7 @@ MultiNat = MPSGE.Model()
                         Symbol("VAm$j"),
                         1., # or :($(elas_va)*1),
                         sum(vam_0[:,j]),
-                            [Input(PVA[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+                            [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
                         ),
                         sum(vam_0[:,j] )
                         )
@@ -180,12 +183,13 @@ end
 			[Endowment(PY[i], fs_0[i]) for i in a_];
 			[Endowment(PA[i], -sum(fd_0[i,xfd])) for i in a_];  
 			[Endowment(PVA[va], sum(va_0[va,sectorsi])) for va in valueadded];
+            [Endowment(PVAM[va], sum(vam_0[va,sectorsi])) for va in valueadded];
 			Endowment(PFX, bopdef_0)
 		]
 		))
 
 set_value(RA, 13138.7573)
-set_fixed!(RA, true)
+# set_fixed!(RA, true)
 
 for i in a_
 	set_value(ta[i], P[:ta_0][yr,a_][i])
@@ -194,21 +198,59 @@ end
 solve!(MultiNat, cumulative_iteration_limit=0)
 println("$datayear ","benchmark")
 
-# Counterfactual
-for i in a_
-	set_value(ta[i], 0.)
-	set_value(tm[i], 0.)
-end
+vrbnch = var_report(MultiNat)
+rename!(vrbnch, :value => :bnchmrk, :margin => :bmkmarg)
+# set_value(RA, 12453.9) # But why...
+# set_fixed!(RA, false)
+# solve!(MultiNat, cumulative_iteration_limit=10000);
+# println("$datayear ","Zero tax counterfactual")
 
-set_fixed!(RA, false)
+# Counterfactual Value Added for non-methane mitigation is taxed at mitigation cost
+set_value(tch4[:agr], 0.4)
+set_value(tch4[:min], 0.2)
+set_value(tch4[:oil], 0.4)
+set_value(tch4[:uti], 0.1)
+set_value(tch4[:wst], 0.15)
+set_value(tch4[:pip], 0.3)
+
 solve!(MultiNat, cumulative_iteration_limit=10000)
-println("$datayear ","Zero tax counterfactual")
+println("$datayear ","Add Methane Tax counterfactual")
+vrch4 = var_report(MultiNat)
+rename!(vrch4, :value => :ch4, :margin => :ch4marg)
 
-vr = var_report(MultiNat, true)
-vr2 = deepcopy(vr)
-vr2.var = string.(vr2.var)
-gams_results = XLSX.readxlsx(joinpath(@__DIR__, "Results\\GAMSResults-2024-1-12.xlsx"))
-    a_table = gams_results["Sheet1"][3:490,1:3]  # Generated from JPMGE_MPSGE
-    # WNDCnat = DenseAxisArray(a_table[2:end,2:end],string.(a_table[2:end,1],".",a_table[2:end,2]),a_table[1,2:end])
-Compvr = DataFrame(innerjoin(DataFrame(a_table,[:var, :bnch, :counter]),vr2, on = [:var], makeunique=true))
-print(Compvr[coalesce.(abs.(Compvr.margin).>0.001, true),:])
+# Counterfactual Fossil fuel extraction is taxed at (VERY) ~ carbon content of combustion
+for i in y_
+    set_value(tch4[i], 0.0)
+end
+# test to double-check that we're back to benchmark
+solve!(MultiNat, cumulative_iteration_limit=10000);
+set_value(tco2[:oil], 0.2)
+set_value(tco2[:min], 0.4)
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
+vrco2 = var_report(MultiNat)
+rename!(vrco2, :value => :co2, :margin => :co2marg)
+
+# Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
+set_value(tch4[:agr], 0.4)
+set_value(tch4[:min], 0.2)
+set_value(tch4[:oil], 0.4)
+set_value(tch4[:uti], 0.1)
+set_value(tch4[:wst], 0.15)
+set_value(tch4[:pip], 0.3)
+
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
+vrboth = var_report(MultiNat)
+rename!(vrboth, :value => :both, :margin => :bothmarg)
+
+Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
+CompareResults = Results[288:end,[1,2,4,6,8]]
+# vr = var_report(MultiNat, true)
+# vr2 = deepcopy(vr)
+# vr2.var = string.(vr2.var)
+# gams_results = XLSX.readxlsx(joinpath(@__DIR__, "Results\\GAMSResults-2024-1-12.xlsx"))
+#     a_table = gams_results["Sheet1"][3:490,1:3]  # Generated from JPMGE_MPSGE
+#     # WNDCnat = DenseAxisArray(a_table[2:end,2:end],string.(a_table[2:end,1],".",a_table[2:end,2]),a_table[1,2:end])
+# Compvr = DataFrame(innerjoin(DataFrame(a_table,[:var, :bnch, :counter]),vr2, on = [:var], makeunique=true))
+# Compvr.Counterdiff = Compvr.counter.-Compvr.value  # Comparing set counterfactual only
+# print(Compvr)
+# print(Compvr[coalesce.(abs.(Compvr.Counterdiff).>0.001, true),:]) # or abs.(Compvr.margin).>
