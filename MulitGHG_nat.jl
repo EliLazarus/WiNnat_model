@@ -34,9 +34,9 @@ fs_0 = P[:fs_0][yr,:][y_] #	"Household supply", # All zeros
 id_0 = P[:id_0][yr,y_,y_] #	"Intermediate demand",
 fd_0 = P[:fd_0][yr,y_,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,y_] #	"Value added",
-# va_0.data[:,:] = va_0.data./4
 vam_0 = deepcopy(va_0) #copy for structure
-vam_0.data[:,:].= va_0.data[:,:]/10^7 # Set second VA nest to all zeros in the benchmark.
+va_0.data[:,:] = va_0.data.-va_0.data/10
+vam_0.data[:,:]= vam_0.data/10 # Set second VA nest to all zeros in the benchmark.
 
 # ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
 m_0 = P[:m_0][yr,:][y_] #	"Imports",
@@ -124,7 +124,7 @@ MultiNat = MPSGE.Model()
                         Symbol("VAm$j"),
                         1., # or :($(elas_va)*1),
                         sum(vam_0[:,j]),
-                            [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+                            [Input(PVAM[va], vam_0[va,j], price=4.) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
                         ),
                         sum(vam_0[:,j] )
                         )
@@ -190,16 +190,20 @@ end
 
 set_value(RA, 13138.7573)
 # set_fixed!(RA, true)
-
+#Re-set to benchmark
 for i in a_
 	set_value(ta[i], P[:ta_0][yr,a_][i])
 	set_value(tm[i], P[:tm_0][yr,a_][i])
 end
+for i in y_
+    set_value(tch4[i], 0.)
+    set_value(tco2[i], 0.)
+end
 solve!(MultiNat, cumulative_iteration_limit=0)
 println("$datayear ","benchmark")
 
-vrbnch = var_report(MultiNat)
-rename!(vrbnch, :value => :bnchmrk, :margin => :bmkmarg)
+fullvrbnch = var_report(MultiNat, true)
+rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 # set_value(RA, 12453.9) # But why...
 # set_fixed!(RA, false)
 # solve!(MultiNat, cumulative_iteration_limit=10000);
@@ -215,8 +219,8 @@ set_value(tch4[:pip], 0.3)
 
 solve!(MultiNat, cumulative_iteration_limit=10000)
 println("$datayear ","Add Methane Tax counterfactual")
-vrch4 = var_report(MultiNat)
-rename!(vrch4, :value => :ch4, :margin => :ch4marg)
+fullvrch4 = var_report(MultiNat, true)
+rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 
 # Counterfactual Fossil fuel extraction is taxed at (VERY) ~ carbon content of combustion
 for i in y_
@@ -227,8 +231,8 @@ solve!(MultiNat, cumulative_iteration_limit=10000);
 set_value(tco2[:oil], 0.2)
 set_value(tco2[:min], 0.4)
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
-vrco2 = var_report(MultiNat)
-rename!(vrco2, :value => :co2, :margin => :co2marg)
+fullvrco2 = var_report(MultiNat, true)
+rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 # Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
 set_value(tch4[:agr], 0.4)
@@ -239,8 +243,10 @@ set_value(tch4[:wst], 0.15)
 set_value(tch4[:pip], 0.3)
 
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
-vrboth = var_report(MultiNat)
-rename!(vrboth, :value => :both, :margin => :bothmarg)
+fullvrboth = var_report(MultiNat, true)
+rename!(fullvrboth, :value => :both, :margin => :bothmarg)
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
+CompareFullResults = FullResults[288:end,[1,2,4,6,8]]
 
 Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
 CompareResults = Results[288:end,[1,2,4,6,8]]
@@ -254,3 +260,4 @@ CompareResults = Results[288:end,[1,2,4,6,8]]
 # Compvr.Counterdiff = Compvr.counter.-Compvr.value  # Comparing set counterfactual only
 # print(Compvr)
 # print(Compvr[coalesce.(abs.(Compvr.Counterdiff).>0.001, true),:]) # or abs.(Compvr.margin).>
+# print(filter(row->any(occursin.("ρ",string(row.var))),CompareFullResults))
