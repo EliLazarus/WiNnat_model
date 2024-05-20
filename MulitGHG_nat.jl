@@ -85,14 +85,14 @@ MultiNat = MPSGE.Model()
 	# sectors:
 	Y = add!(MultiNat, Sector(:Y, indices=(sectorsj,)))
 	A = add!(MultiNat, Sector(:A, indices=(a_,)))
-
+	VA = add!(MultiNat, Sector(:VA, indices=(sectorsj,)))
 	MS = add!(MultiNat, Sector(:MS, indices=(margin,)))
 
 	# commodities:
 	PA  = add!(MultiNat, Commodity(:PA, indices=(a_, ))) #	Armington price
 	PY  = add!(MultiNat, Commodity(:PY, indices=(sectorsi,))) #	Supply
 	PVA = add!(MultiNat, Commodity(:PVA, indices=(valueadded,))) #		Value-added
-	PVAM = add!(MultiNat, Commodity(:PVAM, indices=(valueadded,))) #		Value-added
+	PVAM = add!(MultiNat, Commodity(:PVAM, indices=(sectorsj,))) #		Value-added
 	PM  = add!(MultiNat, Commodity(:PM, indices=(margin,))) #		Margin
 	PFX = add!(MultiNat, Commodity(:PFX))	#	Foreign exchnage
 
@@ -109,41 +109,64 @@ MultiNat = MPSGE.Model()
 		[
 			# [Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(PA[i], id_0[i,j], taxes=[Tax(:($(tco2[j])*1), RA)]) for i in a_ if id_0[i,j]>0];  # filtered to A
+			[Input(PVAM[j], sum(va_0[:,j]))]
 			
-            [Input(Nest(
-                Symbol("VAtop_$j"), #
-                4.,
-                sum(va_0[:,j])+sum(vam_0[:,j]),
-                [       
-                Input(Nest( #
-                        Symbol("VA$j"),
-                        1., # or :($(elas_va)*1),
-                        sum(va_0[:,j]),
-                            [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
-                            # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
-                        ),
-                        sum(va_0[:,j] )
-                        ) #
-                        ,
-                    Input(Nest(
-                        Symbol("VAm$j"),
-                        1., # or :($(elas_va)*1),
-                        sum(vam_0[:,j]),
-                            # [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
-                            [Input(PVAM[va], vam_0[va,j], price=(:($(pr_ch4[j])*1))) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
-                        ),
-                        sum(vam_0[:,j] )
-                        )
-                ]
-                        ),
-            sum(va_0[:,j])+sum(vam_0[:,j]) #
-            )
-        ]
+        #     [Input(Nest(
+        # #         Symbol("VAtop_$j"), #
+        # #         4.,
+        # #         sum(va_0[:,j]),#+sum(vam_0[:,j]),
+        # #         [       
+        # #         Input(Nest( #
+        #                 Symbol("VA$j"),
+        #                 1., # or :($(elas_va)*1),
+        #                 sum(va_0[:,j]),
+        #                     [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
+        #                     # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
+        #                 ),
+        #                 sum(va_0[:,j] )
+        #                 ) #
+        #                 ,
+        #             Input(Nest(
+        #                 Symbol("VAm$j"),
+        #                 1., # or :($(elas_va)*1),
+        #                 0.9 * sum(vam_0[:,j]),
+        #                     # [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+        #                     [Input(PVA[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+        #                 ),
+        #                 0.9 * sum(vam_0[:,j] )
+        #                 )
+        #         ]
+        #                 ),
+        #     sum(va_0[:,j])#+sum(vam_0[:,j]) #
+        #     )
+        # ]
     ]
 )
 end
 
-	for m in margin
+
+for j in y_
+	@production(MultiNat, VA[j], 0., 0.,
+	[Output(PVAM[j], sum(va_0[:,j]))],
+	[Input(Nest(
+	                Symbol("VA$j"),
+	                1., # or :($(elas_va)*1),
+	                sum(va_0[:,j]),
+	                    [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
+	                    # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
+	                ),
+	                sum(va_0[:,j] )
+	                )])
+end
+
+# for i in y_
+# 	VAM[i]
+# output PVAM (with output * 1.2)
+# input nest s=1 PVA 
+# end
+
+
+for m in margin
 		add!(MultiNat, Production(MS[m], 0., 0., 
 			[Output(PM[m], sum(ms_0[:,m]) ) ],
 			[Input(PY[i], ms_0[i,m]) for i in sectorsi if ms_0[i,m]>0])) 
@@ -190,7 +213,7 @@ end
 			[Endowment(PY[i], fs_0[i]) for i in a_];
 			[Endowment(PA[i], -sum(fd_0[i,xfd])) for i in a_];  
 			[Endowment(PVA[va], sum(va_0[va,sectorsi])) for va in valueadded];
-            [Endowment(PVAM[va], sum(vam_0[va,sectorsi])) for va in valueadded];
+            # [Endowment(PVAM[va], sum(vam_0[va,sectorsi])) for va in valueadded];
 			Endowment(PFX, bopdef_0)
 		]
 		))
@@ -210,13 +233,66 @@ end
 
 
 solve!(MultiNat, cumulative_iteration_limit=0);
+
+# testmargin = var_report(MultiNat,false)
+# print(sort!(testmargin, :margin, by = abs, rev =true)[358:400,:])
 # println("$datayear ","benchmark")
 
-fullvrbnch = var_report(MultiNat, true)
-rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 
-# Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
-# Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
+
+
+
+
+
+# fullvrbnch = var_report(MultiNat, true)
+# rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
+
+# # Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
+# # Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
+# # set_value(pr_ch4[:agr],1.01213932526577); 
+# # set_value(pr_ch4[:min],1.00217834542134); 
+# # set_value(pr_ch4[:oil],1.00389656859361); 
+# # set_value(pr_ch4[:pip],1.00389656859361); 
+# # set_value(pr_ch4[:wst],1.22546701239839); 
+
+# # solve!(MultiNat, cumulative_iteration_limit=10000)
+# # Testch4pr = var_report(MultiNat, true)
+# # rename!(Testch4pr, :value => :pr_ch4, :margin => :pr_ch4marg)
+
+# WiNnat counterfactual
+for i in y_
+    set_value(tch4[i], 0.)
+    set_value(tco2[i], 0.)
+end
+for i in a_
+	set_value(ta[i], 0.)
+	set_value(tm[i], 0.)
+end
+
+set_value(RA, 12453.8963154469) # But why...
+set_fixed!(RA, true)
+solve!(MultiNat, cumulative_iteration_limit=10000)
+# # println("$datayear ","Zero tax counterfactual")
+
+# # Counterfactual: Value Added for standard non-mitigation of methane is taxed at methane intensity...
+# set_value(tch4[:agr], 0.4)
+# set_value(tch4[:min], 0.2)
+# set_value(tch4[:oil], 0.4)
+# set_value(tch4[:uti], 0.1)
+# set_value(tch4[:wst], 0.15)
+# set_value(tch4[:pip], 0.3)
+
+# # Reset price for ch4 mitigation VA back to 1 as test of effect of price
+# for i in y_
+# 	set_value(pr_ch4[i],1.)
+# end
+
+# solve!(MultiNat, cumulative_iteration_limit=10000)
+# fullvrch4 = var_report(MultiNat, true)
+# rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
+
+# # Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
+# # Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
 # set_value(pr_ch4[:agr],1.01213932526577); 
 # set_value(pr_ch4[:min],1.00217834542134); 
 # set_value(pr_ch4[:oil],1.00389656859361); 
@@ -224,92 +300,53 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 # set_value(pr_ch4[:wst],1.22546701239839); 
 
 # solve!(MultiNat, cumulative_iteration_limit=10000)
-# Testch4pr = var_report(MultiNat, true)
-# rename!(Testch4pr, :value => :pr_ch4, :margin => :pr_ch4marg)
+# fullvrch4_pr = var_report(MultiNat, true)
+# rename!(fullvrch4_pr, :value => :pr_ch4, :margin => :pr_ch4marg)
 
-# WiNnat counterfactual
+# FullResults = innerjoin(fullvrch4, fullvrch4_pr, on = [:var], makeunique=true)
+# FullResults.diff .= FullResults.ch4 .- FullResults.pr_ch4
+# print(sort!(FullResults, :diff, by = abs, rev =true)[1:200,:])
+
+# # Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
+# set_value(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
+# set_value(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
+# solve!(MultiNat, cumulative_iteration_limit=10000) #;
+# fullvrboth = var_report(MultiNat, true)
+# rename!(fullvrboth, :value => :both, :margin => :bothmarg)
+
+# # Counterfactual Fossil fuel extraction is taxed at (VERY NOMINAL ) ~ carbon content of combustion
+# #First, set CH4 taxes back to 0
 # for i in y_
-#     set_value(tch4[i], 0.)
-#     set_value(tco2[i], 0.)
+#     set_value(tch4[i], 0.0)
 # end
-# set_value(RA, 12453.9) # But why...
-# set_fixed!(RA, false)
-# solve!(MultiNat, cumulative_iteration_limit=10000);
-# println("$datayear ","Zero tax counterfactual")
 
-# Counterfactual: Value Added for standard non-mitigation of methane is taxed at methane intensity...
-set_value(tch4[:agr], 0.4)
-set_value(tch4[:min], 0.2)
-set_value(tch4[:oil], 0.4)
-set_value(tch4[:uti], 0.1)
-set_value(tch4[:wst], 0.15)
-set_value(tch4[:pip], 0.3)
+# solve!(MultiNat, cumulative_iteration_limit=10000) #;
+# #Generate Dataframe with all results (including names expressions)
+# fullvrco2 = var_report(MultiNat, true)
+# rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
-# Reset price for ch4 mitigation VA back to 1 as test of effect of price
-for i in y_
-	set_value(pr_ch4[i],1.)
-end
+# for i in y_
+# 	set_value(pr_ch4[i],1.)
+# end
 
-solve!(MultiNat, cumulative_iteration_limit=10000)
-fullvrch4 = var_report(MultiNat, true)
-rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
+# solve!(MultiNat, cumulative_iteration_limit=10000) #;
+# #Generate Dataframe with all results (including names expressions)
+# fullvrco2_noprcha4 = var_report(MultiNat, true)
+# rename!(fullvrco2_noprcha4, :value => :co2_noprch4, :margin => :co2_noprch4marg)
 
-# Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
-# Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
-set_value(pr_ch4[:agr],1.01213932526577); 
-set_value(pr_ch4[:min],1.00217834542134); 
-set_value(pr_ch4[:oil],1.00389656859361); 
-set_value(pr_ch4[:pip],1.00389656859361); 
-set_value(pr_ch4[:wst],1.22546701239839); 
-
-solve!(MultiNat, cumulative_iteration_limit=10000)
-fullvrch4_pr = var_report(MultiNat, true)
-rename!(fullvrch4_pr, :value => :pr_ch4, :margin => :pr_ch4marg)
-
-FullResults = innerjoin(fullvrch4, fullvrch4_pr, on = [:var], makeunique=true)
-FullResults.diff .= FullResults.ch4 .- FullResults.pr_ch4
-print(sort!(FullResults, :diff, by = abs, rev =true)[1:200,:])
-
-# Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
-set_value(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
-set_value(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
-solve!(MultiNat, cumulative_iteration_limit=10000) #;
-fullvrboth = var_report(MultiNat, true)
-rename!(fullvrboth, :value => :both, :margin => :bothmarg)
-
-# Counterfactual Fossil fuel extraction is taxed at (VERY NOMINAL ) ~ carbon content of combustion
-#First, set CH4 taxes back to 0
-for i in y_
-    set_value(tch4[i], 0.0)
-end
-
-solve!(MultiNat, cumulative_iteration_limit=10000) #;
-#Generate Dataframe with all results (including names expressions)
-fullvrco2 = var_report(MultiNat, true)
-rename!(fullvrco2, :value => :co2, :margin => :co2marg)
-
-for i in y_
-	set_value(pr_ch4[i],1.)
-end
-
-solve!(MultiNat, cumulative_iteration_limit=10000) #;
-#Generate Dataframe with all results (including names expressions)
-fullvrco2_noprcha4 = var_report(MultiNat, true)
-rename!(fullvrco2_noprcha4, :value => :co2_noprch4, :margin => :co2_noprch4marg)
-
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrch4_pr, fullvrco2, fullvrco2_noprcha4, fullvrboth, on = [:var], makeunique=true)
-CompareFullResults = FullResults[1:end,:]#[1,2,4,6,8, 10, 12]]
-print(CompareFullResults[359:1200,:])
-# Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
-# CompareResults = Results[289:end,[1,2,4,6,8]]
-# vr = var_report(MultiNat, true)
-# vr2 = deepcopy(vr)
-# vr2.var = string.(vr2.var)
-# gams_results = XLSX.readxlsx(joinpath(@__DIR__, "Results\\GAMSResults-2024-1-12.xlsx"))
-#     a_table = gams_results["Sheet1"][3:490,1:3]  # Generated from JPMGE_MPSGE
-#     # WNDCnat = DenseAxisArray(a_table[2:end,2:end],string.(a_table[2:end,1],".",a_table[2:end,2]),a_table[1,2:end])
-# Compvr = DataFrame(innerjoin(DataFrame(a_table,[:var, :bnch, :counter]),vr2, on = [:var], makeunique=true))
-# Compvr.Counterdiff = Compvr.counter.-Compvr.value  # Comparing set counterfactual only
-# print(Compvr)
-# print(Compvr[coalesce.(abs.(Compvr.Counterdiff).>0.001, true),:]) # or abs.(Compvr.margin).>
-# print(filter(row->any(occursin.("ρ",string(row.var))),CompareFullResults))
+# FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrch4_pr, fullvrco2, fullvrco2_noprcha4, fullvrboth, on = [:var], makeunique=true)
+# CompareFullResults = FullResults[1:end,:]#[1,2,4,6,8, 10, 12]]
+# print(CompareFullResults[359:1200,:])
+# # Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
+# # CompareResults = Results[289:end,[1,2,4,6,8]]
+# # vr = var_report(MultiNat, true)
+# # vr2 = deepcopy(vr)
+# # vr2.var = string.(vr2.var)
+# # gams_results = XLSX.readxlsx(joinpath(@__DIR__, "Results\\GAMSResults-2024-1-12.xlsx"))
+# #     a_table = gams_results["Sheet1"][3:490,1:3]  # Generated from JPMGE_MPSGE
+# #     # WNDCnat = DenseAxisArray(a_table[2:end,2:end],string.(a_table[2:end,1],".",a_table[2:end,2]),a_table[1,2:end])
+# # Compvr = DataFrame(innerjoin(DataFrame(a_table,[:var, :bnch, :counter]),vr2, on = [:var], makeunique=true))
+# # Compvr.Counterdiff = Compvr.counter.-Compvr.value  # Comparing set counterfactual only
+# # print(Compvr)
+# # print(Compvr[coalesce.(abs.(Compvr.Counterdiff).>0.001, true),:]) # or abs.(Compvr.margin).>
+# # print(filter(row->any(occursin.("ρ",string(row.var))),CompareFullResults))
