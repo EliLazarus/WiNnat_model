@@ -1,5 +1,4 @@
-using MPSGE, JLD2, CSV, XLSX, DataFrames
-
+using MPSGE, JLD2, CSV, XLSX, DataFrames, MPSGE.JuMP.Containers
 # Not best practise for data, 
 cd(dirname(Base.source_path()))
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
@@ -35,7 +34,7 @@ id_0 = P[:id_0][yr,y_,y_] #	"Intermediate demand",
 fd_0 = P[:fd_0][yr,y_,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,y_] #	"Value added",
 vam_0 = deepcopy(va_0) #copy for structure
-va_0.data[:,:] = va_0.data.-va_0.data/5
+# va_0.data[:,:] = va_0.data.-va_0.data/10^3
 vam_0.data[:,:]= vam_0.data/5 # Set second VA nest to all zeros in the benchmark.
 
 # ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
@@ -53,14 +52,15 @@ a_0 = P[:a_0][yr,:][a_]  #	"Armington supply",
 bopdef_0 = P[:bopdef_0][yr] #	"Balance of payments deficit",
 ta_0 = P[:ta_0][yr,:][y_] #	"Tax net subsidy rate on intermediate demand", Initial, for price
 tm_0 = P[:tm_0][yr,:][y_] #	"Import tariff"; Initial, for price 
-#Cost per ton of CH4 mitigation
-ch4mitcost = Containers.@container([y_], 1.);# ch4mitcost[:agr]=20; ch4mitcost[:min]=20; ch4mitcost[:oil]=20; ch4mitcost[:wst]=50; ch4mitcost[:pip]=20
+#Set up for Cost per ton of CH4 mitigation, default as 1 for standard WiNDC national benchmark to balance: DenseAxisArray
+ch4mitcost = DenseAxisArray(ones(length(y_)), y_)# ch4mitcost[:agr]=20; ch4mitcost[:min]=20; ch4mitcost[:oil]=20; ch4mitcost[:wst]=50; ch4mitcost[:pip]=20
+# ch4mitcost = Containers.@container([y_], 1.)# ch4mitcost[:agr]=20; ch4mitcost[:min]=20; ch4mitcost[:oil]=20; ch4mitcost[:wst]=50; ch4mitcost[:pip]=20
 
 # ty_0 = add!(MultiNat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate", Not in this model
 
-"""
- Option to set model build and solve as function for benchmarking tests
-"""
+# """
+#  Option to set model build and solve as function for benchmarking tests
+# """
 # function timeMultiNat(n::Int64)
 MultiNat = MPSGE.Model()
 
@@ -107,11 +107,12 @@ MultiNat = MPSGE.Model()
 			Output(PY[i], ys_0[j,i], taxes=[Tax(ty_0[j], RA)]) for i in sectorsi if ys_0[j,i]>0
 		], 
 		[
+			# [Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(PA[i], id_0[i,j], taxes=[Tax(:($(tco2[j])*1), RA)]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			
             [Input(Nest(
                 Symbol("VAtop_$j"), #
-                1.,
+                4.,
                 sum(va_0[:,j])+sum(vam_0[:,j]),
                 [       
                 Input(Nest( #
@@ -119,6 +120,7 @@ MultiNat = MPSGE.Model()
                         1., # or :($(elas_va)*1),
                         sum(va_0[:,j]),
                             [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
+                            # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
                         ),
                         sum(va_0[:,j] )
                         ) #
@@ -127,7 +129,8 @@ MultiNat = MPSGE.Model()
                         Symbol("VAm$j"),
                         1., # or :($(elas_va)*1),
                         sum(vam_0[:,j]),
-                            [Input(PVAM[va], vam_0[va,j], price=(:($(ch4mitcost[j])*1))) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+                            # [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
+                            [Input(PVAM[va], vam_0[va,j], price=(:($(pr_ch4[j])*1))) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
                         ),
                         sum(vam_0[:,j] )
                         )
@@ -151,7 +154,7 @@ end
 			[
 				[
 				Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA), Tax(:($(tch4[i])*1), RA),Tax(:($(tco2[i])*1), RA)], price=(1-ta_0[i]) )
-				# Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA), price=(1-ta_0[i]) )
+				# Output(PA[i], a_0[i], taxes=[Tax(:($(ta[i])*1), RA)], price=(1-ta_0[i]) )
 				];
 				[
 					Output(PFX, x_0[i])
@@ -199,22 +202,42 @@ for i in a_
 	set_value(ta[i], P[:ta_0][yr,a_][i])
 	set_value(tm[i], P[:tm_0][yr,a_][i])
 end
-# WiNnat counterfactual
-# for i in y_
-#     set_value(tch4[i], 0.)
-#     set_value(tco2[i], 0.)
-# end
+for i in y_
+	set_value(tco2[i], 0.)
+	set_value(tch4[i], 0.)
+	set_value(pr_ch4[i],1.)
+end
+
+
 solve!(MultiNat, cumulative_iteration_limit=0);
 # println("$datayear ","benchmark")
 
 fullvrbnch = var_report(MultiNat, true)
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
+
+# Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
+# Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
+# set_value(pr_ch4[:agr],1.01213932526577); 
+# set_value(pr_ch4[:min],1.00217834542134); 
+# set_value(pr_ch4[:oil],1.00389656859361); 
+# set_value(pr_ch4[:pip],1.00389656859361); 
+# set_value(pr_ch4[:wst],1.22546701239839); 
+
+# solve!(MultiNat, cumulative_iteration_limit=10000)
+# Testch4pr = var_report(MultiNat, true)
+# rename!(Testch4pr, :value => :pr_ch4, :margin => :pr_ch4marg)
+
+# WiNnat counterfactual
+# for i in y_
+#     set_value(tch4[i], 0.)
+#     set_value(tco2[i], 0.)
+# end
 # set_value(RA, 12453.9) # But why...
 # set_fixed!(RA, false)
 # solve!(MultiNat, cumulative_iteration_limit=10000);
 # println("$datayear ","Zero tax counterfactual")
 
-# Counterfactual Value Added for non-methane mitigation is taxed at mitigation cost
+# Counterfactual: Value Added for standard non-mitigation of methane is taxed at methane intensity...
 set_value(tch4[:agr], 0.4)
 set_value(tch4[:min], 0.2)
 set_value(tch4[:oil], 0.4)
@@ -222,6 +245,7 @@ set_value(tch4[:uti], 0.1)
 set_value(tch4[:wst], 0.15)
 set_value(tch4[:pip], 0.3)
 
+# Reset price for ch4 mitigation VA back to 1 as test of effect of price
 for i in y_
 	set_value(pr_ch4[i],1.)
 end
@@ -229,48 +253,55 @@ end
 solve!(MultiNat, cumulative_iteration_limit=10000)
 fullvrch4 = var_report(MultiNat, true)
 rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
-# Set values for mitigation VA nest (right now it's per ton, but probably not what it should be...)
-set_value(pr_ch4[:agr],20.); set_value(pr_ch4[:min],20.); set_value(pr_ch4[:oil],20.); set_value(pr_ch4[:wst],50.); set_value(pr_ch4[:pip],20.)
+
+# Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
+# Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
+set_value(pr_ch4[:agr],1.01213932526577); 
+set_value(pr_ch4[:min],1.00217834542134); 
+set_value(pr_ch4[:oil],1.00389656859361); 
+set_value(pr_ch4[:pip],1.00389656859361); 
+set_value(pr_ch4[:wst],1.22546701239839); 
 
 solve!(MultiNat, cumulative_iteration_limit=10000)
 fullvrch4_pr = var_report(MultiNat, true)
 rename!(fullvrch4_pr, :value => :pr_ch4, :margin => :pr_ch4marg)
+
 FullResults = innerjoin(fullvrch4, fullvrch4_pr, on = [:var], makeunique=true)
 FullResults.diff .= FullResults.ch4 .- FullResults.pr_ch4
 print(sort!(FullResults, :diff, by = abs, rev =true)[1:200,:])
 
+# Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
+set_value(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
+set_value(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
+fullvrboth = var_report(MultiNat, true)
+rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 # Counterfactual Fossil fuel extraction is taxed at (VERY NOMINAL ) ~ carbon content of combustion
 #First, set CH4 taxes back to 0
 for i in y_
     set_value(tch4[i], 0.0)
 end
-# test to double-check that we're back to benchmark
-solve!(MultiNat, cumulative_iteration_limit=10000);
-set_value(tco2[:oil], 0.2)
-set_value(tco2[:min], 0.4)
-solve!(MultiNat, cumulative_iteration_limit=10000) #;
-fullvrco2 = var_report(MultiNat, true)
-rename!(fullvrco2, :value => :co2, :margin => :co2marg)
-
-# Counterfactual Carbon Tax AND Value Added for non-methane mitigation is taxed at methane mitigation cost
-set_value(tch4[:agr], 0.4)
-set_value(tch4[:min], 0.2)
-set_value(tch4[:oil], 0.4)
-set_value(tch4[:uti], 0.1)
-set_value(tch4[:wst], 0.15)
-set_value(tch4[:pip], 0.3)
 
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 #Generate Dataframe with all results (including names expressions)
-fullvrboth = var_report(MultiNat, true)
+fullvrco2 = var_report(MultiNat, true)
+rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
-rename!(fullvrboth, :value => :both, :margin => :bothmarg)
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-CompareFullResults = FullResults[288:end,[1,2,4,6,8]]
+for i in y_
+	set_value(pr_ch4[i],1.)
+end
 
-Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
-CompareResults = Results[288:end,[1,2,4,6,8]]
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
+#Generate Dataframe with all results (including names expressions)
+fullvrco2_noprcha4 = var_report(MultiNat, true)
+rename!(fullvrco2_noprcha4, :value => :co2_noprch4, :margin => :co2_noprch4marg)
+
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrch4_pr, fullvrco2, fullvrco2_noprcha4, fullvrboth, on = [:var], makeunique=true)
+CompareFullResults = FullResults[1:end,:]#[1,2,4,6,8, 10, 12]]
+print(CompareFullResults[359:1200,:])
+# Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
+# CompareResults = Results[289:end,[1,2,4,6,8]]
 # vr = var_report(MultiNat, true)
 # vr2 = deepcopy(vr)
 # vr2.var = string.(vr2.var)
