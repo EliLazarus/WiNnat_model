@@ -86,6 +86,7 @@ MultiNat = MPSGE.Model()
 	Y = add!(MultiNat, Sector(:Y, indices=(sectorsj,)))
 	A = add!(MultiNat, Sector(:A, indices=(a_,)))
 	VA = add!(MultiNat, Sector(:VA, indices=(sectorsj,)))
+	VAM = add!(MultiNat, Sector(:VAM, indices=(sectorsj,)))
 	MS = add!(MultiNat, Sector(:MS, indices=(margin,)))
 
 	# commodities:
@@ -110,36 +111,6 @@ MultiNat = MPSGE.Model()
 			# [Input(PA[i], id_0[i,j]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(PA[i], id_0[i,j], taxes=[Tax(:($(tco2[j])*1), RA)]) for i in a_ if id_0[i,j]>0];  # filtered to A
 			[Input(PVAM[j], sum(va_0[:,j]))]
-			
-        #     [Input(Nest(
-        # #         Symbol("VAtop_$j"), #
-        # #         4.,
-        # #         sum(va_0[:,j]),#+sum(vam_0[:,j]),
-        # #         [       
-        # #         Input(Nest( #
-        #                 Symbol("VA$j"),
-        #                 1., # or :($(elas_va)*1),
-        #                 sum(va_0[:,j]),
-        #                     [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
-        #                     # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
-        #                 ),
-        #                 sum(va_0[:,j] )
-        #                 ) #
-        #                 ,
-        #             Input(Nest(
-        #                 Symbol("VAm$j"),
-        #                 1., # or :($(elas_va)*1),
-        #                 0.9 * sum(vam_0[:,j]),
-        #                     # [Input(PVAM[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
-        #                     [Input(PVA[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] # Check only for va_0, to match, bc all vam_0 == 0
-        #                 ),
-        #                 0.9 * sum(vam_0[:,j] )
-        #                 )
-        #         ]
-        #                 ),
-        #     sum(va_0[:,j])#+sum(vam_0[:,j]) #
-        #     )
-        # ]
     ]
 )
 end
@@ -153,12 +124,23 @@ for j in y_
 	                1., # or :($(elas_va)*1),
 	                sum(va_0[:,j]),
 	                    [Input(PVA[va], va_0[va,j], taxes=[Tax(:($(tch4[j])*1), RA)]) for va in valueadded if va_0[va,j]>0.] 
-	                    # [Input(PVA[va], va_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
 	                ),
 	                sum(va_0[:,j] )
 	                )])
 end
 
+for j in y_
+	@production(MultiNat, VAM[j], 0., 0.,
+	[Output(PVAM[j], sum(va_0[:,j]))],
+	[Input(Nest(
+	                Symbol("VA$j"),
+	                1., # or :($(elas_va)*1),
+	                sum(va_0[:,j]*1.2),
+	                    [Input(PVA[va], va_0[va,j]*1.2) for va in valueadded if va_0[va,j]>0.] 
+	                ),
+	                sum(va_0[:,j]*1.2 )
+	                )])
+end
 # for i in y_
 # 	VAM[i]
 # output PVAM (with output * 1.2)
@@ -234,8 +216,8 @@ end
 
 solve!(MultiNat, cumulative_iteration_limit=0);
 
-# testmargin = var_report(MultiNat,false)
-# print(sort!(testmargin, :margin, by = abs, rev =true)[358:400,:])
+testmargin = var_report(MultiNat,false)
+print(sort!(testmargin, :margin, by = abs, rev =true)[358:600,:])
 # println("$datayear ","benchmark")
 
 
@@ -275,21 +257,17 @@ solve!(MultiNat, cumulative_iteration_limit=10000)
 # # println("$datayear ","Zero tax counterfactual")
 
 # # Counterfactual: Value Added for standard non-mitigation of methane is taxed at methane intensity...
-# set_value(tch4[:agr], 0.4)
-# set_value(tch4[:min], 0.2)
-# set_value(tch4[:oil], 0.4)
-# set_value(tch4[:uti], 0.1)
-# set_value(tch4[:wst], 0.15)
-# set_value(tch4[:pip], 0.3)
+set_value(tch4[:agr], 0.4)
+set_value(tch4[:oil], 0.4)
+set_value(tch4[:uti], 0.1)
+set_value(tch4[:wst], 0.15)
+set_value(tch4[:pip], 0.3)
+set_value(tch4[:min], 0.2)
+set_fixed!(RA, false)
 
-# # Reset price for ch4 mitigation VA back to 1 as test of effect of price
-# for i in y_
-# 	set_value(pr_ch4[i],1.)
-# end
-
-# solve!(MultiNat, cumulative_iteration_limit=10000)
-# fullvrch4 = var_report(MultiNat, true)
-# rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
+solve!(MultiNat, cumulative_iteration_limit=10000)
+fullvrch4 = var_report(MultiNat, true)
+rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 
 # # Set price values for mitigation VA nest, at price proportion of additional cost for mitigation over the original total input cost.
 # # Important note and caveat: MACs from EPA used only mitigate up to a (varied) % of CH4 per sector
