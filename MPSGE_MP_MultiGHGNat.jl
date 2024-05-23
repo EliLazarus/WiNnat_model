@@ -97,18 +97,12 @@ for j∈J
     end)
 end
 
-for j∈J
+for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], vam_0[yr,va,j], va) for va∈VA]...
     end)
 end
-# for j∈C
-#     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
-#         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-#         [@input(PVA[va], vam_0[yr,va,j], va) for va∈VA]...
-#     end)
-# end
 
 for m∈M
     @production(MP_MultiNat, MS[m], [t = 0, s = 0], begin
@@ -190,11 +184,3 @@ CompareFullResults[!,:var] = Symbol.(CompareFullResults[:,:var])
 # print(CompareFullResults)#[359:1200,:])
 # print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true))#[5800:6000,:])
 print(sort!(CompareFullResults, :var))
-
-Testlimitedindex = outerjoin(CompareFullResults, CompareFullResults_j, on = [:var], makeunique=true)
-
-# Testlimitedindex = outerjoin(CompareFullResults[1:end,[1,3,4,5]], CompareFullResults_j[1:end,[1,3,4,5]], on = [:var], makeunique=true)
-Testlimitedindex.CH4diff = Testlimitedindex.ch4 .- Testlimitedindex.ch4_1
-Testlimitedindex.co2diff = Testlimitedindex.co2 .- Testlimitedindex.co2_1
-Testlimitedindex.bothdiff = Testlimitedindex.both .- Testlimitedindex.both_1
-print(sort!(Testlimitedindex, by = abs, :bothdiff, rev=true))
