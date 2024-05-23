@@ -10,6 +10,8 @@ S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in 
 
 I = [i for i∈S[:i] if i∉[:use,:oth]]
 J = [i for i∈S[:j] if i∉[:use,:oth]]
+#subset index for Slack CH4 mitigation production
+C = [:agr,:oil,:uti,:wst,:pip,:min,]
 VA = [va for va∈S[:va] if va!=:othtax]
 FD = S[:fd]
 TS = S[:ts]
@@ -101,6 +103,12 @@ for j∈J
         [@input(PVA[va], vam_0[yr,va,j], va) for va∈VA]...
     end)
 end
+# for j∈C
+#     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
+#         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+#         [@input(PVA[va], vam_0[yr,va,j], va) for va∈VA]...
+#     end)
+# end
 
 for m∈M
     @production(MP_MultiNat, MS[m], [t = 0, s = 0], begin
@@ -111,7 +119,7 @@ end
 
 for i∈I
     @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tch4[i]), Tax(RA,tco2[i])],reference_price=1-(ta_0[yr,i]))]...#+tch4[i]+tco2[j]))]... 
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tch4[i]), Tax(RA,tco2[i])],reference_price=1-(ta_0[yr,i]+tch4[i]+tco2[j]))]... 
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -135,7 +143,7 @@ solve!(MP_MultiNat)#; cumulative_iteration_limit = 0)
 
 fullvrbnch = generate_report(MP_MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-# print(sort(df_benchmark, :margin, by= abs))#, rev=true))
+print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
 set_value!(tch4[:agr], 0.4)
 set_value!(tch4[:oil], 0.4)
@@ -176,10 +184,17 @@ fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-CompareFullResults = FullResults[1:end,[1,2,4,6,8]]
+CompareFullResults = FullResults#[1:end,[1,2,4,6,8]]
 
 CompareFullResults[!,:var] = Symbol.(CompareFullResults[:,:var])
-print(CompareFullResults)#[359:1200,:])
-print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true))#[5800:6000,:])
-print(sort!(CompareFullResults, :var))#[5800:6000,:])
-typeof
+# print(CompareFullResults)#[359:1200,:])
+# print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true))#[5800:6000,:])
+print(sort!(CompareFullResults, :var))
+
+Testlimitedindex = outerjoin(CompareFullResults, CompareFullResults_j, on = [:var], makeunique=true)
+
+# Testlimitedindex = outerjoin(CompareFullResults[1:end,[1,3,4,5]], CompareFullResults_j[1:end,[1,3,4,5]], on = [:var], makeunique=true)
+Testlimitedindex.CH4diff = Testlimitedindex.ch4 .- Testlimitedindex.ch4_1
+Testlimitedindex.co2diff = Testlimitedindex.co2 .- Testlimitedindex.co2_1
+Testlimitedindex.bothdiff = Testlimitedindex.both .- Testlimitedindex.both_1
+print(sort!(Testlimitedindex, by = abs, :bothdiff, rev=true))
