@@ -33,9 +33,13 @@ fs_0 = P[:fs_0][yr,:][y_] #	"Household supply", # All zeros
 id_0 = P[:id_0][yr,y_,y_] #	"Intermediate demand",
 fd_0 = P[:fd_0][yr,y_,:] #	"Final demand",
 va_0 = P[:va_0][yr,:,y_] #	"Value added",
-vam_0 = deepcopy(va_0) #copy for structure
-# va_0.data[:,:] = va_0.data.-va_0.data/10^3
-vam_0.data[:,:]= vam_0.data/5 # Set second VA nest to all zeros in the benchmark.
+vam_0 = deepcopy(va_0) #copy for slack mitigating activty
+# inputs with additional % needed for mitigation
+vam_0[:,:agr] = va_0[:,:agr].data .*1.01213932526577 
+vam_0[:,:min] = va_0[:,:min].data .*1.00217834542134 
+vam_0[:,:oil] = va_0[:,:oil].data .*1.00389656859361 
+vam_0[:,:pip] = va_0[:,:pip].data .*1.00389656859361 
+vam_0[:,:wst] = va_0[:,:wst].data .*1.22546701239839 
 
 # ts_0 = P[:ts_0][yr,:,:] #	"Taxes and subsidies", Not in this model
 m_0 = P[:m_0][yr,:][y_] #	"Imports",
@@ -54,9 +58,6 @@ ta_0 = P[:ta_0][yr,:][y_] #	"Tax net subsidy rate on intermediate demand", Initi
 tm_0 = P[:tm_0][yr,:][y_] #	"Import tariff"; Initial, for price 
 # ty_0 = add!(MultiNat, Parameter(:ty, indices = (sectorsj,), value=P[:ty_0][year,:].data)) #	"Output tax rate", Not in this model
 
-#Set up for Cost per ton of CH4 mitigation, default as 1 for standard WiNDC national benchmark to balance: DenseAxisArray
-ch4mitcost = DenseAxisArray(ones(length(y_)), y_)# ch4mitcost[:agr]=20; ch4mitcost[:min]=20; ch4mitcost[:oil]=20; ch4mitcost[:wst]=50; ch4mitcost[:pip]=20
-
 "
  Option to set model build and solve as function for benchmarking tests
 "
@@ -68,7 +69,6 @@ MultiNat = MPSGE.Model()
 	tm = add!(MultiNat, Parameter(:tm, indices = (a_,), value=P[:tm_0][yr,a_].data)) #	"Import tariff";
 	tch4 = add!(MultiNat, Parameter(:tch4, indices = (y_,), value=zeros(length(y_))))
 	tco2 = add!(MultiNat, Parameter(:tco2, indices = (y_,), value=zeros(length(y_))))
-	pr_ch4 = add!(MultiNat, Parameter(:pr_ch4, indices= (y_,), value=ch4mitcost.data))
 
 	# Elasticity parameters
 	t_elas_y =  add!(MultiNat, Parameter(:t_elas_y,  value=0.))
@@ -129,10 +129,10 @@ MultiNat = MPSGE.Model()
 		[Input(Nest(
 						Symbol("VA$j"),
 						1., 
-						sum(va_0[:,j]*1.2),
-							[Input(PVA[va], va_0[va,j]*1.2) for va in valueadded if va_0[va,j]>0.] 
+						sum(va_0[:,j]),
+							[Input(PVA[va], vam_0[va,j]) for va in valueadded if va_0[va,j]>0.] 
 						),
-						sum(va_0[:,j]*1.2 )
+						sum(va_0[:,j] )
 						)])
 	end
 
@@ -181,7 +181,7 @@ MultiNat = MPSGE.Model()
 		))
 
 set_value(RA, 13138.7573)
-# set_fixed!(RA, true)
+set_fixed!(RA, true)
 ## Re-set to benchmark
 for i in a_
 	set_value(ta[i], P[:ta_0][yr,a_][i])
@@ -190,11 +190,11 @@ end
 for i in y_
 	set_value(tco2[i], 0.)
 	set_value(tch4[i], 0.)
-	set_value(pr_ch4[i],1.)
 end
 
 
-solve!(MultiNat, cumulative_iteration_limit=0);
+solve!(MultiNat, convergence_tolerance=1e-3, cumulative_iteration_limit=0);
+solve!(MultiNat, convergence_tolerance=1e-3, cumulative_iteration_limit=10000);
 
 # testmargin = var_report(MultiNat,false)
 # print(sort!(testmargin, :margin, by = abs, rev =true)[358:600,:])
@@ -202,6 +202,7 @@ solve!(MultiNat, cumulative_iteration_limit=0);
 
 fullvrbnch = var_report(MultiNat, true)
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
+print(sort!(fullvrbnch, :bmkmarg, by = abs, rev =true)[5729:end,:])
 
 ## WiNnat counterfactual
 # for i in y_
@@ -249,9 +250,10 @@ solve!(MultiNat, cumulative_iteration_limit=10000) #;
 fullvrco2 = var_report(MultiNat, true)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
-# FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
 CompareFullResults = FullResults[1:end,:]#[1,2,4,6,8, 10, 12]]
 print(CompareFullResults[359:1200,:])
+print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true)[5800:6000,:])
 
 
 # # Results = innerjoin(vrbnch, vrch4, vrco2, vrboth, on = [:var], makeunique=true)
