@@ -23,14 +23,50 @@ id_0 = P[:id_0]
 ys_0 = P[:ys_0]
 tm_0 = P[:tm_0]
 va_0 = P[:va_0]
+## Calculate CH4 Intensity factors from EPA data
+# EPA Non-CO2 Marginal Abatment Curve data, 2019
+CH4emissdata = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst], 
+EPAemiss =[300.8535461,260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
+## EPA maximum % of abatement per sector at <$1000/t
+MaxpercMit = [.038,.304,.280,.645,.475,.050,.350],
+PAsector = ["AGRICULTURE, CROP","AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL","ENERGY, GAS","WASTE, LAN","WASTE, WWR"])
+# Sum and weighted average before disaggregation
+CH4emiss = DataFrame(Wsector = [CH4emissdata[1,1],CH4emissdata[4,1,],CH4emissdata[5,1],CH4emissdata[6,1]],
+EPAemiss =[300.8535461+260.483532+13.70952225,59.31302643,224.8979059,111.5049515+20.36144996],
+## Weighted average per sector
+MaxpercMit = [(300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225), .645,.475, (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)],
+## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
+## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
+MitCostTot = [8962.758884,269.0188218,6944.389519,1795.700322])
+
+## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
+CH4emiss.CH4Intens = [CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.EPAemiss[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),CH4emiss.EPAemiss[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.EPAemiss[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]]) ]
+## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
+CH4emiss.CH4MitIntens = [(1-CH4emiss.MaxpercMit[1])*CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),(1-CH4emiss.MaxpercMit[2])*CH4emiss.EPAemiss[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),
+(1-CH4emiss.MaxpercMit[3])*CH4emiss.EPAemiss[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),(1-CH4emiss.MaxpercMit[4])*CH4emiss.EPAemiss[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]]) ]
+
+# CH4emiss.MitCost = [CH4emiss.EPAemiss[1]*CH4emiss.MaxpercMit[1]*10^9,CH4emiss.EPAemiss[2]*CH4emiss.MaxpercMit[2]*10^9,
+# CH4emiss.EPAemiss[3]*CH4emiss.MaxpercMit[3]*10^9,CH4emiss.EPAemiss[4]*CH4emiss.MaxpercMit[4]*10^9]
+
+CH4emiss.TotCostwMit = [CH4emiss.MitCostTot[1]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.MitCostTot[2]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[2]]),
+CH4emiss.MitCostTot[3]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.MitCostTot[4]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[4]])]
+## Relative cost of VA including max mitigation
+CH4emiss.MitCostoverVA = [CH4emiss.TotCostwMit[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.TotCostwMit[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),
+CH4emiss.TotCostwMit[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.TotCostwMit[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]])]
+
 vam_0 = deepcopy(va_0) #copy for slack mitigating activty
 # inputs with additional % needed for mitigation
-vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, slack
-vam_0[:,:,:agr] = va_0[:,:,:agr].data .*1.01213932526577 
-vam_0[:,:,:min] = va_0[:,:,:min].data .*1.00217834542134 
-vam_0[:,:,:oil] = va_0[:,:,:oil].data .*1.00389656859361 
-vam_0[:,:,:pip] = va_0[:,:,:pip].data .*1.00389656859361 
-vam_0[:,:,:wst] = va_0[:,:,:wst].data .*1.22546701239839 
+vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, back up to ensure slack (but redundant with filtered index for mitigating production)
+vam_0[:,:,:agr] = va_0[:,:,:agr].data .* CH4emiss.MitCostoverVA[findfirst(==(:agr), CH4emiss.Wsector)]  
+vam_0[:,:,:min] = va_0[:,:,:min].data .* CH4emiss.MitCostoverVA[findfirst(==(:min), CH4emiss.Wsector)]   
+vam_0[:,:,:oil] = va_0[:,:,:oil].data .* CH4emiss.MitCostoverVA[findfirst(==(:oil), CH4emiss.Wsector)]   
+## Use oil proportional mitigation cost for pipeline,no EPA MAC data
+vam_0[:,:,:pip] = va_0[:,:,:pip].data .* CH4emiss.MitCostoverVA[findfirst(==(:oil), CH4emiss.Wsector)]   
+vam_0[:,:,:wst] = va_0[:,:,:wst].data .* CH4emiss.MitCostoverVA[findfirst(==(:wst), CH4emiss.Wsector)]   
+
+tch4 = DenseAxisArray(CH4emiss[!,:CH4Intens], CH4emiss[!,:Wsector])
+tch4mit = DenseAxisArray(CH4emiss[!,:CH4MitIntens], CH4emiss[!,:Wsector])
+tax_ch4 = 0.
 
 md_0 = P[:md_0]
 fd_0 = P[:fd_0]
@@ -46,9 +82,6 @@ y_0 = P[:y_0];
 
 yr = Symbol(2017)
 
-#y_ = [j for j∈J if sum(ys_0[yr,j,i] for i∈I) !=0]
-#a_ = [i_ for i_∈I if a_0[yr,i_]!=0]
-
 MP_MultiNat = MPSGEModel()
 
 @parameters(MP_MultiNat, begin
@@ -57,9 +90,6 @@ MP_MultiNat = MPSGEModel()
     tm[J], tm_0[yr,J]
     tch4[J], DenseAxisArray(zeros(length(J)),J)
 	tco2[J], DenseAxisArray(zeros(length(J)),J)
-    # tch4 = add!(MultiNat, Parameter(:tch4, indices = (y_,), value=zeros(length(y_))))
-	# tco2 = add!(MultiNat, Parameter(:tco2, indices = (y_,), value=zeros(length(y_))))
-
 end)
 
 @sectors(MP_MultiNat,begin
@@ -93,14 +123,15 @@ end
 for j∈J
     @production(MP_MultiNat, VALAD[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tch4[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * tch4[j])]) for va∈VA]...
     end)
 end
 
+# Slack mitigating VA activities for main CH4 producing sectors
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va) for va∈VA]...
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * tch4mit[j])]) for va∈VA]...
     end)
 end
 
@@ -139,12 +170,13 @@ fullvrbnch = generate_report(MP_MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
-set_value!(tch4[:agr], 0.4)
-set_value!(tch4[:oil], 0.4)
-set_value!(tch4[:uti], 0.1)
-set_value!(tch4[:wst], 0.15)
-set_value!(tch4[:pip], 0.3)
-set_value!(tch4[:min], 0.2)
+## Nominal tax rate on emissions per approx emissions intensity 
+set_value!(tch4[:agr], CH4emiss.CH4Intens[findfirst(==(:agr), CH4emiss.Wsector)]*10^-3)#0.4)
+set_value!(tch4[:oil], CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3)#0.4)
+set_value!(tch4[:uti], CH4emiss.CH4Intens[findfirst(==(:uti), CH4emiss.Wsector)]*10^-3)#0.1)
+set_value!(tch4[:wst], CH4emiss.CH4Intens[findfirst(==(:wst), CH4emiss.Wsector)]*10^-3)#0.15)
+set_value!(tch4[:pip], CH4emiss.CH4Intens[findfirst(==(:pip), CH4emiss.Wsector)]*10^-3)#0.3)
+set_value!(tch4[:min], CH4emiss.CH4Intens[findfirst(==(:min), CH4emiss.Wsector)]*10^-3)#0.2)
 unfix(RA)
 
 solve!(MP_MultiNat)
