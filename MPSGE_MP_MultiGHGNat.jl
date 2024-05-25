@@ -11,7 +11,7 @@ S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in 
 I = [i for i∈S[:i] if i∉[:use,:oth]]
 J = [i for i∈S[:j] if i∉[:use,:oth]]
 #subset index for Slack CH4 mitigation production
-C = [:agr,:oil,:uti,:wst,:pip,:min,]
+C = [:agr,:oil,:wst,:min,] #:uti, :pip,
 VA = [va for va∈S[:va] if va!=:othtax]
 FD = S[:fd]
 TS = S[:ts]
@@ -23,13 +23,24 @@ id_0 = P[:id_0]
 ys_0 = P[:ys_0]
 tm_0 = P[:tm_0]
 va_0 = P[:va_0]
+
+yr = Symbol(2017)
+
 ## Calculate CH4 Intensity factors from EPA data
 # EPA Non-CO2 Marginal Abatment Curve data, 2019
-CH4emissdata = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst], 
+CH4emissdata = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst],
+## EPA Total Emissions per sector, MMt CO2eq 
 EPAemiss =[300.8535461,260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
 ## EPA maximum % of abatement per sector at <$1000/t
 MaxpercMit = [.038,.304,.280,.645,.475,.050,.350],
 PAsector = ["AGRICULTURE, CROP","AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL","ENERGY, GAS","WASTE, LAN","WASTE, WWR"])
+
+CH4emiss = DenseAxisArray([300.8535461+260.483532+13.70952225 59.31302643 224.8979059 111.5049515+20.36144996
+(300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996);
+8962.758884 269.0188218 6944.389519 1795.700322],
+[CH4emissdata[1,1] CH4emissdata[4,1,] CH4emissdata[5,1] CH4emissdata[6,1]],
+[:Wsector :CH4emiss :EPAemiss])
+
 # Sum and weighted average before disaggregation
 CH4emiss = DataFrame(Wsector = [CH4emissdata[1,1],CH4emissdata[4,1,],CH4emissdata[5,1],CH4emissdata[6,1]],
 EPAemiss =[300.8535461+260.483532+13.70952225,59.31302643,224.8979059,111.5049515+20.36144996],
@@ -44,10 +55,7 @@ CH4emiss.CH4Intens = [CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),C
 ## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
 CH4emiss.CH4MitIntens = [(1-CH4emiss.MaxpercMit[1])*CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),(1-CH4emiss.MaxpercMit[2])*CH4emiss.EPAemiss[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),
 (1-CH4emiss.MaxpercMit[3])*CH4emiss.EPAemiss[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),(1-CH4emiss.MaxpercMit[4])*CH4emiss.EPAemiss[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]]) ]
-
-# CH4emiss.MitCost = [CH4emiss.EPAemiss[1]*CH4emiss.MaxpercMit[1]*10^9,CH4emiss.EPAemiss[2]*CH4emiss.MaxpercMit[2]*10^9,
-# CH4emiss.EPAemiss[3]*CH4emiss.MaxpercMit[3]*10^9,CH4emiss.EPAemiss[4]*CH4emiss.MaxpercMit[4]*10^9]
-
+## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
 CH4emiss.TotCostwMit = [CH4emiss.MitCostTot[1]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.MitCostTot[2]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[2]]),
 CH4emiss.MitCostTot[3]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.MitCostTot[4]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[4]])]
 ## Relative cost of VA including max mitigation
@@ -64,8 +72,21 @@ vam_0[:,:,:oil] = va_0[:,:,:oil].data .* CH4emiss.MitCostoverVA[findfirst(==(:oi
 vam_0[:,:,:pip] = va_0[:,:,:pip].data .* CH4emiss.MitCostoverVA[findfirst(==(:oil), CH4emiss.Wsector)]   
 vam_0[:,:,:wst] = va_0[:,:,:wst].data .* CH4emiss.MitCostoverVA[findfirst(==(:wst), CH4emiss.Wsector)]   
 
-tch4 = DenseAxisArray(CH4emiss[!,:CH4Intens], CH4emiss[!,:Wsector])
-tch4mit = DenseAxisArray(CH4emiss[!,:CH4MitIntens], CH4emiss[!,:Wsector])
+## Set vector of Values of CH4 intensities, default of 0
+ch4Int = DenseAxisArray(zeros(length(J)),J)
+ch4Int[:agr] = CH4emiss.CH4Intens[findfirst(==(:agr), CH4emiss.Wsector)]*10^-3
+ch4Int[:min] = CH4emiss.CH4Intens[findfirst(==(:min), CH4emiss.Wsector)]*10^-3
+ch4Int[:oil] = CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3
+ch4Int[:pip] = CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3
+ch4Int[:wst] = CH4emiss.CH4Intens[findfirst(==(:wst), CH4emiss.Wsector)]*10^-3
+
+ch4Intmit = DenseAxisArray(zeros(length(J)),J)
+ch4Intmit[:agr] = CH4emiss.CH4MitIntens[findfirst(==(:agr), CH4emiss.Wsector)]
+ch4Intmit[:min] = CH4emiss.CH4MitIntens[findfirst(==(:min), CH4emiss.Wsector)]
+ch4Intmit[:oil] = CH4emiss.CH4MitIntens[findfirst(==(:oil), CH4emiss.Wsector)]
+ch4Intmit[:pip] = CH4emiss.CH4MitIntens[findfirst(==(:oil), CH4emiss.Wsector)]
+ch4Intmit[:wst] = CH4emiss.CH4MitIntens[findfirst(==(:wst), CH4emiss.Wsector)]
+
 tax_ch4 = 0.
 
 md_0 = P[:md_0]
@@ -80,7 +101,6 @@ ta_0 = P[:ta_0]
 fs_0 = P[:fs_0]
 y_0 = P[:y_0];
 
-yr = Symbol(2017)
 
 MP_MultiNat = MPSGEModel()
 
@@ -88,7 +108,8 @@ MP_MultiNat = MPSGEModel()
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
-    tch4[J], DenseAxisArray(zeros(length(J)),J)
+    tax_ch4, 0.
+    # ch4Int[J], DenseAxisArray(zeros(length(J)),J)
 	tco2[J], DenseAxisArray(zeros(length(J)),J)
 end)
 
@@ -123,7 +144,7 @@ end
 for j∈J
     @production(MP_MultiNat, VALAD[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * tch4[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * ch4Int[j])]) for va∈VA]...
     end)
 end
 
@@ -131,7 +152,7 @@ end
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * tch4mit[j])]) for va∈VA]...
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, tax_ch4 * ch4Intmit[j])]) for va∈VA]... #tax_ch4
     end)
 end
 
@@ -144,7 +165,7 @@ end
 
 for i∈I
     @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tch4[i]), Tax(RA,tco2[i])],reference_price=1-(ta_0[yr,i]+tch4[i]+tco2[j]))]... 
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tco2[i]), Tax(RA,tax_ch4*ch4Int[i])],reference_price=1-(ta_0[yr,i]+tco2[i]+tax_ch4*ch4Int[i]))]... #Tax(RA,ch4Int[i]), price=ch4Int[i]+
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -162,7 +183,7 @@ end
 end)
 
 # Benchmark 
-fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
+# fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 
 solve!(MP_MultiNat)#; cumulative_iteration_limit = 0)
 
@@ -170,13 +191,8 @@ fullvrbnch = generate_report(MP_MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
-## Nominal tax rate on emissions per approx emissions intensity 
-set_value!(tch4[:agr], CH4emiss.CH4Intens[findfirst(==(:agr), CH4emiss.Wsector)]*10^-3)#0.4)
-set_value!(tch4[:oil], CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3)#0.4)
-set_value!(tch4[:uti], CH4emiss.CH4Intens[findfirst(==(:uti), CH4emiss.Wsector)]*10^-3)#0.1)
-set_value!(tch4[:wst], CH4emiss.CH4Intens[findfirst(==(:wst), CH4emiss.Wsector)]*10^-3)#0.15)
-set_value!(tch4[:pip], CH4emiss.CH4Intens[findfirst(==(:pip), CH4emiss.Wsector)]*10^-3)#0.3)
-set_value!(tch4[:min], CH4emiss.CH4Intens[findfirst(==(:min), CH4emiss.Wsector)]*10^-3)#0.2)
+# tax per ton of CH4 (CO2eq??)
+set_value!(tax_ch4, 10.)
 unfix(RA)
 
 solve!(MP_MultiNat)
@@ -191,18 +207,15 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 # set_value!(ta,0)
 # set_value!(tm,0)
 
-
+# # Counterfactual Fossil fuel extraction is ALSO taxed at (VERY NOMINAL ) ~ carbon content of combustion
 set_value!(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
 set_value!(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 fullvrboth = generate_report(MP_MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
-# # Counterfactual Fossil fuel extraction is taxed at (VERY NOMINAL ) ~ carbon content of combustion
-# #First, set CH4 taxes back to 0
-for i in I
-    set_value!(tch4[i], 0.0)
-end
+# #Then, set CH4 taxes back to 0 to generate CO2 tax only
+    set_value!(tax_ch4, 0.0)
 
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 #Generate Dataframe with all results (including names expressions)
@@ -210,9 +223,23 @@ fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-CompareFullResults = FullResults#[1:end,[1,2,4,6,8]]
+CompareFullResults = FullResults[1:end,[1,4,6,8]]
+
+CompareFullResults.check = Vector{Union{Missing, Float64}}(undef, length(CompareFullResults[:,1]))
+for n in 1:length(CompareFullResults[:,1]) 
+    if CompareFullResults[n,2] < 1 && CompareFullResults[n,3] > 1 #less than 1, more than 1
+        CompareFullResults.check[n] = CompareFullResults[n,2]+(CompareFullResults[n,3]-1)
+elseif CompareFullResults[n,2] < 1 && CompareFullResults[n,3] < 1 #less than 1, less than 1
+    CompareFullResults.check[n] = CompareFullResults[n,2]-(1-CompareFullResults[n,3])
+elseif CompareFullResults[n,2] > 1 && CompareFullResults[n,3] < 1 #less than 1, more than 1
+    CompareFullResults.check[n] = CompareFullResults[n,2]-(1-CompareFullResults[n,3])
+else CompareFullResults.check[n] =  CompareFullResults[n,2]+(CompareFullResults[n,3]-1)
+end
+end
+CompareFullResults.diff = CompareFullResults.both - CompareFullResults.check
 
 CompareFullResults[!,:var] = Symbol.(CompareFullResults[:,:var])
 # print(CompareFullResults)#[359:1200,:])
 # print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true))#[5800:6000,:])
 print(sort!(CompareFullResults, :var))
+print(sort!(CompareFullResults, :diff, by = abs, rev=true))
