@@ -1,3 +1,8 @@
+# TODO 1) Actualy CO2 intentisities (from EPA Inventory, TAble 1-4)
+# TODO 2) Separate CO2 tax
+# TODO 3) Re-check magnitudes and units for CH4 taxes
+# TODO 4) Update tax in Demand as well
+
 # Adapted from WiNDC National Model
 using MPSGE_MP
 using DataFrames, JLD2
@@ -26,23 +31,29 @@ va_0 = P[:va_0]
 
 yr = Symbol(2017)
 
-## Calculate CH4 Intensity factors from EPA data
-# EPA Non-CO2 Marginal Abatment Curve data, 2019
-CH4emissdata = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst],
+## Base Data for reference
+# EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
+CH4emissdatadf = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst],
 ## EPA Total Emissions per sector, MMt CO2eq 
 EPAemiss =[300.8535461,260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
 ## EPA maximum % of abatement per sector at <$1000/t
 MaxpercMit = [.038,.304,.280,.645,.475,.050,.350],
 PAsector = ["AGRICULTURE, CROP","AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL","ENERGY, GAS","WASTE, LAN","WASTE, WWR"])
 
+## Calculate CH4 Intensity factors from EPA data
+# EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
+# Sum and weighted average with current aggregation, before disaggregation
 CH4emiss = DenseAxisArray([300.8535461+260.483532+13.70952225 59.31302643 224.8979059 111.5049515+20.36144996
+## Weighted average per sector
 (300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996);
+## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
+## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
 8962.758884 269.0188218 6944.389519 1795.700322],
-[CH4emissdata[1,1] CH4emissdata[4,1,] CH4emissdata[5,1] CH4emissdata[6,1]],
-[:Wsector :CH4emiss :EPAemiss])
+[:EPAemiss :MaxpercMit :MitCostTot],
+[:agr,:min,:oil,:wst])
 
 # Sum and weighted average before disaggregation
-CH4emiss = DataFrame(Wsector = [CH4emissdata[1,1],CH4emissdata[4,1,],CH4emissdata[5,1],CH4emissdata[6,1]],
+CH4emissdf = DataFrame(Wsector = [CH4emissdata[1,1],CH4emissdata[4,1,],CH4emissdata[5,1],CH4emissdata[6,1]],
 EPAemiss =[300.8535461+260.483532+13.70952225,59.31302643,224.8979059,111.5049515+20.36144996],
 ## Weighted average per sector
 MaxpercMit = [(300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225), .645,.475, (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)],
@@ -50,42 +61,57 @@ MaxpercMit = [(300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+2
 ## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
 MitCostTot = [8962.758884,269.0188218,6944.389519,1795.700322])
 
+CH4calc = DenseAxisArray([
 ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
-CH4emiss.CH4Intens = [CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.EPAemiss[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),CH4emiss.EPAemiss[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.EPAemiss[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]]) ]
+    [CH4emiss[:EPAemiss,i]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]];;
 ## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
-CH4emiss.CH4MitIntens = [(1-CH4emiss.MaxpercMit[1])*CH4emiss.EPAemiss[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),(1-CH4emiss.MaxpercMit[2])*CH4emiss.EPAemiss[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),
-(1-CH4emiss.MaxpercMit[3])*CH4emiss.EPAemiss[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),(1-CH4emiss.MaxpercMit[4])*CH4emiss.EPAemiss[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]]) ]
+    [(1-CH4emiss[:MaxpercMit,i])*CH4emiss[:EPAemiss,i]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]];;
 ## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
-CH4emiss.TotCostwMit = [CH4emiss.MitCostTot[1]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.MitCostTot[2]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[2]]),
-CH4emiss.MitCostTot[3]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.MitCostTot[4]/10^3+sum(va_0[yr,:,CH4emiss.Wsector[4]])]
+    [CH4emiss[:MitCostTot,i]/10^3+sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]]],
+        [i for i in axes(CH4emiss)[2]],
+        [:CH4Intens :CH4MitIntens :TotCostwMit ])
+
 ## Relative cost of VA including max mitigation
-CH4emiss.MitCostoverVA = [CH4emiss.TotCostwMit[1]/sum(va_0[yr,:,CH4emiss.Wsector[1]]),CH4emiss.TotCostwMit[2]/sum(va_0[yr,:,CH4emiss.Wsector[2]]),
-CH4emiss.TotCostwMit[3]/sum(va_0[yr,:,CH4emiss.Wsector[3]]),CH4emiss.TotCostwMit[4]/sum(va_0[yr,:,CH4emiss.Wsector[4]])]
+MitCostoverVA = DenseAxisArray([CH4calc[i,:TotCostwMit]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]],
+[i for i in axes(CH4emiss)[2]])
+
+## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
+CH4emissdf.CH4Intens = [CH4emissdf.EPAemiss[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.EPAemiss[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),CH4emissdf.EPAemiss[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.EPAemiss[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]]) ]
+## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
+CH4emissdf.CH4MitIntens = [(1-CH4emissdf.MaxpercMit[1])*CH4emissdf.EPAemiss[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),(1-CH4emissdf.MaxpercMit[2])*CH4emissdf.EPAemiss[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
+(1-CH4emissdf.MaxpercMit[3])*CH4emissdf.EPAemiss[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),(1-CH4emissdf.MaxpercMit[4])*CH4emissdf.EPAemiss[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]]) ]
+## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
+CH4emissdf.TotCostwMit = [CH4emissdf.MitCostTot[1]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.MitCostTot[2]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
+CH4emissdf.MitCostTot[3]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.MitCostTot[4]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[4]])]
+## Relative cost of VA including max mitigation
+CH4emissdf.MitCostoverVA = [CH4emissdf.TotCostwMit[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.TotCostwMit[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
+CH4emissdf.TotCostwMit[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.TotCostwMit[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]])]
 
 vam_0 = deepcopy(va_0) #copy for slack mitigating activty
 # inputs with additional % needed for mitigation
 vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, back up to ensure slack (but redundant with filtered index for mitigating production)
-vam_0[:,:,:agr] = va_0[:,:,:agr].data .* CH4emiss.MitCostoverVA[findfirst(==(:agr), CH4emiss.Wsector)]  
-vam_0[:,:,:min] = va_0[:,:,:min].data .* CH4emiss.MitCostoverVA[findfirst(==(:min), CH4emiss.Wsector)]   
-vam_0[:,:,:oil] = va_0[:,:,:oil].data .* CH4emiss.MitCostoverVA[findfirst(==(:oil), CH4emiss.Wsector)]   
+vam_0[:,:,:agr] = va_0[:,:,:agr].data .* MitCostoverVA[:agr]
+vam_0[:,:,:min] = va_0[:,:,:min].data .* MitCostoverVA[:min]   
+vam_0[:,:,:oil] = va_0[:,:,:oil].data .* MitCostoverVA[:oil]   
 ## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-vam_0[:,:,:pip] = va_0[:,:,:pip].data .* CH4emiss.MitCostoverVA[findfirst(==(:oil), CH4emiss.Wsector)]   
-vam_0[:,:,:wst] = va_0[:,:,:wst].data .* CH4emiss.MitCostoverVA[findfirst(==(:wst), CH4emiss.Wsector)]   
+vam_0[:,:,:pip] = va_0[:,:,:pip].data .* MitCostoverVA[:oil]   
+vam_0[:,:,:wst] = va_0[:,:,:wst].data .* MitCostoverVA[:wst]   
 
 ## Set vector of Values of CH4 intensities, default of 0
 ch4Int = DenseAxisArray(zeros(length(J)),J)
-ch4Int[:agr] = CH4emiss.CH4Intens[findfirst(==(:agr), CH4emiss.Wsector)]*10^-3
-ch4Int[:min] = CH4emiss.CH4Intens[findfirst(==(:min), CH4emiss.Wsector)]*10^-3
-ch4Int[:oil] = CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3
-ch4Int[:pip] = CH4emiss.CH4Intens[findfirst(==(:oil), CH4emiss.Wsector)]*10^-3
-ch4Int[:wst] = CH4emiss.CH4Intens[findfirst(==(:wst), CH4emiss.Wsector)]*10^-3
+ch4Int[:agr] = CH4calc[:agr,:CH4Intens]*10^-3
+ch4Int[:min] = CH4calc[:min,:CH4Intens]*10^-3
+ch4Int[:oil] = CH4calc[:oil,:CH4Intens]*10^-3
+## Use oil proportional mitigation cost for pipeline,no EPA MAC data
+ch4Int[:pip] = CH4calc[:oil,:CH4Intens]*10^-3
+ch4Int[:wst] = CH4calc[:wst,:CH4Intens]*10^-3
 
 ch4Intmit = DenseAxisArray(zeros(length(J)),J)
-ch4Intmit[:agr] = CH4emiss.CH4MitIntens[findfirst(==(:agr), CH4emiss.Wsector)]
-ch4Intmit[:min] = CH4emiss.CH4MitIntens[findfirst(==(:min), CH4emiss.Wsector)]
-ch4Intmit[:oil] = CH4emiss.CH4MitIntens[findfirst(==(:oil), CH4emiss.Wsector)]
-ch4Intmit[:pip] = CH4emiss.CH4MitIntens[findfirst(==(:oil), CH4emiss.Wsector)]
-ch4Intmit[:wst] = CH4emiss.CH4MitIntens[findfirst(==(:wst), CH4emiss.Wsector)]
+ch4Intmit[:agr] = CH4calc[:agr,:CH4MitIntens]*10^-3
+ch4Intmit[:min] = CH4calc[:agr,:CH4MitIntens]*10^-3
+ch4Intmit[:oil] = CH4calc[:agr,:CH4MitIntens]*10^-3
+ch4Intmit[:pip] = CH4calc[:agr,:CH4MitIntens]*10^-3
+ch4Intmit[:wst] = CH4calc[:agr,:CH4MitIntens]*10^-3
 
 tax_ch4 = 0.
 
