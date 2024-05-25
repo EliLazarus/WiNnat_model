@@ -52,15 +52,6 @@ CH4emiss = DenseAxisArray([300.8535461+260.483532+13.70952225 59.31302643 224.89
 [:EPAemiss :MaxpercMit :MitCostTot],
 [:agr,:min,:oil,:wst])
 
-# Sum and weighted average before disaggregation
-CH4emissdf = DataFrame(Wsector = [CH4emissdata[1,1],CH4emissdata[4,1,],CH4emissdata[5,1],CH4emissdata[6,1]],
-EPAemiss =[300.8535461+260.483532+13.70952225,59.31302643,224.8979059,111.5049515+20.36144996],
-## Weighted average per sector
-MaxpercMit = [(300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225), .645,.475, (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)],
-## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
-## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
-MitCostTot = [8962.758884,269.0188218,6944.389519,1795.700322])
-
 CH4calc = DenseAxisArray([
 ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
     [CH4emiss[:EPAemiss,i]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]];;
@@ -74,18 +65,6 @@ CH4calc = DenseAxisArray([
 ## Relative cost of VA including max mitigation
 MitCostoverVA = DenseAxisArray([CH4calc[i,:TotCostwMit]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]],
 [i for i in axes(CH4emiss)[2]])
-
-## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
-CH4emissdf.CH4Intens = [CH4emissdf.EPAemiss[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.EPAemiss[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),CH4emissdf.EPAemiss[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.EPAemiss[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]]) ]
-## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
-CH4emissdf.CH4MitIntens = [(1-CH4emissdf.MaxpercMit[1])*CH4emissdf.EPAemiss[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),(1-CH4emissdf.MaxpercMit[2])*CH4emissdf.EPAemiss[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
-(1-CH4emissdf.MaxpercMit[3])*CH4emissdf.EPAemiss[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),(1-CH4emissdf.MaxpercMit[4])*CH4emissdf.EPAemiss[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]]) ]
-## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
-CH4emissdf.TotCostwMit = [CH4emissdf.MitCostTot[1]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.MitCostTot[2]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
-CH4emissdf.MitCostTot[3]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.MitCostTot[4]/10^3+sum(va_0[yr,:,CH4emissdf.Wsector[4]])]
-## Relative cost of VA including max mitigation
-CH4emissdf.MitCostoverVA = [CH4emissdf.TotCostwMit[1]/sum(va_0[yr,:,CH4emissdf.Wsector[1]]),CH4emissdf.TotCostwMit[2]/sum(va_0[yr,:,CH4emissdf.Wsector[2]]),
-CH4emissdf.TotCostwMit[3]/sum(va_0[yr,:,CH4emissdf.Wsector[3]]),CH4emissdf.TotCostwMit[4]/sum(va_0[yr,:,CH4emissdf.Wsector[4]])]
 
 vam_0 = deepcopy(va_0) #copy for slack mitigating activty
 # inputs with additional % needed for mitigation
