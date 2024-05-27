@@ -1,7 +1,8 @@
-# TODO 1) Actualy CO2 intentisities (from EPA Inventory, TAble 1-4)
+# TODO 1) Done: (assuming the index was correct) Actualy CO2 intentisities (from EPA Inventory, TAble 1-4)
 # TODO 2) Separate CO2 tax
 # TODO 3) Re-check magnitudes and units for CH4 taxes
-# TODO 4) Update tax in Demand as well
+# TODO 4) Magniture for both - theoretically I want to be able to apply a tax at a reasonable 
+# absolute magnitude, BUT taxes in MPSGE at % per input, or output
 
 # Adapted from WiNDC National Model
 using MPSGE_MP
@@ -78,21 +79,25 @@ vam_0[:,:,:wst] = va_0[:,:,:wst].data .* MitCostoverVA[:wst]
 
 ## Set vector of Values of CH4 intensities, default of 0
 ch4Int = DenseAxisArray(zeros(length(J)),J)
-ch4Int[:agr] = CH4calc[:agr,:CH4Intens]*10^-3
-ch4Int[:min] = CH4calc[:min,:CH4Intens]*10^-3
-ch4Int[:oil] = CH4calc[:oil,:CH4Intens]*10^-3
+ch4Int[:agr] = CH4calc[:agr,:CH4Intens]
+ch4Int[:min] = CH4calc[:min,:CH4Intens]
+ch4Int[:oil] = CH4calc[:oil,:CH4Intens]
 ## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-ch4Int[:pip] = CH4calc[:oil,:CH4Intens]*10^-3
-ch4Int[:wst] = CH4calc[:wst,:CH4Intens]*10^-3
+ch4Int[:pip] = CH4calc[:oil,:CH4Intens]
+ch4Int[:wst] = CH4calc[:wst,:CH4Intens]
 
 ch4Intmit = DenseAxisArray(zeros(length(J)),J)
-ch4Intmit[:agr] = CH4calc[:agr,:CH4MitIntens]*10^-3
-ch4Intmit[:min] = CH4calc[:agr,:CH4MitIntens]*10^-3
-ch4Intmit[:oil] = CH4calc[:agr,:CH4MitIntens]*10^-3
-ch4Intmit[:pip] = CH4calc[:agr,:CH4MitIntens]*10^-3
-ch4Intmit[:wst] = CH4calc[:agr,:CH4MitIntens]*10^-3
+ch4Intmit[:agr] = CH4calc[:agr,:CH4MitIntens]
+ch4Intmit[:min] = CH4calc[:min,:CH4MitIntens]
+ch4Intmit[:oil] = CH4calc[:oil,:CH4MitIntens]
+ch4Intmit[:pip] = CH4calc[:oil,:CH4MitIntens]
+ch4Intmit[:wst] = CH4calc[:wst,:CH4MitIntens]
 
-tax_ch4 = 0.
+CO2Int = DenseAxisArray(zeros(length(J)),J)
+# MMtCO2eq/$Bill
+CO2Int[:min] =  8.12179 
+CO2Int[:oil] = 5.11322 
+
 
 md_0 = P[:md_0]
 fd_0 = P[:fd_0]
@@ -114,8 +119,9 @@ MP_MultiNat = MPSGEModel()
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
     tax_ch4, 0.
+    tax_co2, 0.
     # ch4Int[J], DenseAxisArray(zeros(length(J)),J)
-	tco2[J], DenseAxisArray(zeros(length(J)),J)
+	# tco2[J], DenseAxisArray(zeros(length(J)),J)
 end)
 
 @sectors(MP_MultiNat,begin
@@ -138,10 +144,17 @@ end)
 
 @consumer(MP_MultiNat, RA, description = "Representative Agent")
 
+@auxiliaries(MP_MultiNat, begin
+    CH4[J], (description = "CH4 Emissions, emissions Inensity x Inputs")
+    CH4mit[C], (description = "CH4 Emissions, mitigated emissions Inensity x Inputs")
+
+end)
+
+
 for j∈J
     @production(MP_MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
-        [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,tco2[j])]) for i∈I]...
+        [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,tax_co2 * CO2Int[i])]) for i∈I]...
         @input(PVAM[j], sum(va_0[yr,VA,j]), s)
     end)
 end
@@ -149,7 +162,7 @@ end
 for j∈J
     @production(MP_MultiNat, VALAD[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * ch4Int[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * CH4[j])]) for va∈VA]...
     end)
 end
 
@@ -157,7 +170,7 @@ end
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, tax_ch4 * ch4Intmit[j])]) for va∈VA]... #tax_ch4
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, tax_ch4 * CH4mit[j])]) for va∈VA]...
     end)
 end
 
@@ -170,7 +183,7 @@ end
 
 for i∈I
     @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tco2[i]), Tax(RA,tax_ch4*ch4Int[i])],reference_price=1-(ta_0[yr,i]+tco2[i]+tax_ch4*ch4Int[i]))]... #Tax(RA,ch4Int[i]), price=ch4Int[i]+
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tax_co2*CO2Int[i]), Tax(RA,tax_ch4*ch4Int[i])],reference_price=1-(ta_0[yr,i]+tax_co2*CO2Int[i]+tax_ch4*ch4Int[i]))]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -187,6 +200,16 @@ end
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
 end)
 
+for j ∈ J
+    @aux_constraint(MP_MultiNat, CH4[j],
+    (ch4Int[j]*sum(va_0[yr,:,j]) *VALAD[j]))
+end
+
+for j ∈ C
+    @aux_constraint(MP_MultiNat, CH4mit[j],
+        (ch4Intmit[j]*sum(vam_0[yr,:,j]) * VAM[j]))
+    end
+    
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 
@@ -197,7 +220,7 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
 # tax per ton of CH4 (CO2eq??)
-set_value!(tax_ch4, 10.)
+set_value!(tax_ch4, 1000.)
 unfix(RA)
 
 solve!(MP_MultiNat)
@@ -213,8 +236,9 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 # set_value!(tm,0)
 
 # # Counterfactual Fossil fuel extraction is ALSO taxed at (VERY NOMINAL ) ~ carbon content of combustion
-set_value!(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
-set_value!(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
+set_value!(tax_co2, 40)
+# set_value!(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
+# set_value!(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 fullvrboth = generate_report(MP_MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
