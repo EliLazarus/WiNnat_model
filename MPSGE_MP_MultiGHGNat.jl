@@ -28,7 +28,6 @@ m_0 = P[:m_0] #	    "Imports",
 ms_0 = P[:ms_0] #	"Margin supply",
 bopdef_0 = P[:bopdef_0] #	"Balance of payments deficit",
 x_0 = P[:x_0] #	    "Exports of goods and services",
-fs_0 = P[:fs_0] #	"Household supply", # All zeros
 y_0 = P[:y_0]  #	"Gross output",
 ## Existing Taxes
 ty_0 = P[:ty_0] #	"Output tax rate"
@@ -113,8 +112,9 @@ MP_MultiNat = MPSGEModel()
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
-    ch4_tax[J], DenseAxisArray(zeros(length(J)),J)
-    ch4_taxmit[C], DenseAxisArray(zeros(length(C)),C)
+    # ch4_tax[J], DenseAxisArray(zeros(length(J)),J)
+    # ch4_taxmit[C], DenseAxisArray(zeros(length(C)),C)
+    ch4_tax, 0.
     tax_co2, 0.
 end)
 
@@ -149,7 +149,7 @@ end
 for j∈J
     @production(MP_MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax[j]* ch4Int[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax* ch4Int[j])]) for va∈VA]...
     end)
 end
 
@@ -157,7 +157,7 @@ end
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_taxmit[j]* ch4Intmit[j])]) for va∈VA]...
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4Intmit[j])]) for va∈VA]...
     end)
 end
 
@@ -170,7 +170,7 @@ end
 
 for i∈I
     @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-(ta_0[yr,i]))]... # , Tax(RA,tax_co2*CO2Int[i]), Tax(RA,CH4tax[i]) # price +tax_co2*CO2Int[i]+CH4tax[i]
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-(ta_0[yr,i]))]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -181,7 +181,6 @@ end
 @demand(MP_MultiNat, RA, begin
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     end,begin
-    [@endowment(PY[i], fs_0[yr,i]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
@@ -199,9 +198,7 @@ print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 # tax are at $s per ton of CH4 (CO2eq)
 taxrate_ch4 = 30.
 ## Divide by 1,000 for $Bill/MMt
-for j in J
-set_value!(ch4_tax[j], (taxrate_ch4 *10^-3))
-end
+set_value!(ch4_tax, (taxrate_ch4 *10^-3))
 
 unfix(RA)
 solve!(MP_MultiNat)
@@ -258,4 +255,4 @@ print(sort!(Compare, :var))
 print(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 
 using CSV
-Sectors = CSV.read("Sectors.csv", DataFrame)
+Sectors = CSV.read("Sectors.csv", DataFrame);
