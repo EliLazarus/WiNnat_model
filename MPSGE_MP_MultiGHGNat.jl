@@ -95,9 +95,8 @@ ch4Intmit[:wst] = CH4calc[:wst,:CH4MitIntens]
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # MMtCO2eq/$Bill
-CO2Int[:min] =  8.12179 
-CO2Int[:oil] = 5.11322 
-
+CO2Int[:min] =  8.121789674248 
+CO2Int[:oil] =  5.113219404020
 
 md_0 = P[:md_0]
 fd_0 = P[:fd_0]
@@ -111,23 +110,21 @@ ta_0 = P[:ta_0]
 fs_0 = P[:fs_0]
 y_0 = P[:y_0];
 
-
 MP_MultiNat = MPSGEModel()
 
 @parameters(MP_MultiNat, begin
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
-    tax_ch4, 0.
+    ch4_tax[J], DenseAxisArray(zeros(length(J)),J)
+    ch4_taxmit[C], DenseAxisArray(zeros(length(C)),C)
     tax_co2, 0.
-    # ch4Int[J], DenseAxisArray(zeros(length(J)),J)
-	# tco2[J], DenseAxisArray(zeros(length(J)),J)
 end)
 
 @sectors(MP_MultiNat,begin
     Y[J],  (description = "Sectoral Production",)
     A[I],  (description = "Armington Supply",)
-    VALAD[J], (description = "Value Added, standard")
+    VAS[J], (description = "Value Added, standard")
     VAM[J], (description = "Value Added, with additional mitigating activity")
     MS[M], (description = "Margin Supply",)
 
@@ -144,11 +141,11 @@ end)
 
 @consumer(MP_MultiNat, RA, description = "Representative Agent")
 
-@auxiliaries(MP_MultiNat, begin
-    CH4[J], (description = "CH4 Emissions, emissions Inensity x Inputs")
-    CH4mit[C], (description = "CH4 Emissions, mitigated emissions Inensity x Inputs")
+# @auxiliaries(MP_MultiNat, begin
+#     CH4tax[J], (description = "CH4 Emissions, emissions Inensity x Inputs")
+#     CH4mittax[C], (description = "CH4 Emissions, mitigated emissions Inensity x Inputs")
 
-end)
+# end)
 
 
 for j∈J
@@ -160,9 +157,9 @@ for j∈J
 end
 
 for j∈J
-    @production(MP_MultiNat, VALAD[j], [t=0, s = 0, va => s = 1], begin
+    @production(MP_MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,tax_ch4 * CH4[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax[j]* ch4Int[j])]) for va∈VA]...
     end)
 end
 
@@ -170,7 +167,7 @@ end
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, tax_ch4 * CH4mit[j])]) for va∈VA]...
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_taxmit[j]* ch4Intmit[j])]) for va∈VA]...
     end)
 end
 
@@ -183,7 +180,7 @@ end
 
 for i∈I
     @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i]), Tax(RA,tax_co2*CO2Int[i]), Tax(RA,tax_ch4*ch4Int[i])],reference_price=1-(ta_0[yr,i]+tax_co2*CO2Int[i]+tax_ch4*ch4Int[i]))]...
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-(ta_0[yr,i]))]... # , Tax(RA,tax_co2*CO2Int[i]), Tax(RA,CH4tax[i]) # price +tax_co2*CO2Int[i]+CH4tax[i]
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -200,15 +197,16 @@ end
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
 end)
 
-for j ∈ J
-    @aux_constraint(MP_MultiNat, CH4[j],
-    (ch4Int[j]*sum(va_0[yr,:,j]) *VALAD[j]))
-end
+# for j ∈ J
+#     @aux_constraint(MP_MultiNat, CH4tax[j],
+#     (taxrate_ch4 * ch4Int[j]*sum(va_0[yr,:,j])*10^-3)/sum(va_0[yr,:,j])) #*VAS[j]
+# end
 
-for j ∈ C
-    @aux_constraint(MP_MultiNat, CH4mit[j],
-        (ch4Intmit[j]*sum(vam_0[yr,:,j]) * VAM[j]))
-    end
+# ## Tax rate (% of input value) is function of emissions, tax ($/t) activity level and input levels over the benchmark input value
+# for j ∈ C
+#     @aux_constraint(MP_MultiNat, CH4mittax[j],
+#         (taxrate_ch4 * ch4Intmit[j]*sum(vam_0[yr,:,j])*10^-3)/sum(vam_0[yr,:,j])) #* VAM[j]
+#     end
     
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
@@ -220,7 +218,12 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
 # tax per ton of CH4 (CO2eq??)
-set_value!(tax_ch4, 1000.)
+# set_value!(taxrate_ch4,  1.)
+taxrate_ch4 = 30.
+for j in J
+set_value!(ch4_tax[j],      (taxrate_ch4 *10^-3))
+end
+
 unfix(RA)
 
 solve!(MP_MultiNat)
@@ -235,16 +238,17 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 # set_value!(ta,0)
 # set_value!(tm,0)
 
-# # Counterfactual Fossil fuel extraction is ALSO taxed at (VERY NOMINAL ) ~ carbon content of combustion
-set_value!(tax_co2, 40)
-# set_value!(tco2[:oil], 0.2) # nominal value of tax and carbon intensity combied
-# set_value!(tco2[:min], 0.4) # nominal value of tax and carbon intensity combied
+# # Counterfactual Fossil fuel extraction is taxed at emissions intensitiy of input x tax in $/ton
+CO2_taxrate = 80 
+set_value!(tax_co2, CO2_taxrate * 10^-3)
+
+
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 fullvrboth = generate_report(MP_MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 # #Then, set CH4 taxes back to 0 to generate CO2 tax only
-    set_value!(tax_ch4, 0.0)
+    set_value!(ch4_tax, 0.0)
 
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 #Generate Dataframe with all results (including names expressions)
@@ -252,7 +256,7 @@ fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-CompareFullResults = FullResults[1:end,[1,4,6,8]]
+CompareFullResults = FullResults[1:end,[1,4,6,8,2]]
 
 CompareFullResults.check = Vector{Union{Missing, Float64}}(undef, length(CompareFullResults[:,1]))
 for n in 1:length(CompareFullResults[:,1]) 
@@ -271,4 +275,4 @@ CompareFullResults[!,:var] = Symbol.(CompareFullResults[:,:var])
 # print(CompareFullResults)#[359:1200,:])
 # print(sort!(CompareFullResults, :bmkmarg, by = abs, rev =true))#[5800:6000,:])
 print(sort!(CompareFullResults, :var))
-print(sort!(CompareFullResults, :diff, by = abs, rev=true))
+print(sort!(CompareFullResults, :diff, by = abs, rev=true))#[1:15,:])
