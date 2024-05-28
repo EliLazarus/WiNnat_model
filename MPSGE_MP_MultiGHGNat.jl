@@ -255,4 +255,7 @@ end
 
 Compare[!,:var] = Symbol.(Compare[:,:var])
 print(sort!(Compare, :var))
-print(sort!(Compare, :diff, by = abs, rev=true))#[1:15,:])
+print(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
+
+using CSV
+Sectors = CSV.read("Sectors.csv", DataFrame)
