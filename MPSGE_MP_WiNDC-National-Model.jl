@@ -8,41 +8,34 @@ using MPSGE_MP.JuMP.Containers
 P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 
-I = [i for i∈S[:i] if i∉[:use,:oth]]
-J = [i for i∈S[:j] if i∉[:use,:oth]]
-VA = [va for va∈S[:va] if va!=:othtax]
+I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
+J = [i for i∈S[:j] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
+VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd]
 TS = S[:ts]
-YR = S[:yr]
+YR = S[:yr] # Index for years for potential multi year runs
 M = S[:m]
 
-a_0 = P[:a_0]
-id_0 = P[:id_0]
-ys_0 = P[:ys_0]
-tm_0 = P[:tm_0]
-va_0 = P[:va_0]
-md_0 = P[:md_0]
-fd_0 = P[:fd_0]
-m_0 = P[:m_0]
-ty_0 = P[:ty_0]
-ms_0 = P[:ms_0]
-bopdef_0 = P[:bopdef_0]
-x_0 = P[:x_0]
-ta_0 = P[:ta_0]
-#s_0 = P[:s_0]
-fs_0 = P[:fs_0]
-y_0 = P[:y_0];
+a_0 = P[:a_0] #	    "Armington supply",
+id_0 = P[:id_0] #	"Intermediate demand",
+ys_0 = P[:ys_0]#	"Sectoral supply",
+va_0 = P[:va_0] #	"Value added",
+md_0 = P[:md_0] #	"Margin demand",
+fd_0 = P[:fd_0] #	"Final demand",
+m_0 = P[:m_0] #	    "Imports",
+ms_0 = P[:ms_0] #	"Margin supply",
+bopdef_0 = P[:bopdef_0] #	"Balance of payments deficit",
+x_0 = P[:x_0] #	    "Exports of goods and services",
+fs_0 = P[:fs_0] #	"Household supply", # All zeros
+y_0 = P[:y_0];  #	"Gross output",
 
+ty_0 = P[:ty_0] #	"Output tax rate"
+tm_0 = P[:tm_0] #	"Import tariff"; Initial, for price 
+ta_0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark as data also for price level
 
-
-1;
 yr = Symbol(2017)
 
 WiNnat = MPSGEModel()
-
-#y_ = [j for j∈J if sum(ys_0[yr,j,i] for i∈I) !=0]
-#a_ = [i_ for i_∈I if a_0[yr,i_]!=0]
-
 
 @parameters(WiNnat, begin
     ta[J], ta_0[yr,J]
