@@ -97,7 +97,7 @@ end)
 
 1;
 # Benchmark 
-#fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
+fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
@@ -113,4 +113,4 @@ solve!(WiNnat)
 df = generate_report(WiNnat);
 df |>
     x -> sort(x, :margin, rev=true)
-value.(Y)
+[Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
