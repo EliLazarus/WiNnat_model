@@ -3,10 +3,12 @@ using MPSGE_MP
 using DataFrames, JLD2
 using JuMP
 using MPSGE_MP.JuMP.Containers
+using CSV
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
 P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
+Sectors = CSV.read("Sectors.csv", DataFrame);
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 J = [i for i∈S[:j] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
@@ -54,9 +56,15 @@ CH4emiss = DenseAxisArray([300.8535461+260.483532+13.70952225 59.31302643 224.89
     (300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
 ## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
 ## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
-    8962.758884 269.0188218 6944.389519 1795.700322],
+    8962.758884 269.0188218 6862.194574 1795.700322],
 [:EPAemiss :MaxpercMit :MitCostTot],
 [:agr,:min,:oil,:wst])
+
+# #Alternative, calculated with dataframe
+# testdf = combine(groupby(CH4emissdatadf, :Wsector), [:EPAemiss, :Mitigated] .=> sum,  renamecols=false)
+# testdf.MaxpercMit = testdf[!,:Mitigated]./testdf[!,:EPAemiss]
+# #bHere add already calculated, but better to upload full table and calculate in Julia
+# testdf.MitCostTot =  [8962.758884, 269.0188218, 6862.194574, 1795.700322]
 
 CH4calc = DenseAxisArray([
 ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
@@ -112,8 +120,6 @@ MP_MultiNat = MPSGEModel()
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
-    # ch4_tax[J], DenseAxisArray(zeros(length(J)),J)
-    # ch4_taxmit[C], DenseAxisArray(zeros(length(C)),C)
     ch4_tax, 0.
     tax_co2, 0.
 end)
@@ -135,6 +141,9 @@ end)
     PM[M],   (description = "Margin Price",)
     PFX,     (description = "Foreign Exachange",)
 end)
+
+@auxiliary(MP_MultiNat, CO2em, index = [[:min, :oil]])
+@auxiliary(MP_MultiNat, CO2emTot, description = "Total CO2 emissions from fossil fuels")
 
 @consumer(MP_MultiNat, RA, description = "Representative Agent")
 
@@ -184,8 +193,11 @@ end
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
-end)
-  
+end, elasticity = 1)
+
+@aux_constraint(MP_MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
+@aux_constraint(MP_MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
+@aux_constraint(MP_MultiNat, CO2emTot, CO2emTot - (CO2em[:min] + CO2em[:oil]))
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
@@ -196,14 +208,23 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
 # tax are at $s per ton of CH4 (CO2eq)
-taxrate_ch4 = 30.
-## Divide by 1,000 for $Bill/MMt
+taxrate_ch4 = 1600. 
+"* CO2 conversion rate back to per ton of 
+Or alternatively, re-work data replcing CH4 in actual tons"
+## Divided by 1,000 for $Bill/MMt
 set_value!(ch4_tax, (taxrate_ch4 *10^-3))
 
 unfix(RA)
 solve!(MP_MultiNat)
+
+Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+Rs[:,2][1:4]
+Rs[:,2][67:71]
+
 fullvrch4 = generate_report(MP_MultiNat)
 rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
+
 # print(sort(df, :margin, by= abs, rev=true))
 # print(df)
 
@@ -213,18 +234,28 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 # set_value!(ta,0)
 
 # # Counterfactual Fossil fuel extraction is taxed at emissions intensitiy of input x tax in $/ton
-CO2_taxrate = 80 
+CO2_taxrate = 190 
 set_value!(tax_co2, CO2_taxrate * 10^-3)
 
-
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+
+# Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+# Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+# Rs[:,2][1:5]
+# Rs[:,2][67:71]
+
 fullvrboth = generate_report(MP_MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 # #Then, set CH4 taxes back to 0 to generate CO2 tax only
-    set_value!(ch4_tax, 0.0)
+#     set_value!(ch4_tax, 0.0)
 
-solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+# solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+
+# Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+# Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+# Rs[:,2][1:4]
+# Rs[:,2][67:71]
 #Generate Dataframe with all results (including names expressions)
 fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
@@ -253,6 +284,6 @@ end
 Compare[!,:var] = Symbol.(Compare[:,:var])
 print(sort!(Compare, :var))
 print(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
+# CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults.csv", Compare, missingstring="missing", bom=true)
 
-using CSV
-Sectors = CSV.read("Sectors.csv", DataFrame);
+
