@@ -12,8 +12,8 @@ Sectors = CSV.read("Sectors.csv", DataFrame);
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 J = [i for i∈S[:j] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
-#subset index for Slack CH4 mitigation production
-C = [:agr,:oil,:pip,:wst,:min,] #:uti, :pip,
+#subset index for slack CH4 mitigation production
+C = [:agr,:min,:pip,:oil,:wst] #:uti?
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd]
 TS = S[:ts]
@@ -50,7 +50,7 @@ yr = Symbol(2017)
 
 ## Calculate CH4 Intensity factors from EPA data
 # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
-# Sum and weighted average with current aggregation, before disaggregation
+# Sum and weighted average with current aggregation (before potential disaggregation of WiNDC data at some point)
 CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.8979059/2 111.5049515+20.36144996
 ## Weighted average per sector
     (260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
@@ -61,50 +61,38 @@ CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.
 [:EPAemiss :MaxpercMit :MitCostTot],
 [:agr,:min,:pip,:oil,:wst])
 
-# #Alternative, calculated with dataframe
-# testdf = combine(groupby(CH4emissdatadf, :Wsector), [:EPAemiss, :Mitigated] .=> sum,  renamecols=false)
-# testdf.MaxpercMit = testdf[!,:Mitigated]./testdf[!,:EPAemiss]
-# #bHere add already calculated, but better to upload full table and calculate in Julia
-# testdf.MitCostTot =  [8962.758884, 269.0188218, 6862.194574, 1795.700322]
-
 CH4calc = DenseAxisArray([
 ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
-    [CH4emiss[:EPAemiss,i]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]];;
+    [CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in C];;
 ## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
-    [(1-CH4emiss[:MaxpercMit,i])*CH4emiss[:EPAemiss,i]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]];;
+    [(1-CH4emiss[:MaxpercMit,c])*CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in C];;
 ## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
-    [CH4emiss[:MitCostTot,i]/10^3+sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]]],
-[i for i in axes(CH4emiss)[2]],
+    [CH4emiss[:MitCostTot,c]/10^3+sum(va_0[yr,:,c]) for c in C]],
+C, # 1 dim indexed by sector
 [:CH4Intens :CH4MitIntens :TotCostwMit ])
 
 ## Relative cost of VA including max mitigation
-MitCostoverVA = DenseAxisArray([CH4calc[i,:TotCostwMit]/sum(va_0[yr,:,i]) for i in axes(CH4emiss)[2]],
-    [i for i in axes(CH4emiss)[2]])
+MitCostoverVA = DenseAxisArray([CH4calc[c,:TotCostwMit]/sum(va_0[yr,:,c]) for c in C],
+    C)
 
 vam_0 = deepcopy(va_0) #copy for slack mitigating activties
 # benchmark value added input levels for with additional % of costs for mitigation
-# vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, back up to ensure slack (but redundant with filtered index for mitigating production)
-vam_0[:,:,:agr] = va_0[:,:,:agr].data .* MitCostoverVA[:agr]
-vam_0[:,:,:min] = va_0[:,:,:min].data .* MitCostoverVA[:min]   
-vam_0[:,:,:oil] = va_0[:,:,:oil].data .* MitCostoverVA[:oil]   
-## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-vam_0[:,:,:pip] = va_0[:,:,:pip].data .* MitCostoverVA[:pip]   
-vam_0[:,:,:wst] = va_0[:,:,:wst].data .* MitCostoverVA[:wst]   
+for c in C
+    vam_0[:,:,c] = va_0[:,:,c].data .* MitCostoverVA[c]
+end
 
-## Set vector of Values of CH4 intensities, default of 0 for less significant emitting sectors
+## Set vector of standard CH4 intensities: CH4 (in CO2eq)/value-added factor inputs
+## default of 0 for non-emitting and less significant emitting sectors
 ch4VASInt = DenseAxisArray(zeros(length(J)),J)
-ch4VASInt[:agr] = CH4calc[:agr,:CH4Intens]
-ch4VASInt[:min] = CH4calc[:min,:CH4Intens]
-ch4VASInt[:oil] = CH4calc[:oil,:CH4Intens]
-ch4VASInt[:pip] = CH4calc[:pip,:CH4Intens]
-ch4VASInt[:wst] = CH4calc[:wst,:CH4Intens]
-
+for c in C
+    ch4VASInt[c] = CH4calc[c,:CH4Intens]
+end
+## Set vector of CH4 *mitigated* intensities: Mitigated CH4 (in CO2eq)/value-added factor inputs
+## Still default of 0 for non-emitting and less significant emitting sectors
 ch4VAMInt = DenseAxisArray(zeros(length(J)),J)
-ch4VAMInt[:agr] = CH4calc[:agr,:CH4MitIntens]
-ch4VAMInt[:min] = CH4calc[:min,:CH4MitIntens]
-ch4VAMInt[:oil] = CH4calc[:oil,:CH4MitIntens]
-ch4VAMInt[:pip] = CH4calc[:pip,:CH4MitIntens]
-ch4VAMInt[:wst] = CH4calc[:wst,:CH4MitIntens]
+for c in C
+    ch4VAMInt[c] = CH4calc[c,:CH4MitIntens]
+end
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # (MMtCO2eq/$Bill) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
@@ -298,6 +286,7 @@ print(sort!(Compare, :var))
 println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults.csv", Compare, missingstring="missing", bom=true)
 
+## Look at the sum of each reduction compared to the combined reduction
 compCO2em = filter(:var => ==(:CO2TotEm), Compare);
 println("CO2 Reduction Sum: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:ch4]+compCO2em[:,:bnchmrk]-compCO2em[:,:co2]))
 println("CO2 Reduction Combined: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:both]))
