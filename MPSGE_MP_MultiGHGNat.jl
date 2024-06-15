@@ -13,7 +13,7 @@ Sectors = CSV.read("Sectors.csv", DataFrame);
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 J = [i for i∈S[:j] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 #subset index for Slack CH4 mitigation production
-C = [:agr,:oil,:wst,:min,] #:uti, :pip,
+C = [:agr,:oil,:pip,:wst,:min,] #:uti, :pip,
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd]
 TS = S[:ts]
@@ -40,25 +40,26 @@ yr = Symbol(2017)
 
     ## Base Data for reference
     # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
-    CH4emissdatadf = DataFrame(Wsector = [:agr,:agr,:agr,:min,:oil,:wst,:wst],
+    CH4emissdatadf = DataFrame(Wsector = [:agr,:agr,:min,:oil,:wst,:wst],
     ## EPA Total Emissions per sector, MMt CO2eq 
-    EPAemiss =[300.8535461,260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
+    EPAemiss =[260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
     ## EPA maximum % of abatement per sector at <$1000/t
-    MaxpercMit = [.038,.304,.280,.645,.475,.050,.350],
-    PAsector = ["AGRICULTURE, CROP","AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL",
+    MaxpercMit = [.304,.280,.645,.475,.050,.350],
+    PAsector = ["AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL",
     "ENERGY, GAS","WASTE, LAN","WASTE, WWR"])
 
 ## Calculate CH4 Intensity factors from EPA data
 # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
 # Sum and weighted average with current aggregation, before disaggregation
-CH4emiss = DenseAxisArray([300.8535461+260.483532+13.70952225 59.31302643 224.8979059 111.5049515+20.36144996
+CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.8979059/2 111.5049515+20.36144996
 ## Weighted average per sector
-    (300.8535461*.038+260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
+    (260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
 ## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
 ## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
-    8962.758884 269.0188218 6862.194574 1795.700322],
+## :oil and :pip split EPA GAS in half for want of more specific MAC data or proportiona
+    7090.604857 269.0188218 6862.194574/2 6862.194574/2 1795.700322],
 [:EPAemiss :MaxpercMit :MitCostTot],
-[:agr,:min,:oil,:wst])
+[:agr,:min,:pip,:oil,:wst])
 
 # #Alternative, calculated with dataframe
 # testdf = combine(groupby(CH4emissdatadf, :Wsector), [:EPAemiss, :Mitigated] .=> sum,  renamecols=false)
@@ -82,30 +83,28 @@ MitCostoverVA = DenseAxisArray([CH4calc[i,:TotCostwMit]/sum(va_0[yr,:,i]) for i 
 
 vam_0 = deepcopy(va_0) #copy for slack mitigating activties
 # benchmark value added input levels for with additional % of costs for mitigation
-vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, back up to ensure slack (but redundant with filtered index for mitigating production)
+# vam_0[:,:,:] = va_0[:,:,:].data .*5 # Default for mitigation, back up to ensure slack (but redundant with filtered index for mitigating production)
 vam_0[:,:,:agr] = va_0[:,:,:agr].data .* MitCostoverVA[:agr]
 vam_0[:,:,:min] = va_0[:,:,:min].data .* MitCostoverVA[:min]   
 vam_0[:,:,:oil] = va_0[:,:,:oil].data .* MitCostoverVA[:oil]   
 ## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-vam_0[:,:,:pip] = va_0[:,:,:pip].data .* MitCostoverVA[:oil]   
+vam_0[:,:,:pip] = va_0[:,:,:pip].data .* MitCostoverVA[:pip]   
 vam_0[:,:,:wst] = va_0[:,:,:wst].data .* MitCostoverVA[:wst]   
 
 ## Set vector of Values of CH4 intensities, default of 0 for less significant emitting sectors
-ch4Int = DenseAxisArray(zeros(length(J)),J)
-ch4Int[:agr] = CH4calc[:agr,:CH4Intens]
-ch4Int[:min] = CH4calc[:min,:CH4Intens]
-ch4Int[:oil] = CH4calc[:oil,:CH4Intens]
-## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-ch4Int[:pip] = CH4calc[:oil,:CH4Intens]
-ch4Int[:wst] = CH4calc[:wst,:CH4Intens]
+ch4VASInt = DenseAxisArray(zeros(length(J)),J)
+ch4VASInt[:agr] = CH4calc[:agr,:CH4Intens]
+ch4VASInt[:min] = CH4calc[:min,:CH4Intens]
+ch4VASInt[:oil] = CH4calc[:oil,:CH4Intens]
+ch4VASInt[:pip] = CH4calc[:pip,:CH4Intens]
+ch4VASInt[:wst] = CH4calc[:wst,:CH4Intens]
 
-ch4Intmit = DenseAxisArray(zeros(length(J)),J)
-ch4Intmit[:agr] = CH4calc[:agr,:CH4MitIntens]
-ch4Intmit[:min] = CH4calc[:min,:CH4MitIntens]
-ch4Intmit[:oil] = CH4calc[:oil,:CH4MitIntens]
-## Use oil proportional mitigation cost for pipeline,no EPA MAC data
-ch4Intmit[:pip] = CH4calc[:oil,:CH4MitIntens]
-ch4Intmit[:wst] = CH4calc[:wst,:CH4MitIntens]
+ch4VAMInt = DenseAxisArray(zeros(length(J)),J)
+ch4VAMInt[:agr] = CH4calc[:agr,:CH4MitIntens]
+ch4VAMInt[:min] = CH4calc[:min,:CH4MitIntens]
+ch4VAMInt[:oil] = CH4calc[:oil,:CH4MitIntens]
+ch4VAMInt[:pip] = CH4calc[:pip,:CH4MitIntens]
+ch4VAMInt[:wst] = CH4calc[:wst,:CH4MitIntens]
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # (MMtCO2eq/$Bill) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
@@ -143,7 +142,11 @@ end)
 end)
 
 @auxiliary(MP_MultiNat, CO2em, index = [[:min, :oil]])
-@auxiliary(MP_MultiNat, CO2emTot, description = "Total CO2 emissions from fossil fuels")
+@auxiliary(MP_MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
+@auxiliary(MP_MultiNat, CH4em, index = [[:agr,:min,:oil,:pip,:wst]])
+@auxiliary(MP_MultiNat, CH4TotEm, description = "Total CH4 emissions")
+@auxiliary(MP_MultiNat, TotEm, description = "Total both emissions")
+
 
 @consumer(MP_MultiNat, RA, description = "Representative Agent")
 
@@ -158,7 +161,7 @@ end
 for j∈J
     @production(MP_MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax* ch4Int[j])]) for va∈VA]...
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax* ch4VASInt[j])]) for va∈VA]...
     end)
 end
 
@@ -166,7 +169,7 @@ end
 for j∈C
     @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4Intmit[j])]) for va∈VA]...
+        [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4VAMInt[j])]) for va∈VA]...
     end)
 end
 
@@ -197,7 +200,16 @@ end, elasticity = 1)
 
 @aux_constraint(MP_MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
 @aux_constraint(MP_MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
-@aux_constraint(MP_MultiNat, CO2emTot, CO2emTot - (CO2em[:min] + CO2em[:oil]))
+@aux_constraint(MP_MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
+@aux_constraint(MP_MultiNat, CH4em[:agr],  CH4em[:agr] - (VAS[:agr]*CH4emiss[:EPAemiss,:agr]+VAM[:agr]*CH4emiss[:EPAemiss,:agr]*ch4VAMInt[:agr]/ch4VASInt[:agr]))
+@aux_constraint(MP_MultiNat, CH4em[:min],  CH4em[:min] - (VAS[:min]*CH4emiss[:EPAemiss,:min]+VAM[:min]*CH4emiss[:EPAemiss,:min]*ch4VAMInt[:min]/ch4VASInt[:min]))
+@aux_constraint(MP_MultiNat, CH4em[:oil],  CH4em[:oil] - (VAS[:oil]*CH4emiss[:EPAemiss,:oil]+VAM[:oil]*CH4emiss[:EPAemiss,:oil]*ch4VAMInt[:oil]/ch4VASInt[:oil]))
+@aux_constraint(MP_MultiNat, CH4em[:pip],  CH4em[:pip] - (VAS[:pip]*CH4emiss[:EPAemiss,:pip]+VAM[:pip]*CH4emiss[:EPAemiss,:pip]*ch4VAMInt[:pip]/ch4VASInt[:pip]))
+@aux_constraint(MP_MultiNat, CH4em[:wst],  CH4em[:wst] - (VAS[:wst]*CH4emiss[:EPAemiss,:wst]+VAM[:wst]*CH4emiss[:EPAemiss,:wst]*ch4VAMInt[:wst]/ch4VASInt[:wst]))
+@aux_constraint(MP_MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
+@aux_constraint(MP_MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
+
+
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
@@ -208,8 +220,8 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
 # tax are at $s per ton of CH4 (CO2eq)
-taxrate_ch4 = 1600. 
-"* CO2 conversion rate back to per ton of 
+taxrate_ch4 = 190. 
+"OR 1600 * CO2 conversion rate back to per ton of 
 Or alternatively, re-work data replcing CH4 in actual tons"
 ## Divided by 1,000 for $Bill/MMt
 set_value!(ch4_tax, (taxrate_ch4 *10^-3))
@@ -248,9 +260,9 @@ fullvrboth = generate_report(MP_MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 # #Then, set CH4 taxes back to 0 to generate CO2 tax only
-#     set_value!(ch4_tax, 0.0)
+    set_value!(ch4_tax, 0.0)
 
-# solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
@@ -261,7 +273,7 @@ fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-Compare = FullResults[1:end,[1,4,6,8,2]]
+Compare = FullResults[1:end,[1,2,4,6,8]]
 ## Sum the difference of each tax applied individually
 Compare.sum = Compare.ch4 .- 1 + Compare.co2 .-1
 
@@ -283,7 +295,15 @@ end
 
 Compare[!,:var] = Symbol.(Compare[:,:var])
 print(sort!(Compare, :var))
-print(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
+println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults.csv", Compare, missingstring="missing", bom=true)
 
-
+compCO2em = filter(:var => ==(:CO2TotEm), Compare);
+println("CO2 Reduction Sum: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:ch4]+compCO2em[:,:bnchmrk]-compCO2em[:,:co2]))
+println("CO2 Reduction Combined: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:both]))
+compCH4em = filter(:var => ==(:CH4TotEm), Compare);
+println("CO2 Reduction Sum: ", only(compCH4em[:,:bnchmrk]-compCH4em[:,:ch4]+compCH4em[:,:bnchmrk]-compCH4em[:,:co2]))
+println("CO2 Reduction Combined: ", only(compCH4em[:,:bnchmrk]-compCH4em[:,:both]))
+compTotem = filter(:var => ==(:TotEm), Compare);
+println("CO2 Reduction Sum: ", only(compTotem[:,:bnchmrk]-compTotem[:,:ch4]+compTotem[:,:bnchmrk]-compTotem[:,:co2]))
+println("CO2 Reduction Combined: ", only(compTotem[:,:bnchmrk]-compTotem[:,:both]))
