@@ -81,15 +81,15 @@ for c in C
     vam_0[:,:,c] = va_0[:,:,c].data .* MitCostoverVA[c]
 end
 
-## Set vector of standard CH4 intensities: CH4 (in CO2eq)/value-added factor inputs
 ## default of 0 for non-emitting and less significant emitting sectors
 ch4VASInt = DenseAxisArray(zeros(length(J)),J)
+## Set vector of standard CH4 intensities: CH4 (in CO2eq)/value-added factor inputs
 for c in C
     ch4VASInt[c] = CH4calc[c,:CH4Intens]
 end
-## Set vector of CH4 *mitigated* intensities: Mitigated CH4 (in CO2eq)/value-added factor inputs
 ## Still default of 0 for non-emitting and less significant emitting sectors
 ch4VAMInt = DenseAxisArray(zeros(length(J)),J)
+## Set vector of CH4 *mitigated* intensities: Mitigated CH4 (in CO2eq)/value-added factor inputs
 for c in C
     ch4VAMInt[c] = CH4calc[c,:CH4MitIntens]
 end
