@@ -1,8 +1,8 @@
 # WiNDC National Model
-using MPSGE_MP
+using MPSGE
 using DataFrames, JLD2
 using JuMP
-using MPSGE_MP.JuMP.Containers
+using MPSGE.JuMP.Containers
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
 P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P

@@ -1,8 +1,8 @@
 # Adapted from WiNDC National Model
-using MPSGE_MP
+using MPSGE
 using DataFrames, JLD2
 using JuMP
-using MPSGE_MP.JuMP.Containers
+using MPSGE.JuMP.Containers
 using CSV
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
