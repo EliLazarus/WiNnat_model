@@ -101,9 +101,9 @@ CO2Int[:oil] =   2104.80/sum(id_0[yr,:oil,:])
 
 ## End data preparations
 
-MP_MultiNat = MPSGEModel()
+MultiNat = MPSGEModel()
 
-@parameters(MP_MultiNat, begin
+@parameters(MultiNat, begin
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
@@ -111,7 +111,7 @@ MP_MultiNat = MPSGEModel()
     tax_co2, 0.
 end)
 
-@sectors(MP_MultiNat,begin
+@sectors(MultiNat,begin
     Y[J],  (description = "Sectoral Production",)
     A[I],  (description = "Armington Supply",)
     VAS[J], (description = "Value Added, standard")
@@ -120,7 +120,7 @@ end)
 
 end)
 
-@commodities(MP_MultiNat,begin
+@commodities(MultiNat,begin
     PA[I],   (description = "Armington Price",)
     PY[J],   (description = "Supply",)
     PVA[VA], (description = "Value-added Input to VA blocks",)
@@ -130,18 +130,18 @@ end)
 end)
 
 # Variables to track and report levels of CO2 emissions
-@auxiliary(MP_MultiNat, CO2em, index = [[:min, :oil]])
-@auxiliary(MP_MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
+@auxiliary(MultiNat, CO2em, index = [[:min, :oil]])
+@auxiliary(MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
 # Variables to track and report levels of CH4 emissions
-@auxiliary(MP_MultiNat, CH4em, index = [[:agr,:min,:oil,:pip,:wst]])
-@auxiliary(MP_MultiNat, CH4TotEm, description = "Total CH4 emissions")
-@auxiliary(MP_MultiNat, TotEm, description = "Total both emissions")
+@auxiliary(MultiNat, CH4em, index = [[:agr,:min,:oil,:pip,:wst]])
+@auxiliary(MultiNat, CH4TotEm, description = "Total CH4 emissions")
+@auxiliary(MultiNat, TotEm, description = "Total both emissions")
 
 
-@consumer(MP_MultiNat, RA, description = "Representative Agent")
+@consumer(MultiNat, RA, description = "Representative Agent")
 
 for j∈J
-    @production(MP_MultiNat, Y[j], [t=0, s = 0], begin
+    @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,tax_co2 * CO2Int[i])]) for i∈I]...
         @input(PVAM[j], sum(va_0[yr,VA,j]), s)
@@ -149,7 +149,7 @@ for j∈J
 end
 
 for j∈J
-    @production(MP_MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
+    @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,ch4_tax* ch4VASInt[j])]) for va∈VA]...
     end)
@@ -157,21 +157,21 @@ end
 
 # Slack mitigating VA activities for main CH4 producing sectors
 for j∈C
-    @production(MP_MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
+    @production(MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4VAMInt[j])]) for va∈VA]...
     end)
 end
 
 for m∈M
-    @production(MP_MultiNat, MS[m], [t = 0, s = 0], begin
+    @production(MultiNat, MS[m], [t = 0, s = 0], begin
         [@output(PM[m], sum(ms_0[yr,i,m] for i∈I), t)]...
         [@input(PY[i], ms_0[yr,i,m], s) for i∈I]...
     end)
 end
 
 for i∈I
-    @production(MP_MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
+    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-(ta_0[yr,i]))]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
@@ -180,7 +180,7 @@ for i∈I
     end)
 end
 
-@demand(MP_MultiNat, RA, begin
+@demand(MultiNat, RA, begin
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     end,begin
     @endowment(PFX, bopdef_0[yr])
@@ -188,24 +188,24 @@ end
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
 end, elasticity = 1)
 
-@aux_constraint(MP_MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
-@aux_constraint(MP_MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
-@aux_constraint(MP_MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
-@aux_constraint(MP_MultiNat, CH4em[:agr],  CH4em[:agr] - (VAS[:agr]*CH4emiss[:EPAemiss,:agr]+VAM[:agr]*CH4emiss[:EPAemiss,:agr]*ch4VAMInt[:agr]/ch4VASInt[:agr]))
-@aux_constraint(MP_MultiNat, CH4em[:min],  CH4em[:min] - (VAS[:min]*CH4emiss[:EPAemiss,:min]+VAM[:min]*CH4emiss[:EPAemiss,:min]*ch4VAMInt[:min]/ch4VASInt[:min]))
-@aux_constraint(MP_MultiNat, CH4em[:oil],  CH4em[:oil] - (VAS[:oil]*CH4emiss[:EPAemiss,:oil]+VAM[:oil]*CH4emiss[:EPAemiss,:oil]*ch4VAMInt[:oil]/ch4VASInt[:oil]))
-@aux_constraint(MP_MultiNat, CH4em[:pip],  CH4em[:pip] - (VAS[:pip]*CH4emiss[:EPAemiss,:pip]+VAM[:pip]*CH4emiss[:EPAemiss,:pip]*ch4VAMInt[:pip]/ch4VASInt[:pip]))
-@aux_constraint(MP_MultiNat, CH4em[:wst],  CH4em[:wst] - (VAS[:wst]*CH4emiss[:EPAemiss,:wst]+VAM[:wst]*CH4emiss[:EPAemiss,:wst]*ch4VAMInt[:wst]/ch4VASInt[:wst]))
-@aux_constraint(MP_MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
-@aux_constraint(MP_MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
+@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
+@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
+@aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
+@aux_constraint(MultiNat, CH4em[:agr],  CH4em[:agr] - (VAS[:agr]*CH4emiss[:EPAemiss,:agr]+VAM[:agr]*CH4emiss[:EPAemiss,:agr]*ch4VAMInt[:agr]/ch4VASInt[:agr]))
+@aux_constraint(MultiNat, CH4em[:min],  CH4em[:min] - (VAS[:min]*CH4emiss[:EPAemiss,:min]+VAM[:min]*CH4emiss[:EPAemiss,:min]*ch4VAMInt[:min]/ch4VASInt[:min]))
+@aux_constraint(MultiNat, CH4em[:oil],  CH4em[:oil] - (VAS[:oil]*CH4emiss[:EPAemiss,:oil]+VAM[:oil]*CH4emiss[:EPAemiss,:oil]*ch4VAMInt[:oil]/ch4VASInt[:oil]))
+@aux_constraint(MultiNat, CH4em[:pip],  CH4em[:pip] - (VAS[:pip]*CH4emiss[:EPAemiss,:pip]+VAM[:pip]*CH4emiss[:EPAemiss,:pip]*ch4VAMInt[:pip]/ch4VASInt[:pip]))
+@aux_constraint(MultiNat, CH4em[:wst],  CH4em[:wst] - (VAS[:wst]*CH4emiss[:EPAemiss,:wst]+VAM[:wst]*CH4emiss[:EPAemiss,:wst]*ch4VAMInt[:wst]/ch4VASInt[:wst]))
+@aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
+@aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
 
 
 # Benchmark 
 fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
-solve!(MP_MultiNat)#; cumulative_iteration_limit = 0)
+solve!(MultiNat)#; cumulative_iteration_limit = 0)
 
-fullvrbnch = generate_report(MP_MultiNat);
+fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 # print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
@@ -230,7 +230,7 @@ Or alternatively, re-work data replcing CH4 in actual tons"
 set_value!(ch4_tax, (taxrate_ch4 *10^-3))
 
 # unfix(RA)
-solve!(MP_MultiNat)
+solve!(MultiNat)
 
 for (n,i) in enumerate(I)
     FDemand[n,:ch4] = value(demand(RA,PA[i]))
@@ -241,7 +241,7 @@ Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 Rs[:,2][1:4]
 Rs[:,2][67:71]
 
-fullvrch4 = generate_report(MP_MultiNat)
+fullvrch4 = generate_report(MultiNat)
 rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 
 # print(sort(df, :margin, by= abs, rev=true))
@@ -256,7 +256,7 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 CO2_taxrate = 190 
 set_value!(tax_co2, CO2_taxrate * 10^-3)
 
-solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
 for (n,i) in enumerate(I)
     FDemand[n,:both] = value(demand(RA,PA[i]))
@@ -267,13 +267,13 @@ end
 # Rs[:,2][1:5]
 # Rs[:,2][67:71]
 
-fullvrboth = generate_report(MP_MultiNat)
+fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 # #Then, set CH4 taxes back to 0 to generate CO2 tax only
     set_value!(ch4_tax, 0.0)
 
-solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
+solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
 for (n,i) in enumerate(I)
     FDemand[n,:cO2] = value(demand(RA,PA[i]))
@@ -284,7 +284,7 @@ end
 # Rs[:,2][1:4]
 # Rs[:,2][67:71]
 #Generate Dataframe with all results (including names expressions)
-fullvrco2 = generate_report(MP_MultiNat)
+fullvrco2 = generate_report(MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true);
