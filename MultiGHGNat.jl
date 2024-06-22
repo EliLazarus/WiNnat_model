@@ -129,8 +129,10 @@ end)
     PFX,     (description = "Foreign Exachange",)
 end)
 
+# Variables to track and report levels of CO2 emissions
 @auxiliary(MP_MultiNat, CO2em, index = [[:min, :oil]])
 @auxiliary(MP_MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
+# Variables to track and report levels of CH4 emissions
 @auxiliary(MP_MultiNat, CH4em, index = [[:agr,:min,:oil,:pip,:wst]])
 @auxiliary(MP_MultiNat, CH4TotEm, description = "Total CH4 emissions")
 @auxiliary(MP_MultiNat, TotEm, description = "Total both emissions")
@@ -199,14 +201,27 @@ end, elasticity = 1)
 
 
 # Benchmark 
-# fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
+fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
 solve!(MP_MultiNat)#; cumulative_iteration_limit = 0)
 
 fullvrbnch = generate_report(MP_MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
+# print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 
+# Initialize a Dataframe to save final demand results
+FDemand = DataFrame(index=Vector{Symbol}(undef, length(I)),
+desc=Vector{Symbol}(undef, length(I)), 
+bnch=Vector{Float64}(undef, length(I)), 
+ch4=Vector{Float64}(undef, length(I)),
+cO2=Vector{Float64}(undef, length(I)),
+both=Vector{Float64}(undef, length(I))
+)
+for (n,i) in enumerate(I)
+    FDemand[n,:index]= i
+    FDemand[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
+    FDemand[n,:bnch] = value(demand(RA,PA[i]))
+end
 # tax are at $s per ton of CH4 (CO2eq)
 taxrate_ch4 = 190. 
 "OR 1600 * CO2 conversion rate back to per ton of 
@@ -214,8 +229,12 @@ Or alternatively, re-work data replcing CH4 in actual tons"
 ## Divided by 1,000 for $Bill/MMt
 set_value!(ch4_tax, (taxrate_ch4 *10^-3))
 
-unfix(RA)
+# unfix(RA)
 solve!(MP_MultiNat)
+
+for (n,i) in enumerate(I)
+    FDemand[n,:ch4] = value(demand(RA,PA[i]))
+end
 
 Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
@@ -239,6 +258,10 @@ set_value!(tax_co2, CO2_taxrate * 10^-3)
 
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 
+for (n,i) in enumerate(I)
+    FDemand[n,:both] = value(demand(RA,PA[i]))
+end
+
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:5]
@@ -252,6 +275,10 @@ rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
 solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 
+for (n,i) in enumerate(I)
+    FDemand[n,:cO2] = value(demand(RA,PA[i]))
+end
+
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:4]
@@ -260,8 +287,8 @@ solve!(MP_MultiNat, cumulative_iteration_limit=10000) #;
 fullvrco2 = generate_report(MP_MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true)
-Compare = FullResults[1:end,[1,2,4,6,8]]
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true);
+Compare = FullResults[1:end,[1,2,4,6,8]];
 ## Sum the difference of each tax applied individually
 Compare.sum = Compare.ch4 .- 1 + Compare.co2 .-1
 
@@ -281,8 +308,8 @@ for n in 1:length(Compare[:,1])
     end
 end
 
-Compare[!,:var] = Symbol.(Compare[:,:var])
-print(sort!(Compare, :var))
+Compare[!,:var] = Symbol.(Compare[:,:var]);
+# print(sort!(Compare, :var));
 println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults.csv", Compare, missingstring="missing", bom=true)
 
