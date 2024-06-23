@@ -144,7 +144,7 @@ for j∈J
     @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,tax_co2 * CO2Int[i])]) for i∈I]...
-        @input(PVAM[j], sum(va_0[yr,VA,j]), s)
+         @input(PVAM[j], sum(va_0[yr,VA,j]), s)
     end)
 end
 
@@ -172,7 +172,7 @@ end
 
 for i∈I
     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-(ta_0[yr,i]))]...
+        [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
@@ -201,7 +201,7 @@ end, elasticity = 1)
 
 
 # Benchmark 
-fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
+# fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
 solve!(MultiNat)#; cumulative_iteration_limit = 0)
 
@@ -213,6 +213,7 @@ rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 FDemand = DataFrame(index=Vector{Symbol}(undef, length(I)),
 desc=Vector{Symbol}(undef, length(I)), 
 bnch=Vector{Float64}(undef, length(I)), 
+cntr=Vector{Float64}(undef, length(I)), 
 ch4=Vector{Float64}(undef, length(I)),
 cO2=Vector{Float64}(undef, length(I)),
 both=Vector{Float64}(undef, length(I))
@@ -222,6 +223,29 @@ for (n,i) in enumerate(I)
     FDemand[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
     FDemand[n,:bnch] = value(demand(RA,PA[i]))
 end
+# unfix(RA)
+
+set_value!(ta,0)
+set_value!(tm,0)
+
+solve!(MultiNat)
+
+fullvrCntr = generate_report(MultiNat)
+rename!(fullvrCntr, :value => :cntr, :margin => :cntrmarg)
+
+for (n,i) in enumerate(I)
+    FDemand[n,:cntr] = value(demand(RA,PA[i]))
+end
+
+Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+Rs[:,2][1:4]
+Rs[:,2][67:71]
+
+
+set_value!(ta,ta_0[yr,J])
+set_value!(tm,tm_0[yr,J])
+
 # tax are at $s per ton of CH4 (CO2eq)
 taxrate_ch4 = 190. 
 "OR 1600 * CO2 conversion rate back to per ton of 
@@ -229,7 +253,6 @@ Or alternatively, re-work data replcing CH4 in actual tons"
 ## Divided by 1,000 for $Bill/MMt
 set_value!(ch4_tax, (taxrate_ch4 *10^-3))
 
-# unfix(RA)
 solve!(MultiNat)
 
 for (n,i) in enumerate(I)
@@ -246,11 +269,6 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 
 # print(sort(df, :margin, by= abs, rev=true))
 # print(df)
-
-# Base WinNat Counterfactual (remove import tariffs and net subsidies on intermediate inputs)
-# unfix(RA)
-# set_value!(tm,0)
-# set_value!(ta,0)
 
 # # Counterfactual Fossil fuel extraction is taxed at emissions intensitiy of input x tax in $/ton
 CO2_taxrate = 190 
@@ -287,8 +305,8 @@ end
 fullvrco2 = generate_report(MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, on = [:var], makeunique=true);
-Compare = FullResults[1:end,[1,2,4,6,8]];
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrCntr, on = [:var], makeunique=true);
+Compare = FullResults[1:end,[1,2,4,6,8,10]];
 ## Sum the difference of each tax applied individually
 Compare.sum = Compare.ch4 .- 1 + Compare.co2 .-1
 
@@ -311,7 +329,7 @@ end
 Compare[!,:var] = Symbol.(Compare[:,:var]);
 # print(sort!(Compare, :var));
 println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
-# CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults.csv", Compare, missingstring="missing", bom=true)
+CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
 
 ## Look at the sum of each reduction compared to the combined reduction
 compCO2em = filter(:var => ==(:CO2TotEm), Compare);
