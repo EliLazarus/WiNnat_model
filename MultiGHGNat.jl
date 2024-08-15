@@ -96,9 +96,12 @@ end
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # (MMtCO2eq/$Bill) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
-CO2Int[:min] =   895.9/sum(id_0[yr,:min,:]) 
-CO2Int[:oil] =   2104.80/sum(id_0[yr,:oil,:]) 
+CO2Int[:min] =  895.9/sum(id_0[yr,:min,:]) 
+CO2Int[:oil] =  2104.80/sum(id_0[yr,:oil,:]) 
 
+TotCO2bnchmk =  895.9 + 2104.8
+TotCH4bnchmk =  sum(CH4emiss[:EPAemiss,:])
+TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## End data preparations
 
 MultiNat = MPSGEModel()
@@ -188,22 +191,29 @@ end
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
 end, elasticity = 1)
 
+## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
 @aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
+## Total CO2 emissions are the sum of emissions from the 2 fossil fuel sectors (constraint expressed as equantion = 0)
 @aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
+## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity 
+## +/or VA Mitigating activity x 
 @aux_constraint(MultiNat, CH4em[:agr],  CH4em[:agr] - (VAS[:agr]*CH4emiss[:EPAemiss,:agr]+VAM[:agr]*CH4emiss[:EPAemiss,:agr]*ch4VAMInt[:agr]/ch4VASInt[:agr]))
 @aux_constraint(MultiNat, CH4em[:min],  CH4em[:min] - (VAS[:min]*CH4emiss[:EPAemiss,:min]+VAM[:min]*CH4emiss[:EPAemiss,:min]*ch4VAMInt[:min]/ch4VASInt[:min]))
 @aux_constraint(MultiNat, CH4em[:oil],  CH4em[:oil] - (VAS[:oil]*CH4emiss[:EPAemiss,:oil]+VAM[:oil]*CH4emiss[:EPAemiss,:oil]*ch4VAMInt[:oil]/ch4VASInt[:oil]))
 @aux_constraint(MultiNat, CH4em[:pip],  CH4em[:pip] - (VAS[:pip]*CH4emiss[:EPAemiss,:pip]+VAM[:pip]*CH4emiss[:EPAemiss,:pip]*ch4VAMInt[:pip]/ch4VASInt[:pip]))
 @aux_constraint(MultiNat, CH4em[:wst],  CH4em[:wst] - (VAS[:wst]*CH4emiss[:EPAemiss,:wst]+VAM[:wst]*CH4emiss[:EPAemiss,:wst]*ch4VAMInt[:wst]/ch4VASInt[:wst]))
+## Total CH4 Emissions are the sum of emissions from CH4 emitting sectors
 @aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
+## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
 
 
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
-solve!(MultiNat)#; cumulative_iteration_limit = 0)
+solve!(MultiNat) 
+#; cumulative_iteration_limit = 0)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
@@ -224,7 +234,7 @@ for (n,i) in enumerate(I)
     FDemand[n,:bnch] = value(demand(RA,PA[i]))
 end
 # unfix(RA)
-
+## Check against WiNDC standard counterfactual
 set_value!(ta,0)
 set_value!(tm,0)
 
@@ -237,21 +247,22 @@ for (n,i) in enumerate(I)
     FDemand[n,:cntr] = value(demand(RA,PA[i]))
 end
 
+## DataFrame to hold the industry indices with descriptions
 Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+# Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
-Rs[:,2][67:71]
+Rs[:,2][68:71]
 
-
+## Re-set to benchmark taxes
 set_value!(ta,ta_0[yr,J])
 set_value!(tm,tm_0[yr,J])
 
 # tax are at $s per ton of CH4 (CO2eq)
 taxrate_ch4 = 190. 
-"OR 1600 * CO2 conversion rate back to per ton of 
-Or alternatively, re-work data replcing CH4 in actual tons"
-## Divided by 1,000 for $Bill/MMt
-set_value!(ch4_tax, (taxrate_ch4 *10^-3))
+## "OR 1600 * CO2 conversion rate back to per ton of 
+## Or alternatively, re-work data replacing CH4 in actual tons"
+set_value!(ch4_tax, (taxrate_ch4 *10^-3)) # Divided by 1,000 for $Bill/MMt
 
 solve!(MultiNat)
 
@@ -261,8 +272,9 @@ end
 
 Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
+# Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
-Rs[:,2][67:71]
+Rs[:,2][68:71]
 
 fullvrch4 = generate_report(MultiNat)
 rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
@@ -270,9 +282,9 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 # print(sort(df, :margin, by= abs, rev=true))
 # print(df)
 
-# # Counterfactual Fossil fuel extraction is taxed at emissions intensitiy of input x tax in $/ton
+# # Counterfactual Fossil fuel extraction is ALSO taxed at emissions intensitiy of input x tax in $/ton
 CO2_taxrate = 190 
-set_value!(tax_co2, CO2_taxrate * 10^-3)
+set_value!(tax_co2, CO2_taxrate * 10^-3) # Divided by 1,000 for $Bill/MMt
 
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
@@ -283,12 +295,12 @@ end
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:5]
-# Rs[:,2][67:71]
+# Rs[:,2][68:71]
 
 fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :both, :margin => :bothmarg)
 
-# #Then, set CH4 taxes back to 0 to generate CO2 tax only
+## Then, set CH4 taxes back to 0 to generate CO2 tax ONLY
     set_value!(ch4_tax, 0.0)
 
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
@@ -300,11 +312,11 @@ end
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:4]
-# Rs[:,2][67:71]
-#Generate Dataframe with all results (including names expressions)
+# Rs[:,2][68:71]
 fullvrco2 = generate_report(MultiNat)
 rename!(fullvrco2, :value => :co2, :margin => :co2marg)
 
+#Generate Dataframe with all results (including names expressions)
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrCntr, on = [:var], makeunique=true);
 Compare = FullResults[1:end,[1,2,4,6,8,10]];
 ## Sum the difference of each tax applied individually
@@ -329,15 +341,29 @@ end
 Compare[!,:var] = Symbol.(Compare[:,:var]);
 # print(sort!(Compare, :var));
 println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
-CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
+# CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
 
 ## Look at the sum of each reduction compared to the combined reduction
 compCO2em = filter(:var => ==(:CO2TotEm), Compare);
-println("CO2 Reduction Sum: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:ch4]+compCO2em[:,:bnchmrk]-compCO2em[:,:co2]))
-println("CO2 Reduction Combined: ", only(compCO2em[:,:bnchmrk]-compCO2em[:,:both]))
+println("CO2 Reduction Sum: ", TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2])) # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
+println("CO2 Reduction Combined: ", TotCO2bnchmk - only(compCO2em[:,:both])) # Total CO2 reduction with taxes combined
+println("CO2 Reduction Interaction: ", TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2])- # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
+(TotCO2bnchmk - only(compCO2em[:,:both])))# Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes.
 compCH4em = filter(:var => ==(:CH4TotEm), Compare);
-println("CO2 Reduction Sum: ", only(compCH4em[:,:bnchmrk]-compCH4em[:,:ch4]+compCH4em[:,:bnchmrk]-compCH4em[:,:co2]))
-println("CO2 Reduction Combined: ", only(compCH4em[:,:bnchmrk]-compCH4em[:,:both]))
+println("CH4 Reduction Sum: ", TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2])) # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
+println("CH4 Reduction Combined: ", TotCH4bnchmk - only(compCH4em[:,:both])) # Total CH4 reduction with taxes combined
+println("CH4 Reduction Interaction: ", TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2])- # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
+(TotCH4bnchmk - only(compCH4em[:,:both]))) # Total CH4 reduction with taxes combined
 compTotem = filter(:var => ==(:TotEm), Compare);
-println("CO2 Reduction Sum: ", only(compTotem[:,:bnchmrk]-compTotem[:,:ch4]+compTotem[:,:bnchmrk]-compTotem[:,:co2]))
-println("CO2 Reduction Combined: ", only(compTotem[:,:bnchmrk]-compTotem[:,:both]))
+println("Total GHG Emission Reduction Sum: ", TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])) # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
+println("Total GHG Emission Reduction Combined: ", TotGHGbnchmk - only(compTotem[:,:both])) # Total GHG (CO2&CH4) reduction with taxes combined
+println("Total GHG Emission Interaction: ", TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])- # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
+(TotGHGbnchmk - only(compTotem[:,:both]))) # Total GHG (CO2&CH4) reduction with taxes combined
+
+DataFrame(
+["CO2" TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) TotCO2bnchmk - only(compCO2em[:,:both])  TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) - (TotCO2bnchmk - only(compCO2em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"CH4" TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) TotCH4bnchmk - only(compCH4em[:,:both]) TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) - (TotCH4bnchmk - only(compCH4em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"GHGs" TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) TotGHGbnchmk - only(compTotem[:,:both]) TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) - (TotGHGbnchmk - only(compTotem[:,:both]))], ["Emissions", "Sum", "Combined" ,"Interactions"])
+
+## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
+#filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
