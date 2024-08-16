@@ -367,3 +367,30 @@ DataFrame(
 
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
 #filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
+
+function plottaxemisscurve(tax1, tax2, start, interval, finish, cnst=1)
+    """# runs a loop increasing each tax by \$1/t and then plotting Total GHG (CO2 & CH4) **incorporated** emissions 
+    # Arguments are: which tax to change, other tax to either change simultaneously OR keep at 0, st=initial \$ tax value, fin= final \$ tax value,
+    # and final (optional) argument can be set to 0 to remove other tax, by default """
+    margemiss = DataFrame(tax=Float64[], Emissions=Float64[])
+    for i in start:interval:finish
+        set_value!(tax1, i/10^3)
+        set_value!(tax2, cnst*i/10^3)
+        solve!(MultiNat, output="no");
+        Results = generate_report(MultiNat)
+        Results[!,:var] = Symbol.(Results[:,:var]);
+        push!(margemiss, [i only(filter(:var => ==(:TotEm), Results)[:, :value])])
+    end
+
+    return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions], title= "$tax1, $tax2, ($tax2 x $cnst)")
+end
+
+check = plottaxemisscurve(ch4_tax, tax_co2, 0, 1, 1600)
+check = plottaxemisscurve(tax_co2, ch4_tax, 0, 1, 1600, 0)
+check[2]
+print(check[1])
+
+set_silent(MultiNat)
+unset_silent(MultiNat)
+
+png(check[2], "CO2to1600")
