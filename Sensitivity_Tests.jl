@@ -5,8 +5,9 @@ using DataFrames, Plots, Tables, Dates, Distributions
 
 ###  SENSITIVITY TESTS
 ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
-basecountervalues = [:t_elas_y           :elas_y           :elas_va           :t_elas_m           :elas_m           :t_elas_a           :elas_a           :elas_dm           :d_elas_ra              transpose(all_variables(WiNnat._jump_model)[[152:295;435:578],:])
-			get_value(t_elas_y) get_value(elas_y) get_value(elas_va) get_value(t_elas_m) get_value(elas_m) get_value(t_elas_a) get_value(elas_a) get_value(elas_dm) get_value(d_elas_ra) transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
+rp = generate_report(MultiNat)
+basecountervalues = [:t_elas_y           :elas_y           :elas_va           :t_elas_m           :elas_m           :t_elas_a           :elas_a           :elas_dm           :d_elas_ra              transpose(rp[:var])
+			value(t_elas_y) value(elas_y) value(elas_va) value(t_elas_m) value(elas_m) value(t_elas_a) value(elas_a) value(elas_dm) value(d_elas_ra) transpose(rp[:value])]
 CSV.write("CounterVals.csv", Tables.table(basecountervalues), missingstring="missing", bom=true)
 
 ## Before 1st run, set and write headers and baseline values into CSV for sensitivity test data output
@@ -19,7 +20,7 @@ histogram(rand(Gamma(1,2),10^6), label = "Gamma(1,2)")
 ## For this sensetivity test, we alter all elasticities simultaneously for each Monte Carlo run- except demand (any alternate value for demand within the pdf pushed all variable values back to the benchmark).
 function ExpectedVal(n)
 	starttime = now()
-	out = Array{Float64}(undef, n, 297) # 9 elasticity values plus the 288 variables I'll report
+	out = Array{Float64}(undef, n, 298) # 9 elasticity values plus the 288 variables I'll report
 	for i in 1:n
 		t_elas_y_val = rand(Gamma(1,2))
 		elas_y_val = rand(Gamma(1,2)) 
@@ -29,22 +30,24 @@ function ExpectedVal(n)
 		t_elas_a_val = rand(truncated(Normal(2,2),lower=0)) #2
 		elas_a_val = rand(Gamma(1,2)) 
 		elas_dm_val = rand(truncated(Normal(2,2),lower=0)) #2
+		# d_elas_ra_val = rand(truncated(Normal(1,2),lower=0)) #1
+		# set_value(d_elas_ra, 1.)# Any value other than 1 generates benchmark results, re-set to 1 to make sure.
 		d_elas_ra_val = rand(truncated(Normal(1,2),lower=0)) #1
-		set_value(d_elas_ra, 1.)# Any value other than 1 generates benchmark results, re-set to 1 to make sure.
-	
-		set_value(t_elas_y, t_elas_y_val)
-		set_value(elas_y, elas_y_val)
-		set_value(elas_va, elas_va_val)
-		set_value(t_elas_m, t_elas_m_val)
-		set_value(elas_m, elas_m_val)
-		set_value(t_elas_a, t_elas_a_val)
-		set_value(elas_a, elas_a_val)
-		set_value(elas_dm, elas_dm_val)
-		set_value(d_elas_ra, d_elas_ra_val)
+
+
+		set_value!(t_elas_y, t_elas_y_val)
+		set_value!(elas_y, elas_y_val)
+		set_value!(elas_va, elas_va_val)
+		set_value!(t_elas_m, t_elas_m_val)
+		set_value!(elas_m, elas_m_val)
+		set_value!(t_elas_a, t_elas_a_val)
+		set_value!(elas_a, elas_a_val)
+		set_value!(elas_dm, elas_dm_val)
+		set_value!(d_elas_ra, d_elas_ra_val)
 
 		solve!(WiNnat, cumulative_iteration_limit=10000);#, convergence_tolerance=1e-0);
 		# save sampled elasticity values, and indices for Y through to MS, and PA through PFX in results, variables we're most interested in
-	out[i,:] = [get_value(t_elas_y) get_value(elas_y) get_value(elas_va) get_value(t_elas_m) get_value(elas_m) get_value(t_elas_a) get_value(elas_a) get_value(elas_dm) get_value(d_elas_ra) transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
+		out[i,:] = [value(t_elas_y) value(elas_y) value(elas_va) value(t_elas_m) value(elas_m) value(t_elas_a) value(elas_a) value(elas_dm) value(d_elas_ra) transpose(generate_report(WiNnat)[!,:value])]
 	println(i,": So far ",now()-starttime)
 	end
 	println("It took",now()-starttime)
@@ -132,66 +135,85 @@ pltvarsAll = ExVal[:,[10,21,24,66,81,92,95,137,154,218,212,222,289,283,293,294,2
 
 ## SENSETIVITY TEST FOR INDIVIDUAL ELASTICITY PARAMETERS
 ## First, function to set header and baseline counterfactual values rows.
-function SensitivityTestHead(param)
-	out = Array{Any}(undef, 2, 289)
-	set_value(t_elas_y, 0.)
-	set_value(elas_y, 0.)
-	set_value(elas_va, 1.)
-	set_value(t_elas_m, 0.)
-	set_value(elas_m, 0.)
-	set_value(t_elas_a, 2.)
-	set_value(elas_a, 0.)
-	set_value(elas_dm, 2.)
-	set_value(d_elas_ra, 1.)
+function SensitivityTestHead(param, m::MPSGEModel)
+	out = Array{Any}(undef, 2, 290)
+	set_value!(t_elas_y, 0.)
+	set_value!(elas_y, 0.)
+	set_value!(elas_va, 1.)
+	set_value!(t_elas_m, 0.)
+	set_value!(elas_m, 0.)
+	set_value!(t_elas_a, 2.)
+	set_value!(elas_a, 0.)
+	set_value!(elas_dm, 2.)
+	set_value!(d_elas_ra, 1.)
 	solve!(WiNnat, cumulative_iteration_limit=10000);
-	paramname = param.model._parameters[param.index].name
-	out[1,:] = [paramname        transpose(all_variables(WiNnat._jump_model)[[152:295;435:578],:])]
-	out[2,:] = [get_value(param)  					 transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
-	CSV.write("Sens_"*String(paramname)*".csv", Tables.table(out), missingstring="missing", bom=true)
+	# paramname = param.model._parameters[param.index].name
+	rp = generate_report(m)
+	out[1,:] = [param transpose(rp[!,:var])]
+	out[2,:] = [value(param) transpose(rp[!,:value])]
+	#  = [paramname        transpose(all_variables(WiNnat._jump_model)[[152:295;435:578],:])]
+	#  = [get_value(param)  					 transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
+	CSV.write("Sens_"*String(param.name)*".csv", Tables.table(out), missingstring="missing", bom=true)
 end
 
 ## Here, we set a function to select a single elasticity and vary that according to the distribution argument, n times in each Monte Carlo run, and append values to csv
-function SensitivityTest(param, n, dist)
-	out = Array{Float64}(undef, n, 289)
-	paramname = param.model._parameters[param.index].name
-	set_value(t_elas_y, 0.)
-	set_value(elas_y, 0.)
-	set_value(elas_va, 1.)
-	set_value(t_elas_m, 0.)
-	set_value(elas_m, 0.)
-	set_value(t_elas_a, 2.)
-	set_value(elas_a, 0.)
-	set_value(elas_dm, 2.)
-	set_value(d_elas_ra, 1.)
+function SensitivityTest(param, n, dist, m)
+	out = Array{Float64}(undef, n, 290)
+	set_value!(t_elas_y, 0.)
+	set_value!(elas_y, 0.)
+	set_value!(elas_va, 1.)
+	set_value!(t_elas_m, 0.)
+	set_value!(elas_m, 0.)
+	set_value!(t_elas_a, 2.)
+	set_value!(elas_a, 0.)
+	set_value!(elas_dm, 2.)
+	set_value!(d_elas_ra, 1.)
 	for i in 1:n
 		pdr = rand(dist)
-		set_value(param, pdr)
-		println(i,"/",n,". ",param)
+		set_value!(param, pdr)
+		println(i,"/",n,". ",param.name)
 		solve!(WiNnat, cumulative_iteration_limit=10000);#, convergence_tolerance=1e-0);
 	##indexes for Y through to MS, and PA through PFX in results, variables we're most interested in
-		out[i,:] = [get_value(param)  transpose(JuMP.value.(all_variables(WiNnat._jump_model)[[152:295;435:578],:]))]
+		out[i,:] = [value(param) ; generate_report(m)[!,:value]]
 	end
-	CSV.write("Sens_"*String(paramname)*".csv", Tables.table(out), missingstring="missing", bom=true, append=true)
+	CSV.write("Sens_"*String(param.name)*".csv", Tables.table(out), missingstring="missing", bom=true, append=true)
 	# return out
 end
 
 ### Run heading function once, and then can run ST in batches
 # Example: for the first elasticity parameter
-# SensitivityTestHead(t_elas_y)
-# SensitivityTest(t_elas_y, 5, Gamma(1,2))
+# SensitivityTestHead(t_elas_y, WiNnat)
+# SensitivityTestHead(elas_y, WiNnat)
+# SensitivityTestHead(elas_va, WiNnat)
+# SensitivityTestHead(t_elas_m, WiNnat)
+# SensitivityTestHead(elas_m, WiNnat)
+# SensitivityTestHead(t_elas_a, WiNnat)
+# SensitivityTestHead(elas_a, WiNnat)
+# SensitivityTestHead(elas_dm, WiNnat)
+# SensitivityTestHead(d_elas_ra, WiNnat)
+
+SensitivityTest(t_elas_y, 30, Gamma(1,2), WiNnat)
+SensitivityTest(elas_y, 30, Gamma(1,2), WiNnat) 
+SensitivityTest(elas_va, 30, truncated(Normal(1,2),lower=0), WiNnat) #1
+SensitivityTest(t_elas_m, 30, Gamma(1,2), WiNnat) 
+SensitivityTest(elas_m, 30, Gamma(1,2), WiNnat) 
+SensitivityTest(t_elas_a, 30, truncated(Normal(2,2),lower=0), WiNnat) #2
+SensitivityTest(elas_a, 30, Gamma(1,2), WiNnat) 
+SensitivityTest(elas_dm, 30, truncated(Normal(2,2),lower=0), WiNnat) #2
+SensitivityTest(d_elas_ra, 30, truncated(Normal(1,2),lower=0), WiNnat) #1
 
 
 ### Get All Sensitivity results for plotting together
-# SenseoutputT_Y = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_t_elas_y.csv"), header = 2, skipto=3))
-# SenseoutputY = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_elas_y.csv"), header = 2, skipto=3))
-# SenseoutputVA = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_elas_va.csv"), header = 2, skipto=3))
-# SenseoutputT_M = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_t_elas_m.csv"), header = 2, skipto=3))
-# SenseoutputM = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_elas_m.csv"), header = 2, skipto=3))
-# SenseoutputT_A = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_t_elas_a.csv"), header = 2, skipto=3))
-# SenseoutputA = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_elas_a.csv"), header = 2, skipto=3))
-# SenseoutputDM = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_elas_dm.csv"), header = 2, skipto=3))
-# SenseoutputD_RA = DataFrame(CSV.File(joinpath(@__DIR__,"./SensitivityTest/Sens_d_elas_ra.csv"), header = 2, skipto=3))
-
+SenseoutputT_Y = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_t_elas_y.csv"), header = 2, skipto=3))
+SenseoutputY = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_elas_y.csv"), header = 2, skipto=3))
+SenseoutputVA = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_elas_va.csv"), header = 2, skipto=3))
+SenseoutputT_M = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_t_elas_m.csv"), header = 2, skipto=3))
+SenseoutputM = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_elas_m.csv"), header = 2, skipto=3))
+SenseoutputT_A = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_t_elas_a.csv"), header = 2, skipto=3))
+SenseoutputA = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_elas_a.csv"), header = 2, skipto=3))
+SenseoutputDM = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_elas_dm.csv"), header = 2, skipto=3))
+SenseoutputD_RA = DataFrame(CSV.File(joinpath(@__DIR__,"./Sens_d_elas_ra.csv"), header = 2, skipto=3))
+SensePlotInd(88,44,99,135,136,75,60,114,145,212,206,216,283,277,288,289,143,144,77,37,287)
 # # #fv first variable index from SensElas; lv last variable index, 21 variables, for plotting loop and 3x7 plot collection
 function SensePlot(fv, lv)
 	pltvarsT_Y = [SenseoutputT_Y[:,:t_elas_y] SenseoutputT_Y[:,fv:lv]]
@@ -320,3 +342,4 @@ end
 
 ### 21 variables chosen as sample, fed in as the 21 arguments
 # SensePlotInd(2,13,16,58,73,84,87,129,146,210,204,214,281,275,285,286,287,288,144,145,289)
+SensePlotInd(88,44,99,135,136,75,60,114,145,212,206,216,283,277,288,289,143,144,77,37,287)
