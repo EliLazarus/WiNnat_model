@@ -41,6 +41,15 @@ WiNnat = MPSGEModel()
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
+    t_elas_y, 0            
+    elas_y,   0            
+    elas_va,  1          
+    t_elas_m, 0            
+    elas_m,   0         
+    t_elas_a, 2           
+    elas_a,   0         
+    elas_dm,  2          
+    d_elas_ra,1
 end)
 
 @sectors(WiNnat,begin
@@ -60,7 +69,7 @@ end)
 @consumer(WiNnat, RA, description = "Representative Agent")
 
 for j∈J
-    @production(WiNnat, Y[j], [t=0, s = 0, va => s = 1], begin
+    @production(WiNnat, Y[j], [t= t_elas_y, s = elas_y, va => s = elas_va], begin # 0, 0, 1
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s) for i∈I]...
         [@input(PVA[va], va_0[yr,va,j], va) for va∈VA]...
@@ -70,14 +79,14 @@ end
 
 
 for m∈M
-    @production(WiNnat, MS[m], [t = 0, s = 0], begin
+    @production(WiNnat, MS[m], [t = t_elas_m, s = elas_m], begin # 0, 0
         [@output(PM[m], sum(ms_0[yr,i,m] for i∈I), t)]...
         [@input(PY[i], ms_0[yr,i,m], s) for i∈I]...
     end)
 end
 
 for i∈I
-    @production(WiNnat, A[i], [t = 2, s = 0, dm => s = 2], begin
+    @production(WiNnat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin # 2, 0, 2
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
@@ -93,9 +102,8 @@ end
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
-end)
+end, elasticity = d_elas_ra)
 
-1;
 # Benchmark 
 fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 
