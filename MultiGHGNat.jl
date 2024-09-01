@@ -12,14 +12,12 @@ Sectors = CSV.read("Sectors.csv", DataFrame);
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 J = [i for i∈S[:j] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
-#subset index for slack CH4 mitigation production
-C = [:agr,:min,:pip,:oil,:wst] #:uti?
+CH4sectors = [:agr,:min,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
-FD = S[:fd]
-TS = S[:ts]
+FD = S[:fd] # Index for final demand categories (pce, and investment types)
+TS = S[:ts] #index for taxes/subsidies
 YR = S[:yr] # Index for years for potential multi year runs
-M = S[:m]
-
+M = S[:m] # Index for margins (transport and trade)
 a_0 = P[:a_0] #	    "Armington supply",
 id_0 = P[:id_0] #	"Intermediate demand",
 ys_0 = P[:ys_0]#	"Sectoral supply",
@@ -50,11 +48,12 @@ yr = Symbol(2017)
 
 ## Calculate CH4 Intensity factors from EPA data
 # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
-# Sum and weighted average with current aggregation (before potential disaggregation of WiNDC data at some point)
+# Emissions MMt, sum and weighted average with current aggregation (before potential disaggregation of BEA/WiNDC data at some point)
 CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.8979059/2 111.5049515+20.36144996
-## Weighted average per sector
+## Weighted average mitigated potential per sector
     (260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
-## Million $US 2019: EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
+## Mitigation cost per sector in Million $US 2019, for the maximum % mititation potential
+## EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
 ## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
 ## :oil and :pip split EPA GAS in half for want of more specific MAC data or proportiona
     7090.604857 269.0188218 6862.194574/2 6862.194574/2 1795.700322],
@@ -63,34 +62,34 @@ CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.
 
 CH4calc = DenseAxisArray([
 ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
-    [CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in C];;
+    [CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in CH4sectors];;
 ## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
-    [(1-CH4emiss[:MaxpercMit,c])*CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in C];;
+    [(1-CH4emiss[:MaxpercMit,c])*CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in CH4sectors];;
 ## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
-    [CH4emiss[:MitCostTot,c]/10^3+sum(va_0[yr,:,c]) for c in C]],
-C, # 1 dim indexed by sector
-[:CH4Intens :CH4MitIntens :TotCostwMit ])
+    [CH4emiss[:MitCostTot,c]/10^3+sum(va_0[yr,:,c]) for c in CH4sectors]],
+CH4sectors, # dimension 1 indexed by sector
+[:CH4Intens :CH4MitIntens :TotCostwMit ]) # dimension 2 indexed by values
 
 ## Relative cost of VA including max mitigation
-MitCostoverVA = DenseAxisArray([CH4calc[c,:TotCostwMit]/sum(va_0[yr,:,c]) for c in C],
-    C)
+MitCostoverVA = DenseAxisArray([CH4calc[c,:TotCostwMit]/sum(va_0[yr,:,c]) for c in CH4sectors],
+    CH4sectors)
 
 vam_0 = deepcopy(va_0) #copy for slack mitigating activties
 # benchmark value added input levels for with additional % of costs for mitigation
-for c in C
+for c in CH4sectors
     vam_0[:,:,c] = va_0[:,:,c].data .* MitCostoverVA[c]
 end
 
 ## default of 0 for non-emitting and less significant emitting sectors
 ch4VASInt = DenseAxisArray(zeros(length(J)),J)
 ## Set vector of standard CH4 intensities: CH4 (in CO2eq)/value-added factor inputs
-for c in C
+for c in CH4sectors
     ch4VASInt[c] = CH4calc[c,:CH4Intens]
 end
 ## Still default of 0 for non-emitting and less significant emitting sectors
 ch4VAMInt = DenseAxisArray(zeros(length(J)),J)
 ## Set vector of CH4 *mitigated* intensities: Mitigated CH4 (in CO2eq)/value-added factor inputs
-for c in C
+for c in CH4sectors
     ch4VAMInt[c] = CH4calc[c,:CH4MitIntens]
 end
 
@@ -159,7 +158,7 @@ for j∈J
 end
 
 # Slack mitigating VA activities for main CH4 producing sectors
-for j∈C
+for j∈CH4sectors
     @production(MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4VAMInt[j])]) for va∈VA]...
@@ -207,7 +206,7 @@ end, elasticity = 1)
 @aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
-
+set_silent(MultiNat)
 
 # Benchmark 
 # fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
@@ -360,7 +359,7 @@ println("Total GHG Emission Reduction Combined: ", TotGHGbnchmk - only(compTotem
 println("Total GHG Emission Interaction: ", TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])- # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
 (TotGHGbnchmk - only(compTotem[:,:both]))) # Total GHG (CO2&CH4) reduction with taxes combined
 
-DataFrame(
+EmissionReductionResults = DataFrame(
 ["CO2" TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) TotCO2bnchmk - only(compCO2em[:,:both])  TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) - (TotCO2bnchmk - only(compCO2em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "CH4" TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) TotCH4bnchmk - only(compCH4em[:,:both]) TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) - (TotCH4bnchmk - only(compCH4em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "GHGs" TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) TotGHGbnchmk - only(compTotem[:,:both]) TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) - (TotGHGbnchmk - only(compTotem[:,:both]))], ["Emissions", "Sum", "Combined" ,"Interactions"])
@@ -385,12 +384,12 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, cnst=1)
     return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions], title= "$tax1, $tax2, ($tax2 x $cnst)")
 end
 
-check = plottaxemisscurve(ch4_tax, tax_co2, 0, 1, 1600)
-check = plottaxemisscurve(tax_co2, ch4_tax, 0, 1, 1600, 0)
-check[2]
-print(check[1])
+EmissionReductionResults
+# set_silent(MultiNat)
+# check = plottaxemisscurve(ch4_tax, tax_co2, 0, 100, 1600)
+# check = plottaxemisscurve(tax_co2, ch4_tax, 0, 1, 1600, 0)
+# check[2]
+# print(check[1])
 
-set_silent(MultiNat)
-unset_silent(MultiNat)
 
-png(check[2], "CO2to1600")
+# png(check[2], "CO2to1600")
