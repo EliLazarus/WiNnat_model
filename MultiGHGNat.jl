@@ -380,8 +380,12 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, cnst=1)
         Results[!,:var] = Symbol.(Results[:,:var]);
         push!(margemiss, [i only(filter(:var => ==(:TotEm), Results)[:, :value])])
     end
-
-    return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions], title= "$tax1, $tax2, ($tax2 x $cnst)")
+    if cnst==0
+        tax2in = "only"
+    else
+        tax2in = " & $tax2"
+    end
+    return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions], title= "$tax1 $tax2in", ylim=(0,maximum(margemiss[!,:Emissions])))
 end
 
 EmissionReductionResults
