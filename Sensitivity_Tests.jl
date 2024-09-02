@@ -1,7 +1,7 @@
 using MPSGE
 import JuMP
 # For sensitivity tests, timing, and plotting
-using DataFrames, Plots, Tables, Dates, Distributions
+using DataFrames, Plots, Tables, Dates, Distributions, CSV
 
 ###  SENSITIVITY TESTS
 ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
@@ -342,4 +342,3 @@ end
 
 ### 21 variables chosen as sample, fed in as the 21 arguments
 # SensePlotInd(2,13,16,58,73,84,87,129,146,210,204,214,281,275,285,286,287,288,144,145,289)
-SensePlotInd(88,44,99,135,136,75,60,114,145,212,206,216,283,277,288,289,143,144,77,37,287)
