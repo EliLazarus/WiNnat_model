@@ -40,7 +40,7 @@ yr = Symbol(2017)
     # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
     CH4emissdatadf = DataFrame(Wsector = [:agr,:agr,:min,:oil,:wst,:wst],
     ## EPA Total Emissions per sector, MMt CO2eq 
-    EPAemiss =[260.483532,13.70952225,59.31302643,224.8979059,111.5049515,20.36144996],
+    EPAemiss =[260.483532*10^-3,13.70952225*10^-3,59.31302643*10^-3,224.8979059*10^-3,111.5049515*10^-3,20.36144996*10^-3],
     ## EPA maximum % of abatement per sector at <$1000/t
     MaxpercMit = [.304,.280,.645,.475,.050,.350],
     PAsector = ["AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL",
@@ -49,7 +49,7 @@ yr = Symbol(2017)
 ## Calculate CH4 Intensity factors from EPA data
 # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDS
 # Emissions MMt, sum and weighted average with current aggregation (before potential disaggregation of BEA/WiNDC data at some point)
-CH4emiss = DenseAxisArray([260.483532+13.70952225 59.31302643 224.8979059/2 224.8979059/2 111.5049515+20.36144996
+CH4emiss = DenseAxisArray([260.483532*10^-3+13.70952225*10^-3 59.31302643*10^-3 224.8979059*10^-3/2 224.8979059*10^-3/2 111.5049515*10^-3+20.36144996*10^-3
 ## Weighted average mitigated potential per sector
     (260.483532*.304+13.70952225*.280)/(300.8535461+260.483532+13.70952225)  .645 .475 .475 (111.5049515*.050+20.36144996*.350)/(111.5049515+20.36144996)
 ## Mitigation cost per sector in Million $US 2019, for the maximum % mititation potential
@@ -95,10 +95,10 @@ end
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # (MMtCO2eq/$Bill) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
-CO2Int[:min] =  895.9/sum(id_0[yr,:min,:]) 
-CO2Int[:oil] =  2104.80/sum(id_0[yr,:oil,:]) 
+CO2Int[:min] =  895.9*10^-3/sum(id_0[yr,:min,:]) 
+CO2Int[:oil] =  2104.80*10^-3/sum(id_0[yr,:oil,:]) 
 
-TotCO2bnchmk =  895.9 + 2104.8
+TotCO2bnchmk =  895.9*10^-3 + 2104.8*10^-3
 TotCH4bnchmk =  sum(CH4emiss[:EPAemiss,:])
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## End data preparations
@@ -191,8 +191,8 @@ end
 end, elasticity = 1)
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
-@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9)
-@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80)
+@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9*10^-3)
+@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80*10^-3)
 ## Total CO2 emissions are the sum of emissions from the 2 fossil fuel sectors (constraint expressed as equantion = 0)
 @aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
 ## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity 
@@ -261,7 +261,7 @@ set_value!(tm,tm_0[yr,J])
 taxrate_ch4 = 190. 
 ## "OR 1600 * CO2 conversion rate back to per ton of 
 ## Or alternatively, re-work data replacing CH4 in actual tons"
-set_value!(ch4_tax, (taxrate_ch4 *10^-3)) # Divided by 1,000 for $Bill/MMt
+set_value!(ch4_tax, taxrate_ch4)#*10^-3) # Divided by 1,000 for $Bill/MMt
 
 solve!(MultiNat)
 
@@ -283,7 +283,7 @@ rename!(fullvrch4, :value => :ch4, :margin => :ch4marg)
 
 # # Counterfactual Fossil fuel extraction is ALSO taxed at emissions intensitiy of input x tax in $/ton
 CO2_taxrate = 190 
-set_value!(tax_co2, CO2_taxrate * 10^-3) # Divided by 1,000 for $Bill/MMt
+set_value!(tax_co2, CO2_taxrate)# * 10^-3) # Divided by 1,000 for $Bill/MMt
 
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
@@ -339,30 +339,30 @@ end
 
 Compare[!,:var] = Symbol.(Compare[:,:var]);
 # print(sort!(Compare, :var));
-println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
+# println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
 
 ## Look at the sum of each reduction compared to the combined reduction
 compCO2em = filter(:var => ==(:CO2TotEm), Compare);
-println("CO2 Reduction Sum: ", TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2])) # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
-println("CO2 Reduction Combined: ", TotCO2bnchmk - only(compCO2em[:,:both])) # Total CO2 reduction with taxes combined
-println("CO2 Reduction Interaction: ", TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2])- # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
-(TotCO2bnchmk - only(compCO2em[:,:both])))# Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes.
+println("CO2 Reduction Sum Mt: ", (TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2]))*10^3) # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
+println("CO2 Reduction Combined: ", (TotCO2bnchmk - only(compCO2em[:,:both]))*10^3) # Total CO2 reduction with taxes combined
+println("CO2 Reduction Interaction: ", (TotCO2bnchmk - only(compCO2em[:,:ch4])+TotCO2bnchmk - only(compCO2em[:,:co2])- # Sum of the difference from benchmark CO2 emissions for both taxes applied separately
+(TotCO2bnchmk - only(compCO2em[:,:both])))*10^3)# Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes.
 compCH4em = filter(:var => ==(:CH4TotEm), Compare);
-println("CH4 Reduction Sum: ", TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2])) # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
-println("CH4 Reduction Combined: ", TotCH4bnchmk - only(compCH4em[:,:both])) # Total CH4 reduction with taxes combined
-println("CH4 Reduction Interaction: ", TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2])- # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
-(TotCH4bnchmk - only(compCH4em[:,:both]))) # Total CH4 reduction with taxes combined
+println("CH4 Reduction Sum: ", (TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]))*10^3) # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
+println("CH4 Reduction Combined: ", (TotCH4bnchmk - only(compCH4em[:,:both]))*10^3) # Total CH4 reduction with taxes combined
+println("CH4 Reduction Interaction: ", (TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2])- # Sum of the difference from benchmark CH4 emissions for both taxes applied separately
+(TotCH4bnchmk - only(compCH4em[:,:both])))*10^3) # Total CH4 reduction with taxes combined
 compTotem = filter(:var => ==(:TotEm), Compare);
-println("Total GHG Emission Reduction Sum: ", TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])) # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
-println("Total GHG Emission Reduction Combined: ", TotGHGbnchmk - only(compTotem[:,:both])) # Total GHG (CO2&CH4) reduction with taxes combined
-println("Total GHG Emission Interaction: ", TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])- # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
-(TotGHGbnchmk - only(compTotem[:,:both]))) # Total GHG (CO2&CH4) reduction with taxes combined
+println("Total GHG Emission Reduction Sum: ", (TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]))*10^3) # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
+println("Total GHG Emission Reduction Combined: ", (TotGHGbnchmk - only(compTotem[:,:both]))*10^3) # Total GHG (CO2&CH4) reduction with taxes combined
+println("Total GHG Emission Interaction: ", (TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2])- # Sum of the difference from benchmark GHG (CO2&CH4) emissions for both taxes applied separately
+(TotGHGbnchmk - only(compTotem[:,:both])))*10^3) # Total GHG (CO2&CH4) reduction with taxes combined
 
 EmissionReductionResults = DataFrame(
-["CO2" TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) TotCO2bnchmk - only(compCO2em[:,:both])  TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) - (TotCO2bnchmk - only(compCO2em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"CH4" TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) TotCH4bnchmk - only(compCH4em[:,:both]) TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) - (TotCH4bnchmk - only(compCH4em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"GHGs" TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) TotGHGbnchmk - only(compTotem[:,:both]) TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) - (TotGHGbnchmk - only(compTotem[:,:both]))], ["Emissions", "Sum", "Combined" ,"Interactions"])
+["CO2" "Gt" TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) TotCO2bnchmk - only(compCO2em[:,:both])  TotCO2bnchmk - only(compCO2em[:,:ch4]) + TotCO2bnchmk - only(compCO2em[:,:co2]) - (TotCO2bnchmk - only(compCO2em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"CH4" "GtCO2eq" TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) TotCH4bnchmk - only(compCH4em[:,:both]) TotCH4bnchmk - only(compCH4em[:,:ch4]) + TotCH4bnchmk - only(compCH4em[:,:co2]) - (TotCH4bnchmk - only(compCH4em[:,:both])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"GHGs" "GtCO2eq" TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) TotGHGbnchmk - only(compTotem[:,:both]) TotGHGbnchmk - only(compTotem[:,:ch4]) + TotGHGbnchmk - only(compTotem[:,:co2]) - (TotGHGbnchmk - only(compTotem[:,:both]))], ["Emissions", "Unit", "Sum", "Combined" ,"Interactions"])
 
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
 #filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
@@ -373,8 +373,8 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, cnst=1)
     # and final (optional) argument can be set to 0 to remove other tax, by default """
     margemiss = DataFrame(tax=Float64[], Emissions=Float64[])
     for i in start:interval:finish
-        set_value!(tax1, i/10^3)
-        set_value!(tax2, cnst*i/10^3)
+        set_value!(tax1, i)#/10^3)
+        set_value!(tax2, cnst*i)#/10^3)
         solve!(MultiNat, output="no");
         Results = generate_report(MultiNat)
         Results[!,:var] = Symbol.(Results[:,:var]);
@@ -385,14 +385,20 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, cnst=1)
     else
         tax2in = " & $tax2"
     end
-    return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions], title= "$tax1 $tax2in", ylim=(0,maximum(margemiss[!,:Emissions])))
+    return margemiss,    plot(margemiss[!,:tax], margemiss[!,:Emissions].*10^3, title= "$tax1 $tax2in", ylim=(0,maximum(margemiss[!,:Emissions].*10^3)))
 end
 
-EmissionReductionResults
-# set_silent(MultiNat)
-# check = plottaxemisscurve(ch4_tax, tax_co2, 0, 100, 1600)
-# check = plottaxemisscurve(tax_co2, ch4_tax, 0, 1, 1600, 0)
-# check[2]
+EmissUnits_mt = DataFrame();
+EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
+EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:5].*10^3] 
+
+set_silent(MultiNat)
+check = plottaxemisscurve(ch4_tax, tax_co2, 0, 20, 1600)
+check[2]
+check = plottaxemisscurve(tax_co2, ch4_tax, 0, 20, 1600, 0)
+check[2]
+check = plottaxemisscurve(tax_co2, ch4_tax, 0, 20, 1600)
+check[2]
 # print(check[1])
 
 
