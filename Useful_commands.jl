@@ -30,3 +30,9 @@ set_silent(MultiNat)
 unset_silent(MultiNat)
 
 collect(1:.2:10) #turn iterator into vector
+
+# collects rows (filtered on index) of df into a new df
+PAall=DataFrame([[],[],[],[],[],[],[],[]],[:var,      :bnchmrk,  :ch4,      :co2,      :both,     :cntr,      :sum,       :diff])
+for i in I;                                                                                                                       
+       push!(PAall,Vector{Any}(filter(:var => ==(Symbol("PA[$i]")),Compare)[1,:]))                                                       
+       end
