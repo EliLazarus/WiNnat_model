@@ -414,7 +414,7 @@ FDemand[:,:CO2Qdelta]=FDemand[:,:cO2].-FDemand[:,:bnch]
 FDemand[:,:bothQdelta]=FDemand[:,:both].-FDemand[:,:bnch]
 FDemand[:,:bncQpc]=FDemand[:,:bnch]./sum(FDemand[:,:bnch])*100
 FDemand[:,:ch4Qpc]=FDemand[:,:ch4]./sum(FDemand[:,:ch4])*100
-FDemand[:,:cO2Qpc]=FDemand[:,:cO2]./sum(FDemand[:,:cO2])*100
+FDemand[:,:CO2Qpc]=FDemand[:,:cO2]./sum(FDemand[:,:cO2])*100
 FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 # set_silent(MultiNat)

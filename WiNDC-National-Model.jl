@@ -107,7 +107,7 @@ end
 end, elasticity = d_elas_ra)
 
 # Benchmark 
-fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
+# fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
@@ -125,7 +125,8 @@ desc=Vector{Symbol}(undef, length(I)),
 bnch=Vector{Float64}(undef, length(I)), 
 bnchPr=Vector{Float64}(undef, length(I)), 
 cntr=Vector{Float64}(undef, length(I)),
-cntrPr=Vector{Float64}(undef, length(I)))
+cntrPr=Vector{Float64}(undef, length(I)),
+cntrval=Vector{Float64}(undef, length(I)))
 for (n,i) in enumerate(I)
     FDemandWiNnat[n,:index]= i
     FDemandWiNnat[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
