@@ -79,14 +79,16 @@ end
 
 
 for m∈M
-    @production(WiNnat, MS[m], [t = t_elas_m, s = elas_m], begin # 0, 0
+    @production(WiNnat, MS[m], [t = 0, s = 0], begin # 0, 0
+    # @production(WiNnat, MS[m], [t = t_elas_m, s = elas_m], begin # 0, 0
         [@output(PM[m], sum(ms_0[yr,i,m] for i∈I), t)]...
         [@input(PY[i], ms_0[yr,i,m], s) for i∈I]...
     end)
 end
 
 for i∈I
-    @production(WiNnat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin # 2, 0, 2
+    # @production(WiNnat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin # 2, 0, 2
+    @production(WiNnat, A[i], [t = 2, s = 0, dm => s = 2], begin # 2, 0, 2
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
@@ -110,15 +112,70 @@ fix(RA, sum(fd_0[yr,i,:pce] for i∈I))
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
 df_benchmark = generate_report(WiNnat);
+
+rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
+df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
+
+# print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
+Sectors = CSV.read("Sectors.csv", DataFrame);
+
+# Initialize a Dataframe to save final demand results
+FDemandWiNnat = DataFrame(index=Vector{Symbol}(undef, length(I)),
+desc=Vector{Symbol}(undef, length(I)), 
+bnch=Vector{Float64}(undef, length(I)), 
+bnchPr=Vector{Float64}(undef, length(I)), 
+cntr=Vector{Float64}(undef, length(I)),
+cntrPr=Vector{Float64}(undef, length(I)))
+for (n,i) in enumerate(I)
+    FDemandWiNnat[n,:index]= i
+    FDemandWiNnat[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
+    FDemandWiNnat[n,:bnch] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
+    FDemandWiNnat[n,:bnchPr] = filter(:var => ==(Symbol("PA[$i]")),df_benchmark)[1,2]
+end
+
 # Counterfactual
-fix(RA,12453.896315446877)
+# fix(RA,12453.896315446877)
+
+# 12453.896315446877/sum(fd_0[yr,i,:pce] for i∈I)
+# 13154.978277803244/sum(fd_0[yr,i,:pce] for i∈I)
+# for i in I; fdW+=sum(fd_0[yr,i,FD[2:18]])*-value(PA[i])+sum(va_0[yr,VA[1],i])*value(PVA[VA[1]])+sum(va_0[yr,VA[2],i])*value(PVA[VA[2]])
+# end
+
+# for i in I; fdW+=sum(fd_0[yr,i,:pce])*-value(PA[i])
+# end
 
 set_value!(ta,0)
 set_value!(tm,0)
 
 solve!(WiNnat)
+df_counter = generate_report(WiNnat)
+rename!(df_counter, :value => :counter, :margin => :countermarg)
+df_counter[!,:var] = Symbol.(df_counter[:,:var]);
 
-df = generate_report(WiNnat);
-df |>
-    x -> sort(x, :margin, rev=true)
-[Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
+for (n,i) in enumerate(I)
+     FDemandWiNnat[n,:cntr] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
+     FDemandWiNnat[n,:cntrPr] = filter(:var => ==(Symbol("PA[$i]")),df_counter)[1,2]
+     FDemandWiNnat[n,:cntrval] = FDemandWiNnat[n,:cntr] * FDemandWiNnat[n,:cntrPr]
+
+end
+
+# [value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:pip]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trn]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trk]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:wtt]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:air]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:otr]))	,
+# sum([value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:pip]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trn]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trk]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:wtt]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:air]))	,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:otr]))]) ,
+# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PM][:trn]))  ,
+# value(MS[:trn])]
+
+
+# df = generate_report(WiNnat);
+# df |>
+#     x -> sort(x, :margin, rev=true)
+# [Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
