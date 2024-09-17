@@ -149,34 +149,8 @@ set_value!(ta,0)
 set_value!(tm,0)
 
 solve!(WiNnat)
-df_counter = generate_report(WiNnat)
-rename!(df_counter, :value => :counter, :margin => :countermarg)
-df_counter[!,:var] = Symbol.(df_counter[:,:var]);
 
-for (n,i) in enumerate(I)
-     FDemandWiNnat[n,:cntr] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
-     FDemandWiNnat[n,:cntrPr] = filter(:var => ==(Symbol("PA[$i]")),df_counter)[1,2]
-     FDemandWiNnat[n,:cntrval] = FDemandWiNnat[n,:cntr] * FDemandWiNnat[n,:cntrPr]
-
-end
-
-# [value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:pip]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trn]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trk]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:wtt]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:air]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:otr]))	,
-# sum([value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:pip]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trn]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:trk]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:wtt]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:air]))	,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PY][:otr]))]) ,
-# value(compensated_demand(WiNnat[:MS][:trn],WiNnat[:PM][:trn]))  ,
-# value(MS[:trn])]
-
-
-# df = generate_report(WiNnat);
-# df |>
-#     x -> sort(x, :margin, rev=true)
-# [Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
+df = generate_report(WiNnat);
+df |>
+    x -> sort(x, :margin, rev=true)
+[Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
