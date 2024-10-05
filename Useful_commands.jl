@@ -36,3 +36,7 @@ PAall=DataFrame([[],[],[],[],[],[],[],[]],[:var,      :bnchmrk,  :ch4,      :co2
 for i in I;                                                                                                                       
        push!(PAall,Vector{Any}(filter(:var => ==(Symbol("PA[$i]")),Compare)[1,:]))                                                       
        end
+## get final demand, and benchmark fd etc (with the short description)
+       for i in I
+              println(PA[i],": ",filter(:index => ==(string(i)), Sectors)[:,:Short_description], "\t: ",value(PA[i]),"\t->",value(demand(RA,PA[i])),"\t;",fd_0[yr,i,:pce],"\t=>",demand(RA,PA[i]))
+       end

@@ -1,6 +1,6 @@
 # WiNDC National Model
 using MPSGE
-using DataFrames, JLD2
+using DataFrames, JLD2, CSV
 using JuMP
 using MPSGE.JuMP.Containers
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
