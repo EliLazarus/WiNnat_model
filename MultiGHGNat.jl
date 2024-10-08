@@ -228,80 +228,18 @@ for j∈J
     end)
 end
 
-# TODO set up to loop over all VAMs
-for j∈CH4sectors
-    if VAM_costover[:VAM5,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-        @production(MultiNat, VAM5[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM5,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM5,j])]) for va∈VA]...
-        end)
+## Loop over all the Marginal Abatement tiers as Value-Added production blocks
+VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
+for vam in VAMcommodSet
+    for j∈CH4sectors
+        if VAM_costover[vam.name,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+            @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+                [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+                [@input(PVA[va], va_0[yr,va,j]*VAM_costover[vam.name,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[vam.name,j])]) for va∈VA]...
+            end)
+        end
     end
 end
-
-for j∈CH4sectors
-        @production(MultiNat, VAM10[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM10,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM10,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM15[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM15,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM15,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM20[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM20,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM20,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM30[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM30,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM30,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM40[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM40,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM40,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM50[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM50,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM50,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM100[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM100,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM100,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM500[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM500,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM500,j])]) for va∈VA]...
-        end)
-end
-for j∈CH4sectors
-        @production(MultiNat, VAM1000[j], [t=0, s = 0, va => s = 1], begin
-            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-            [@input(PVA[va], va_0[yr,va,j].*VAM_costover[:VAM1000,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM1000,j])]) for va∈VA]...
-        end)
-end
-
-## First pass, all EPA mitigation potential up to $1,000/t
-# Slack mitigating VA activities for main CH4 producing sectors: total weighted Marginal Abatment version
-# for j∈CH4sectors
-#     @production(MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
-#         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-#         [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, ch4_tax* ch4VAMInt[j])]) for va∈VA]...
-#     end)
-# end
-
 
 for m∈M
     @production(MultiNat, MS[m], [t = 0, s = 0], begin
