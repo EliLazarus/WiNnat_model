@@ -34,7 +34,7 @@ ty_0 = P[:ty_0] #	"Output tax rate"
 tm_0 = P[:tm_0] #	"Import tariff"; Initial, for price 
 ta_0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark data also for price level
 
-yr = Symbol(2017)
+yr = Symbol(2020)
 
 ## Base Marginal Abatement Cost EPA data (2020)
 MAC_CH4_data=CSV.read("./data/EPA_CH4_MAC_2020_data.csv", DataFrame, header=2, limit=14)
