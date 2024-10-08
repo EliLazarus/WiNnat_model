@@ -229,87 +229,68 @@ for j∈J
 end
 
 # TODO set up to loop over all VAMs
-## TODO $5/t level of mitigation causes data issues because of the -negative costs for some sectors
-# for j∈CH4sectors
-#     if VAM_costover[:VAM5,j]>1
-#         @production(MultiNat, VAM5[j], [t=0, s = 0, va => s = 1], begin
-#             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-#             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM5,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM5,j])]) for va∈VA]...
-#         end)
-#     end
-# end
+for j∈CH4sectors
+    if VAM_costover[:VAM5,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+        @production(MultiNat, VAM5[j], [t=0, s = 0, va => s = 1], begin
+            [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+            [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM5,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM5,j])]) for va∈VA]...
+        end)
+    end
+end
 
 for j∈CH4sectors
-    # if VAM_costover[:VAM10,j]>1
         @production(MultiNat, VAM10[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM10,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM10,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM15,j]>1
         @production(MultiNat, VAM15[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM15,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM15,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM20,j]>1
         @production(MultiNat, VAM20[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM20,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM20,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM30,j]>1
         @production(MultiNat, VAM30[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM30,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM30,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM40,j]>1
         @production(MultiNat, VAM40[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM40,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM40,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM50,j]>1
         @production(MultiNat, VAM50[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM50,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM50,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM100,j]>1
         @production(MultiNat, VAM100[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM100,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM100,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM500,j]>1
         @production(MultiNat, VAM500[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j]*VAM_costover[:VAM500,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM500,j])]) for va∈VA]...
         end)
-    # end
 end
 for j∈CH4sectors
-    # if VAM_costover[:VAM1000,j]>1
         @production(MultiNat, VAM1000[j], [t=0, s = 0, va => s = 1], begin
             [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
             [@input(PVA[va], va_0[yr,va,j].*VAM_costover[:VAM1000,j], va, taxes = [Tax(RA, ch4_tax*VAM_CH4EmInt[:VAM1000,j])]) for va∈VA]...
         end)
-    # end
 end
 
 ## First pass, all EPA mitigation potential up to $1,000/t
@@ -358,7 +339,7 @@ for c in CH4sectors
     # VAM, the old one, for testing.
     # @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+VAM[c]*CH4emiss[:EPAemiss,c]*ch4VAMInt[c]/ch4VASInt[c]))
     @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+
-    #  VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/ch4VASInt[c]+ # The $5/t tier includes sectors with negative costs which (despite the >1 filter) messes up the emissions variable. Marginal abatement and costs are cumulative anyway, so starting at $10/t, at least for now
+    ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/ch4VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
     VAM10[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM10,c]/ch4VASInt[c]+
     VAM15[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM15,c]/ch4VASInt[c]+
     VAM20[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM20,c]/ch4VASInt[c]+
