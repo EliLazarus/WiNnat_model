@@ -150,13 +150,18 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
 #####--------End single Mitigation step data set up-----------#####
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
-# (MMtCO2eq/$Bill) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
-CO2Int[:min] =  895.9*10^-3/sum(id_0[yr,:min,:]) 
-CO2Int[:oil] =  2104.80*10^-3/sum(id_0[yr,:oil,:]) 
+TotalCO2EmMMt_coal = 895.9 # EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential)
+# Option with no transport emissions in the model: assumption that direct
+# TotalCO2EmMMt_gas_oil = 2104.80
+# Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
+TotalCO2EmMMt_gas_oil = 1751.2+2104.80 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
+# (MMtCO2eq/$Bill -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
+CO2Int[:min] =  TotalCO2EmMMt_coal*10^-3/sum(id_0[yr,:min,:]) 
+CO2Int[:oil] =   TotalCO2EmMMt_gas_oil*10^-3/sum(id_0[yr,:oil,:])  
 
-TotCO2bnchmk =  895.9*10^-3 + 2104.8*10^-3
+TotCO2bnchmk =  TotalCO2EmMMt_coal*10^-3 + TotalCO2EmMMt_gas_oil*10^-3
 # TotCH4bnchmk = sum(CH4emiss[:EPAemiss,:]) # from single step data version, same data, same value
-TotCH4bnchmk - sum(MAC_CH4_WiNDC_tot[1,2:end])*10^-3
+TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end])*10^-3
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## End data preparations
 
@@ -221,7 +226,7 @@ for j∈J
     end)
 end
 
-# Total value added cost as a function labor (compen) and kapital (surplus), 
+# Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
 for j∈J
     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
@@ -242,7 +247,7 @@ for vam in VAMcommodSet
     end
 end
 
-## First pass, all EPA mitigation potential up to $1,000/t
+## Alternate structure, all EPA mitigation potential up to $1,000/t
 # Slack mitigating VA activities for main CH4 producing sectors: total weighted Marginal Abatment version
 # for j∈CH4sectors
 #     @production(MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
@@ -276,8 +281,8 @@ end
 end, elasticity = 1)
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
-@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*895.9*10^-3)
-@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*2104.80*10^-3)
+@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmMMt_coal*10^-3)
+@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmMMt_gas_oil*10^-3)
 ## Total CO2 emissions are the sum of emissions from the 2 fossil fuel sectors (constraint expressed as equantion = 0)
 @aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
 ## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity (benchmark = 1 x base emissions)
@@ -444,11 +449,13 @@ Compare[!,:var] = Symbol.(Compare[:,:var]);
 # print(sort!(Compare, :var));
 # println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
-
+compCO2em = filter(:var => ==(:CO2TotEm), Compare);
+compCH4em = filter(:var => ==(:CH4TotEm), Compare);
+compTotem = filter(:var => ==(:TotEm), Compare);
 EmissionReductionResults = DataFrame(
-["CO2" "Gt" TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:bothtaxes])  TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) - (TotCO2bnchmk - only(compCO2em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"CH4" "GtCO2eq" TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"GHGs" "GtCO2eq" TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:bothtaxes]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))], ["Emissions_Reduced", "Unit",  "CO2tax", "CH4tax","Sum_of_both_taxes", "taxes_combined" ,"Interactions"])
+["CO2" "Gt" TotCO2bnchmk TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:bothtaxes])  TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) - (TotCO2bnchmk - only(compCO2em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"CH4" "GtCO2eq" TotCH4bnchmk TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"GHGs" "GtCO2eq" TotGHGbnchmk TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:bothtaxes]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))], ["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_both_taxes", "taxes_combined" ,"Interactions"])
 print(EmissionReductionResults)
 
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
@@ -470,8 +477,8 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
     )
     ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
     for i in start:interval:finish
-        set_value!(tax1, i)#/10^3)
-        set_value!(tax2, cnst*i)#/10^3)
+        set_value!(tax1, i)
+        set_value!(tax2, cnst*i)
         solve!(MultiNat, output="no");
         Results = generate_report(MultiNat)
         Results[!,:var] = Symbol.(Results[:,:var]);
@@ -483,7 +490,7 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
         # value(PA[:agr]),value(PA[:min]),value(PA[:pip]),value(PA[:oil]),value(PA[:wst]),value(PA[:uti]),value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:oil])),value(compensated_demand(MultiNat[:A][:oil],MultiNat[:PA][:oil])),
         # value(VAS[:agr]),value(VAM[:agr]),value(VAS[:min]),value(VAM[:min]),value(VAS[:pip]),value(VAM[:pip]),value(VAS[:oil]),value(VAM[:oil]),value(VAS[:wst]),value(VAM[:wst]),
         value(VAS[:agr]),value(VAM10[:agr]),value(VAM100[:agr]),value(VAM500[:agr]),value(VAM1000[:agr]),value(VAS[:min]),value(VAM10[:min]),value(VAM100[:min]),value(VAM500[:min]),value(VAM1000[:min]),value(VAS[:pip]),value(VAM10[:pip]),value(VAM100[:pip]),value(VAM500[:pip]),value(VAM1000[:pip]),value(VAS[:oil]),value(VAM10[:oil]),value(VAM100[:oil]),value(VAM500[:oil]),value(VAM1000[:oil]),value(VAS[:wst]),value(VAM10[:wst]),value(VAM100[:wst]),value(VAM500[:wst]),value(VAM1000[:wst]),
-        value(TotEm),value(CH4TotEm),value(CH4TotEm)
+        value(TotEm),value(CH4TotEm),value(CO2TotEm)
         # value(CH4em[:oil]),value(CH4em[:pip]),value(CO2em[:min]),value(CO2em[:oil])
         ] 
             )
@@ -493,9 +500,9 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
     else
         tax2in = " & $tax2"
     end
-    plt = plot(margemiss[!,:tax], margemiss[!,:Emissions].*10^3, title= "RA:\$$RAval fxd:$isfixed", label="Total GHG Emissions", ylim=(0,4000), xlabel="$tax1 $tax2in \$/t")
-    plch4 = plot(margemiss[!,:tax], margemiss[!,:CH4Emissions].*10^3, label=false, title="CH4 Emissions", ylim=(0,4000), xlabel="$tax1 $tax2in \$/t")
-    plco2 = plot(margemiss[!,:tax], margemiss[!,:CO2Emissions].*10^3, label=false, title="CO2 Emissions", ylim=(0,4000), xlabel="$tax1 $tax2in \$/t")
+    plt = plot(margemiss[!,:tax], margemiss[!,:Emissions].*10^3, title= "RA:\$$RAval fxd:$isfixed", label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t")
+    plch4 = plot(margemiss[!,:tax], margemiss[!,:CH4Emissions].*10^3, label=false, title="CH4 Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t")
+    plco2 = plot(margemiss[!,:tax], margemiss[!,:CO2Emissions].*10^3, label=false, title="CO2 Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t")
     # plcdyp = plot(margemiss[!,:tax],Testvars[!,:CompDYPApip], title= "RA:\$$RAval fxd:$isfixed", label="comp_dem(Y:pip,PA:pip)", ylim=(minimum(Testvars[!,:CompDYPApip]),maximum(Testvars[!,:CompDYPApip])), xlabel="$tax1 $tax2in \$/t")
     # plcdap = plot(margemiss[!,:tax],Testvars[!,:CompDApipPApip], title= "RA:\$$RAval fxd:$isfixed", label="comp_dem(A:pip,PA:pip)", ylim=(minimum(Testvars[!,:CompDApipPApip]),maximum(Testvars[!,:CompDApipPApip])), xlabel="$tax1 $tax2in \$/t")
     # plfdrap = plot(margemiss[!,:tax],Testvars[!,:DemRAPApip], title= "RA:\$$RAval fxd:$isfixed", label="final_dem(RA,PA:pip)", ylim=(minimum(Testvars[!,:DemRAPApip]),maximum(Testvars[!,:DemRAPApip])), xlabel="$tax1 $tax2in \$/t")
@@ -516,13 +523,13 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
 end
 
 ## Add Quant diff and % of consumption columns for Final Demand report dataframe
-# FDemand[:,:ch4Qdelta]=FDemand[:,:ch4].-FDemand[:,:bnch]
-# FDemand[:,:CO2Qdelta]=FDemand[:,:cO2].-FDemand[:,:bnch]
-# FDemand[:,:bothQdelta]=FDemand[:,:both].-FDemand[:,:bnch]
-# FDemand[:,:bncQpc]=FDemand[:,:bnch]./sum(FDemand[:,:bnch])*100
-# FDemand[:,:ch4Qpc]=FDemand[:,:ch4]./sum(FDemand[:,:ch4])*100
-# FDemand[:,:CO2Qpc]=FDemand[:,:cO2]./sum(FDemand[:,:cO2])*100
-# FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
+FDemand[:,:ch4Qdelta]=FDemand[:,:ch4tax].-FDemand[:,:bnch]
+FDemand[:,:CO2Qdelta]=FDemand[:,:cO2tax].-FDemand[:,:bnch]
+FDemand[:,:bothQdelta]=FDemand[:,:both].-FDemand[:,:bnch]
+FDemand[:,:bncQpc]=FDemand[:,:bnch]./sum(FDemand[:,:bnch])*100
+FDemand[:,:ch4Qpc]=FDemand[:,:ch4tax]./sum(FDemand[:,:ch4tax])*100
+FDemand[:,:CO2Qpc]=FDemand[:,:cO2tax]./sum(FDemand[:,:cO2tax])*100
+FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 # set_silent(MultiNat)
 # checkch4CO2 = plottaxemisscurve(ch4_tax, tax_CO2, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
@@ -530,7 +537,7 @@ end
 # print("checkch4CO2",checkch4CO2[3])
 
 fix(RA, sum(fd_0[yr,I,:pce]))
-set_upper_bound(MultiNat[:A][:pip], 10)
+set_upper_bound(MultiNat[:A][:pip], 20)
 # # MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(A[:pip]))
 # # fix(RA, 14008.668551652801)
 # # unfix(RA)
@@ -593,4 +600,4 @@ print("checkch4",checkch4[3])
 
 EmissUnits_mt = DataFrame();
 EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
-EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:7].*10^3] 
+EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:end].*10^3] 
