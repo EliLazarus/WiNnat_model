@@ -206,12 +206,15 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
 #####--------End single Mitigation step data set up-----------#####
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
-TotalCO2EmMMt_coal = 895.9 # EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential)
+# 2024 GHG Inv Table 3-5: CO2 Emissions from Fossil Fuel Combustion by Fuel Type and Sector (MMT CO2 Eq.)
+TotalCO2EmMMt_coal = 835.6 # 2020 895.9 # EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
 # Option with no transport emissions in the model: assumption that direct
 # TotalCO2EmMMt_gas_oil = 2104.80
+Natural_gasCO2 = 1615.7 #2020 (incl 58.7 transport)
+PetroleumCO2 = 1890.0 # 2020 (incl 1,514.2 transport)
 # Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
-TotalCO2EmMMt_gas_oil = 1751.2+2104.80 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
-# (MMtCO2eq/$Bill -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
+TotalCO2EmMMt_gas_oil = Natural_gasCO2 + PetroleumCO2 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
+# (MMtCO2eq/$Bill x 10-^3 -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
 CO2Int[:min] =  TotalCO2EmMMt_coal*10^-3/sum(id_0[yr,:min,:]) 
 CO2Int[:oil] =   TotalCO2EmMMt_gas_oil*10^-3/sum(id_0[yr,:oil,:])  
 
@@ -346,7 +349,7 @@ end, elasticity = 1)
 for c in CH4sectors
     # VAM, the old one, for testing.
     # @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+VAM[c]*CH4emiss[:EPAemiss,c]*ch4VAMInt[c]/ch4VASInt[c]))
-    @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+
+    @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c] +#  )) # +
     ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/ch4VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
     VAM10[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM10,c]/ch4VASInt[c]+
     VAM15[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM15,c]/ch4VASInt[c]+
@@ -427,7 +430,8 @@ set_value!(tm,tm_0[yr,J])
 ## "EPA SC CH4 is $1600/t. Possibly set as CO2eq * CO2 conversion rate back to per ton of CH4? But 1600/190 is 8.42, not 29.8 conversion...  
 ## Or alternatively, re-work data to calculate CH4 in actual tons"
 set_value!(CH4_tax, CH4_taxrate)
-
+# Set CO2 tax to 0 for running separately.
+set_value!(CO2_tax,0.)
 solve!(MultiNat)
 
 for (n,i) in enumerate(I)
@@ -595,9 +599,9 @@ FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 set_silent(MultiNat)
 fix(RA,16426.2) # RA value at $190/t
-checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
-checkch4CO2[7]
-png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
+# checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
+# checkch4CO2[7]
+# png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
 # checkch4CO2[2]
 # print("checkch4CO2",checkch4CO2[3])
 
@@ -640,7 +644,7 @@ set_upper_bound(MultiNat[:A][:pip], 10)
 # # checkch4CO2[2]
 
 # fix(RA,fix(RA,16030.7) # RA value at $190/t
-# checkch4 = plottaxemisscurve(CH4_tax,CO2_tax, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
+# checkch4 = plottaxemisscurve(CH4_tax,CO2_tax, 0, 10, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
 # checkch4[2]
 # checkch4[5]
 # checkch4[6]
