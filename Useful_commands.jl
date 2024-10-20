@@ -40,3 +40,15 @@ for i in I;
        for i in I
               println(PA[i],": ",filter(:index => ==(string(i)), Sectors)[:,:Short_description], "\t: ",value(PA[i]),"\t->",value(demand(RA,PA[i])),"\t;",fd_0[yr,i,:pce],"\t=>",demand(RA,PA[i]))
        end
+
+       for i in I
+              println(i,": ",round(fd_0[yr,i,:pce],digits=4),"\t",fd_0[yr,i,:pce]/sum(fd_0[yr,:,:pce]),"\t ",round(value(PA[i]),digits=4),"->", round(only(filter(:index => ==(i),FDemand)[:,:cO2tax]),digits=4),"\t PrxQ: ", value(PA[i])*only(filter(:index => ==(i), FDemand)[:,:cO2tax])/a)
+       end
+
+       CheckFDemand = DataFrame([Any[] for c in 1:6],[:sector, :fd_0, :fd_0proportion, :PAi, :FDmdCO2, :CO2proportion])
+       for i in I
+              push!(CheckFDemand,[i,round(fd_0[yr,i,:pce],digits=4),fd_0[yr,i,:pce]/sum(fd_0[yr,:,:pce]),round(value(PA[i]),digits=4), round(only(filter(:index => ==(i),FDemand)[:,:cO2tax]),digits=4), value(PA[i])*only(filter(:index => ==(i), FDemand)[:,:cO2tax])/a])
+       end
+
+       # Govt sectors, by guess
+       GovtSectors = [:fnd, :fen, :slg, :sle, :soc, :fdd]

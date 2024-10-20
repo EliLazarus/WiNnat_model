@@ -236,6 +236,12 @@ MultiNat = MPSGEModel()
     tm[J], tm_0[yr,J]
     CH4_tax, 0.
     CO2_tax, 0.
+    t_elas_y, 0.
+    elas_y, 0.
+    t_elas_a, 2.            
+    elas_a, 0.
+    elas_dm, 2.
+    d_elas_ra, 1.
 end)
 
 @sectors(MultiNat,begin
@@ -244,16 +250,16 @@ end)
     VAS[J],    (description = "Value Added, standard")
     # VAM[J],    (description = "Value Added, with additional max mitigating activity") # For use to compared to the previous, single step set-up
     MS[M],     (description = "Margin Supply",)
-    VAM5[CH4sectors],   (description = "Value Added, with mitigating activity up to \$5/t")
-    VAM10[CH4sectors],  (description = "Value Added, with mitigating activity up to \$10/t")
-    VAM15[CH4sectors],  (description = "Value Added, with mitigating activity up to \$15/t")
-    VAM20[CH4sectors],  (description = "Value Added, with mitigating activity up to \$20/t")
-    VAM30[CH4sectors],  (description = "Value Added, with mitigating activity up to \$30/t")
-    VAM40[CH4sectors],  (description = "Value Added, with mitigating activity up to \$40/t")
-    VAM50[CH4sectors],  (description = "Value Added, with mitigating activity up to \$50/t")
-    VAM100[CH4sectors], (description = "Value Added, with mitigating activity up to \$100/t")
-    VAM500[CH4sectors], (description = "Value Added, with mitigating activity up to \$500/t")
-    VAM1000[CH4sectors],(description = "Value Added, with max mitigating activity, up to \$1000/t")
+    # VAM5[CH4sectors],   (description = "Value Added, with mitigating activity up to \$5/t")
+    # VAM10[CH4sectors],  (description = "Value Added, with mitigating activity up to \$10/t")
+    # VAM15[CH4sectors],  (description = "Value Added, with mitigating activity up to \$15/t")
+    # VAM20[CH4sectors],  (description = "Value Added, with mitigating activity up to \$20/t")
+    # VAM30[CH4sectors],  (description = "Value Added, with mitigating activity up to \$30/t")
+    # VAM40[CH4sectors],  (description = "Value Added, with mitigating activity up to \$40/t")
+    # VAM50[CH4sectors],  (description = "Value Added, with mitigating activity up to \$50/t")
+    # VAM100[CH4sectors], (description = "Value Added, with mitigating activity up to \$100/t")
+    # VAM500[CH4sectors], (description = "Value Added, with mitigating activity up to \$500/t")
+    # VAM1000[CH4sectors],(description = "Value Added, with max mitigating activity, up to \$1000/t")
 end)
 
 @commodities(MultiNat,begin
@@ -278,7 +284,8 @@ end)
 
 # Domestic production for all sectors
 for j∈J
-    @production(MultiNat, Y[j], [t=0, s = 0], begin
+    @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
+    # @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
          @input(PVAM[j], sum(va_0[yr,VA,j]), s)
@@ -293,18 +300,19 @@ for j∈J
     end)
 end
 
+###---Commmented out for counterfactual without mitigation, only economic response to the tax, no technological mitigation or reallocation of renewables etc
 ## Loop over all the Marginal Abatement tiers as Value-Added production blocks
-VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
-for vam in VAMcommodSet
-    for j∈CH4sectors
-        if VAM_costover[vam.name,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-            @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-                [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-                [@input(PVA[va], va_0[yr,va,j]*VAM_costover[vam.name,j], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,j])]) for va∈VA]...
-            end)
-        end
-    end
-end
+# VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
+# for vam in VAMcommodSet
+#     for j∈CH4sectors
+#         if VAM_costover[vam.name,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+#             @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+#                 [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+#                 [@input(PVA[va], va_0[yr,va,j]*VAM_costover[vam.name,j], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,j])]) for va∈VA]...
+#             end)
+#         end
+#     end
+# end
 
 ## Alternate structure, all EPA mitigation potential up to $1,000/t
 # Slack mitigating VA activities for main CH4 producing sectors: total weighted Marginal Abatment version
@@ -322,8 +330,10 @@ for m∈M
     end)
 end
 
+ 
 for i∈I
-    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
+    @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
+    # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
@@ -337,7 +347,8 @@ end
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
-end, elasticity = 1)
+end, elasticity = d_elas_ra)
+# end, elasticity = 1)
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmMMt_coal*10^-3)
@@ -349,18 +360,18 @@ end, elasticity = 1)
 for c in CH4sectors
     # VAM, the old one, for testing.
     # @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+VAM[c]*CH4emiss[:EPAemiss,c]*ch4VAMInt[c]/ch4VASInt[c]))
-    @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c] +#  )) # +
-    ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/ch4VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
-    VAM10[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM10,c]/ch4VASInt[c]+
-    VAM15[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM15,c]/ch4VASInt[c]+
-    VAM20[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM20,c]/ch4VASInt[c]+
-    VAM30[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM30,c]/ch4VASInt[c]+
-    VAM40[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM40,c]/ch4VASInt[c]+
-    VAM50[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM50,c]/ch4VASInt[c]+
-    VAM100[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM100,c]/ch4VASInt[c]+
-    VAM500[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM500,c]/ch4VASInt[c]+
-    VAM1000[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM1000,c]/ch4VASInt[c]
-    ))
+    @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]   )) # +
+    # ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/ch4VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
+    # VAM10[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM10,c]/ch4VASInt[c]+
+    # VAM15[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM15,c]/ch4VASInt[c]+
+    # VAM20[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM20,c]/ch4VASInt[c]+
+    # VAM30[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM30,c]/ch4VASInt[c]+
+    # VAM40[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM40,c]/ch4VASInt[c]+
+    # VAM50[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM50,c]/ch4VASInt[c]+
+    # VAM100[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM100,c]/ch4VASInt[c]+
+    # VAM500[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM500,c]/ch4VASInt[c]+
+    # VAM1000[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM1000,c]/ch4VASInt[c]
+    # ))
 end
  
 ## Total CH4 Emissions are the sum of emissions from CH4 emitting sectors
@@ -517,6 +528,7 @@ EmissionReductionResults = DataFrame(
 "CH4" "GtCO2eq" TotCH4bnchmk TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "GHGs" "GtCO2eq" TotGHGbnchmk TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:bothtaxes]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))], ["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_both_taxes", "taxes_combined" ,"Interactions"])
 
+set_value!(CH4_tax, 190); solve!(MultiNat) # re-solve so that running whole script ends up with both taxes for sensetivity etc.
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
 #filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
 
