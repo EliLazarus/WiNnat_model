@@ -148,63 +148,6 @@ VASInt = DenseAxisArray(zeros(length(J)),J)
     VAM_costover = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initialise DenseAxisArray
     [VAM_costover[cost,c] = (sum(va_0[yr,:,c])+CH4_cumul_cost[cost,c]*10^-3)/sum(va_0[yr,:,c]) for cost in VAMset for c in CH4sectors]
 
-#####--------Single Mitigation step data set up-----------#####
-#### - TODO Also NEEDS UPDATE FOR min split when that's done - ####
-            ## Base Data for reference
-            #     # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDs : EPAnonCO2-report-data-annex-9-30-19_0\NonCO2 MACs-Summary Tables.xlsx
-            #     CH4emissdatadf = DataFrame(Wsector = [:agr,:agr,:min,:oil,:wst,:wst],
-            #     ## EPA Total Emissions per sector, MMt CO2eq 
-            #     EPAemiss =[260.483532*10^-3,13.70952225*10^-3,59.31302643*10^-3,224.8979059*10^-3,111.5049515*10^-3,20.36144996*10^-3],
-            #     ## EPA maximum % of abatement per sector at <$1000/t
-            #     MaxpercMit = [.304,.280,.645,.475,.050,.350],
-            #     PAsector = ["AGRICULTURE, LIVE","AGRICULTURE, RICE","ENERGY, COL",
-            #     "ENERGY, GAS","WASTE, LAN","WASTE, WWR"])
-            # ## Calculate CH4 Intensity factors from EPA data
-            # # EPA Non-CO2 Marginal Abatment Curve data, 2019, dataframe because non-unique row IDs
-            # # Emissions MMt, sum and weighted average with current aggregation (before potential disaggregation of BEA/WiNDC data at some point)
-            # CH4emiss = DenseAxisArray([260.483532*10^-3+13.70952225*10^-3 59.31302643*10^-3 224.8979059*10^-3*pip_of_GAS 224.8979059*10^-3*oil_of_GAS 111.5049515*10^-3+20.36144996*10^-3
-            # ## Weighted average mitigated potential per sector
-            # (260.483532*0.3039385+13.70952225*0.2803694)/(260.483532+13.70952225)  0.6452054 0.4749547 0.4749547 (111.5049515*0.049615808+20.36144996*0.122234272)/(111.5049515+20.36144996)
-            # ## Mitigation cost per sector in Million $US 2019, for the maximum % mititation potential
-            # ## EPA Non-CO2 MAC Sum of each $s/ton mit x tons mitigated at that wedge of abatement cost potential - calculated in Excel
-            # ## cost x sum(MMT for that sector) + cost x sum(MMT additional at that cost for that sector) + etc.
-            # ## :oil and :pip split EPA "Gas" by proportion of combined output from ys_0
-            #     7090.604857 269.0188218 6862.194574*pip_of_GAS 6862.194574*oil_of_GAS 1795.700322],
-            # # DenseAxisArray Indices, 2D
-            # [:EPAemiss :MaxpercMit :MitCostTot],
-            # [:agr,:min,:pip,:oil,:wst])
-
-            # CH4calc = DenseAxisArray([
-            # ## CH4 Emissions (MMt), 2019 / $US Billion (2017) Value Added inputs (kapital and labor, i.e. productive actiity)
-            #     [CH4emiss[:EPAemiss,c]/sum(va_0[yr,:,c]) for c in CH4sectors];;
-            # ## subtract (maximum) mitigated CH4, so CH4 of remaining emissions after maximum abatement (at <$1000/t)
-            #     [CH4emiss[:EPAemiss,c]*(1-CH4emiss[:MaxpercMit,c])/(sum(va_0[yr,:,c])+CH4emiss[:MitCostTot,c]*10^-3) for c in CH4sectors];;
-            # ## Total Cost of Mitigation is the standard VA inputs + the additional cost of the mitigation in US$Bill
-            #     [CH4emiss[:MitCostTot,c]*10^-3+sum(va_0[yr,:,c]) for c in CH4sectors]],
-            # CH4sectors, # dimension 1 indexed by sector
-            # [:CH4Intens :CH4MitIntens :TotCostwMit ]) # dimension 2 indexed by values
-            
-            # ## Relative cost of VA including max mitigation
-            # MitCostoverVA = DenseAxisArray([CH4calc[c,:TotCostwMit]/sum(va_0[yr,:,c]) for c in CH4sectors], CH4sectors)
-
-            # vam_0 = deepcopy(va_0) #copy for slack mitigating activties
-            # # # benchmark value added input levels for with additional % of costs for mitigation
-            # for c in CH4sectors
-            #     vam_0[yr,:,c] = va_0[yr,:,c].data .* MitCostoverVA[c]
-            # end
-            # ## default of 0 for non-emitting and less significant emitting sectors
-            # ch4VASInt = DenseAxisArray(zeros(length(J)),J)
-            # ## Set vector of standard CH4 intensities: CH4 (in CO2eq)/value-added factor inputs
-            # for c in CH4sectors
-            #     ch4VASInt[c] = CH4calc[c,:CH4Intens]
-            # end
-            # ## Still default of 0 for non-emitting and less significant emitting sectors
-            # ch4VAMInt = DenseAxisArray(zeros(length(J)),J)
-            # ## Set vector of CH4 *mitigated* intensities: Mitigated CH4 (in CO2eq)/value-added factor inputs
-            # for c in CH4sectors
-            #     ch4VAMInt[c] = CH4calc[c,:CH4MitIntens]
-            # end
-#####--------End single Mitigation step data set up-----------#####
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # 2024 GHG Inv Table 3-5: CO2 Emissions from Fossil Fuel Combustion by Fuel Type and Sector (MMT CO2 Eq.)
@@ -286,8 +229,7 @@ end)
 testarrayelas = DenseAxisArray(fill(0,length(J)),J)
 # Domestic production for all sectors
 for j∈J 
-    @production(MultiNat, Y[j], [t= testarrayelas[j], s = elas_y], begin
-    # @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
+    @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
     # @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
@@ -315,16 +257,6 @@ end
 #             end)
 #         end
 #     end
-# end
-
-## Alternate structure, all EPA mitigation potential up to $1,000/t
-# Slack mitigating VA activities for main CH4 producing sectors: total weighted Marginal Abatment version
-# for j∈CH4sectors
-#     @production(MultiNat, VAM[j], [t=0, s = 0, va => s = 1], begin
-#         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-#         [@input(PVA[va], vam_0[yr,va,j], va, taxes = [Tax(RA, CH4_tax* ch4VAMInt[j])]) for va∈VA]...
-#     end)
-# end
 
 for m∈M
     @production(MultiNat, MS[m], [t = 0, s = 0], begin
