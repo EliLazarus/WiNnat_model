@@ -234,8 +234,7 @@ end)
 testarrayelas = DenseAxisArray(fill(0,length(J)),J)
 # Domestic production for all sectors
 for j∈J 
-    @production(MultiNat, Y[j], [t= testarrayelas[j], s = elas_y], begin
-    # @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
+    @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
     # @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
