@@ -90,31 +90,32 @@ ta_0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark data 
 
 yr = Symbol(2020)
 
-## Base Marginal Abatement Cost EPA data (2020)
+## Base Marginal Abatement Cost EPA data (2020). $/t and MMtCO2eq
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
 # % split for pipelines and oil from MAC for 'GAS' by proportion of combined economic output
 pip_of_GAS = sum(ys_0[yr,:pip,:])/((sum(ys_0[yr,:pip,:])+sum(ys_0[yr,:oil,:])))
 oil_of_GAS = sum(ys_0[yr,:oil,:])/((sum(ys_0[yr,:pip,:])+sum(ys_0[yr,:oil,:])))
-# Aggregate/disaggregate for WiNDC sectors 
+# Aggregate/disaggregate for WiNDC sectors, $/t and MMtCO2eq 
 MAC_CH4_WiNDC=DataFrame([MAC_CH4_data[:,:cost_per_t], MAC_CH4_data[:,:agr_livestock]+MAC_CH4_data[:,:agr_rice],
  MAC_CH4_data[:,:min], 
  MAC_CH4_data[:,:GAS]*pip_of_GAS,
  MAC_CH4_data[:,:GAS]*oil_of_GAS,
  MAC_CH4_data[:,:wst_land]+MAC_CH4_data[:,:wst_water]],
  [:cost_per_t; CH4sectors])
-# Aggregate/disaggregate Total CH4 Emissions for WiNDC sectors, and include total VA for convenience 
-MAC_CH4_WiNDC_tot=DataFrame([MAC_CH4_totemiss[:,:cost_per_t], MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice],
+# Aggregate/disaggregate Total CH4 Emissions for WiNDC sectors, and include total VA for convenience, MMt and BillUS$
+MAC_CH4_WiNDC_tot_MMt = DataFrame([MAC_CH4_totemiss[:,:cost_per_t], MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice],
  MAC_CH4_totemiss[:,:min], 
  MAC_CH4_totemiss[:,:GAS]*pip_of_GAS,
  MAC_CH4_totemiss[:,:GAS]*oil_of_GAS,
  MAC_CH4_totemiss[:,:wst_land]+MAC_CH4_totemiss[:,:wst_water]],
  [:cost_per_t; CH4sectors])
+ MAC_CH4_WiNDC_tot = copy(MAC_CH4_WiNDC_tot_MMt); MAC_CH4_WiNDC_tot[:, 2:end] = MAC_CH4_WiNDC_tot_MMt[:,2:end].*10^-3
  push!(MAC_CH4_WiNDC_tot, ["Total va_cost"; [sum(va_0[yr,:,Symbol(sector)]) for sector in names(MAC_CH4_WiNDC[:,2:end])]])
 
-# Initialise df with 0s to fill with calculations
+# Initialise df with 0s to fill with calculations, Million U$ = $/t x MMt
 CH4_cost_per_tier = copy(MAC_CH4_WiNDC[:,2:end]); CH4_cost_per_tier[:,:].=0
-# Mulitply costs by tons of abatement potential for the first row
+# For the first row only: Mulitply costs by tons of abatement potential
     for c in CH4sectors
         CH4_cost_per_tier[1,c] = MAC_CH4_WiNDC[1,:cost_per_t]*MAC_CH4_WiNDC[1,c]
     end
@@ -124,7 +125,7 @@ CH4_cost_per_tier = copy(MAC_CH4_WiNDC[:,2:end]); CH4_cost_per_tier[:,:].=0
             CH4_cost_per_tier[i,c] = MAC_CH4_WiNDC[i,:cost_per_t]*(MAC_CH4_WiNDC[i,c]-MAC_CH4_WiNDC[i-1,c])
         end
     end
-### Calculate the weighted cost for cumulative abatement at each level ###
+### Calculate the weighted cost for cumulative abatement at each level: Million U$ = $/t x MMt
     CH4_cumul_costAll = copy(MAC_CH4_WiNDC[:,2:end]); CH4_cumul_costAll.=0 # Intitialize df
     CH4_cumul_costAll[1,:]=copy(CH4_cost_per_tier[1,:])  # 1st Row copied as just tier costs
     # Rest of dataframe sums cost of each tier with all tiers below
@@ -135,18 +136,17 @@ CH4_cost_per_tier = copy(MAC_CH4_WiNDC[:,2:end]); CH4_cost_per_tier[:,:].=0
     end
 # Value-Added block names for DenseAxisArray indexing
 VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM1000]
-# dfs to DenseAxisArrays and filter to cumulative Marginal costs which are positive for at least one sector i.e. 5th row, $5/t and up
-    CH4_cumul_cost = DenseAxisArray(Matrix(CH4_cumul_costAll[5:end,:]),VAMset, CH4sectors)
-    CH4_EmMitigated = DenseAxisArray(Matrix(MAC_CH4_WiNDC[5:end,2:end]), VAMset, CH4sectors)
-## CH4 Emissions intensity of Standard value-added activities: total emissions/total value-added cost
-VASInt = DenseAxisArray(zeros(length(J)),J)
-    for c in CH4sectors; VASInt[c] =  MAC_CH4_WiNDC_tot[1,c]*10^-3/MAC_CH4_WiNDC_tot[2,c]; end
-## CH4 emission intensity (emissions/total va cost) for each sector at each abatement tier, subtracts cumulatively abated emissions and adds additional cost of abatement activities
+# dfs to DenseAxisArrays, update units to BillUS$, and filter to cumulative Marginal costs which are positive for at least one sector i.e. 5th row, $5/t and up
+    CH4_cumul_cost = DenseAxisArray(Matrix(CH4_cumul_costAll[5:end,:])*10^-3,VAMset, CH4sectors)
+    CH4_EmMitigated = DenseAxisArray(Matrix(MAC_CH4_WiNDC[5:end,2:end])*10^-3, VAMset, CH4sectors)
+## CH4 Emissions intensity of Standard value-added activities: total emissions/total value-added cost: MMt/BillUS$
+    VASInt = DenseAxisArray(fill(0.,length(J)),J); for c in CH4sectors; VASInt[c] =  MAC_CH4_WiNDC_tot[1,c]/MAC_CH4_WiNDC_tot[2,c] end
+## CH4 emission intensity (emissions/total va cost) for each sector at each abatement tier, subtracts cumulatively abated emissions and adds additional cost of abatement activities MMt/BillUS$
     VAM_CH4EmInt = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initializing DenseAxisArray
-    [VAM_CH4EmInt[v,c] = (MAC_CH4_WiNDC_tot[1,c]*10^-3-CH4_EmMitigated[v,c]*10^-3)/(sum(va_0[yr,:,c])+CH4_cumul_cost[v,c]*10^-3) for v in VAMset for c in CH4sectors]
+    [VAM_CH4EmInt[v,c] = (MAC_CH4_WiNDC_tot[1,c]-CH4_EmMitigated[v,c])/(sum(va_0[yr,:,c])+CH4_cumul_cost[v,c]) for v in VAMset for c in CH4sectors]
 ## Relative cost of VA: (standard va cost + mitigation cost)/(standard cost) - used to multiply BOTH the va[:surplus] and va[:compen] equally in the blocks
     VAM_costover = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initialise DenseAxisArray
-    [VAM_costover[cost,c] = (sum(va_0[yr,:,c])+CH4_cumul_cost[cost,c]*10^-3)/sum(va_0[yr,:,c]) for cost in VAMset for c in CH4sectors]
+    [VAM_costover[cost,c] = (sum(va_0[yr,:,c])+CH4_cumul_cost[cost,c])/sum(va_0[yr,:,c]) for cost in VAMset for c in CH4sectors]
 
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
@@ -159,12 +159,13 @@ PetroleumCO2 = 1890.0 # 2020 (incl 1,514.2 transport)
 # Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
 TotalCO2EmMMt_gas_oil = Natural_gasCO2 + PetroleumCO2 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
 # (MMtCO2eq/$Bill x 10-^3 -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
-CO2Int[:min] =  TotalCO2EmMMt_coal*10^-3/sum(id_0[yr,:min,:]) 
-CO2Int[:oil] =   TotalCO2EmMMt_gas_oil*10^-3/sum(id_0[yr,:oil,:])  
-
-TotCO2bnchmk =  TotalCO2EmMMt_coal*10^-3 + TotalCO2EmMMt_gas_oil*10^-3
+TotalCO2EmGt_coal = TotalCO2EmMMt_coal*10^-3
+TotalCO2EmGt_gas_oil = TotalCO2EmMMt_gas_oil*10^-3
+CO2Int[:min] =  TotalCO2EmGt_coal/sum(id_0[yr,:min,:]) 
+CO2Int[:oil] =   TotalCO2EmGt_gas_oil/sum(id_0[yr,:oil,:])  
+TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_gas_oil
 # TotCH4bnchmk = sum(CH4emiss[:EPAemiss,:]) # from single step data version, same data, same value
-TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end])*10^-3
+TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end])
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## End data preparations
 
@@ -192,7 +193,6 @@ end)
     Y[J],      (description = "Sectoral Production",)
     A[I],      (description = "Armington Supply",)
     VAS[J],    (description = "Value Added, standard")
-    # VAM[J],    (description = "Value Added, with additional max mitigating activity") # For use to compared to the previous, single step set-up
     MS[M],     (description = "Margin Supply",)
     # VAM5[CH4sectors],   (description = "Value Added, with mitigating activity up to \$5/t")
     # VAM10[CH4sectors],  (description = "Value Added, with mitigating activity up to \$10/t")
@@ -229,7 +229,8 @@ end)
 testarrayelas = DenseAxisArray(fill(0,length(J)),J)
 # Domestic production for all sectors
 for j∈J 
-    @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
+    @production(MultiNat, Y[j], [t= testarrayelas[j], s = elas_y], begin
+    # @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
     # @production(MultiNat, Y[j], [t=0, s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
@@ -257,6 +258,7 @@ end
 #             end)
 #         end
 #     end
+# end
 
 for m∈M
     @production(MultiNat, MS[m], [t = 0, s = 0], begin
@@ -287,26 +289,24 @@ end, elasticity = d_elas_ra)
 # end, elasticity = 1)
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
-@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmMMt_coal*10^-3)
-@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmMMt_gas_oil*10^-3)
+@aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmGt_coal)
+@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmGt_gas_oil)
 ## Total CO2 emissions are the sum of emissions from the 2 fossil fuel sectors (constraint expressed as equantion = 0)
 @aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:min] + CO2em[:oil]))
 ## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity (benchmark = 1 x base emissions)
 ## +/or VA Mitigating activities at each tier, activity level x base emissions x mitigated emissions factor (mitigated intensity/baseline intensity)
 for c in CH4sectors
-    # VAM, the old one, for testing.
-    # @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]+VAM[c]*CH4emiss[:EPAemiss,c]*ch4VAMInt[c]/VASInt[c]))
-    @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*CH4emiss[:EPAemiss,c]   )) # +
-    # ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM5,c]/VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
-    # VAM10[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM10,c]/VASInt[c]+
-    # VAM15[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM15,c]/VASInt[c]+
-    # VAM20[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM20,c]/VASInt[c]+
-    # VAM30[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM30,c]/VASInt[c]+
-    # VAM40[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM40,c]/VASInt[c]+
-    # VAM50[c]  *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM50,c]/VASInt[c]+
-    # VAM100[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM100,c]/VASInt[c]+
-    # VAM500[c] *CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM500,c]/VASInt[c]+
-    # VAM1000[c]*CH4emiss[:EPAemiss,c]*VAM_CH4EmInt[:VAM1000,c]/VASInt[c]
+     @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*MAC_CH4_WiNDC_tot[1,c]  )) # +
+    # ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]   *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM5,c]/VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
+    #                                 VAM10[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM10,c]/VASInt[c]+
+    #                                 VAM15[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM15,c]/VASInt[c]+
+    #                                 VAM20[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM20,c]/VASInt[c]+
+    #                                 VAM30[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM30,c]/VASInt[c]+
+    #                                 VAM40[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM40,c]/VASInt[c]+
+    #                                 VAM50[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM50,c]/VASInt[c]+
+    #                                 VAM100[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM100,c]/VASInt[c]+
+    #                                 VAM500[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM500,c]/VASInt[c]+
+    #                                 VAM1000[c]*MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM1000,c]/VASInt[c]
     # ))
 end
  
