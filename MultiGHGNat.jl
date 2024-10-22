@@ -172,7 +172,7 @@ TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-
+CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
 MultiNat = MPSGEModel()
 
 @parameters(MultiNat, begin
@@ -194,17 +194,22 @@ end)
     A[I],      (description = "Armington Supply",)
     VAS[J],    (description = "Value Added, standard")
     MS[M],     (description = "Margin Supply",)
-    # VAM5[CH4sectors],   (description = "Value Added, with mitigating activity up to \$5/t")
-    # VAM10[CH4sectors],  (description = "Value Added, with mitigating activity up to \$10/t")
-    # VAM15[CH4sectors],  (description = "Value Added, with mitigating activity up to \$15/t")
-    # VAM20[CH4sectors],  (description = "Value Added, with mitigating activity up to \$20/t")
-    # VAM30[CH4sectors],  (description = "Value Added, with mitigating activity up to \$30/t")
-    # VAM40[CH4sectors],  (description = "Value Added, with mitigating activity up to \$40/t")
-    # VAM50[CH4sectors],  (description = "Value Added, with mitigating activity up to \$50/t")
-    # VAM100[CH4sectors], (description = "Value Added, with mitigating activity up to \$100/t")
-    # VAM500[CH4sectors], (description = "Value Added, with mitigating activity up to \$500/t")
-    # VAM1000[CH4sectors],(description = "Value Added, with max mitigating activity, up to \$1000/t")
 end)
+if (CH4abatement=="yes")
+    @sectors(MultiNat,begin
+    VAM5[CH4sectors],   (description = "Value Added, with mitigating activity up to \$5/t")
+    VAM10[CH4sectors],  (description = "Value Added, with mitigating activity up to \$10/t")
+    VAM15[CH4sectors],  (description = "Value Added, with mitigating activity up to \$15/t")
+    VAM20[CH4sectors],  (description = "Value Added, with mitigating activity up to \$20/t")
+    VAM30[CH4sectors],  (description = "Value Added, with mitigating activity up to \$30/t")
+    VAM40[CH4sectors],  (description = "Value Added, with mitigating activity up to \$40/t")
+    VAM50[CH4sectors],  (description = "Value Added, with mitigating activity up to \$50/t")
+    VAM100[CH4sectors], (description = "Value Added, with mitigating activity up to \$100/t")
+    VAM500[CH4sectors], (description = "Value Added, with mitigating activity up to \$500/t")
+    VAM1000[CH4sectors],(description = "Value Added, with max mitigating activity, up to \$1000/t")
+end)
+end
+
 
 @commodities(MultiNat,begin
     PA[I],   (description = "Armington Price")
@@ -248,17 +253,19 @@ end
 
 ###---Commmented out for counterfactual without mitigation, only economic response to the tax, no technological mitigation or reallocation of renewables etc
 ## Loop over all the Marginal Abatement tiers as Value-Added production blocks
-# VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
-# for vam in VAMcommodSet
-#     for j∈CH4sectors
-#         if VAM_costover[vam.name,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-#             @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-#                 [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-#                 [@input(PVA[va], va_0[yr,va,j]*VAM_costover[vam.name,j], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,j])]) for va∈VA]...
-#             end)
-#         end
-#     end
-# end
+if CH4abatement=="yes"
+    VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
+    for vam in VAMcommodSet
+        for j∈CH4sectors
+            if VAM_costover[vam.name,j]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+                @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+                    [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+                    [@input(PVA[va], va_0[yr,va,j]*VAM_costover[vam.name,j], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,j])]) for va∈VA]...
+                end)
+            end
+        end
+    end
+end
 
 for m∈M
     @production(MultiNat, MS[m], [t = 0, s = 0], begin
@@ -275,8 +282,8 @@ for i∈I
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
-        @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CO2_tax * CO2Int[i]), Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])
-        # @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff on oil, 'coal', and ch4 goods
+        # @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CO2_tax * CO2Int[i]), Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])
+        @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff on oil, 'coal', and ch4 goods
     end)
 end
 
@@ -296,18 +303,22 @@ end, elasticity = d_elas_ra)
 ## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity (benchmark = 1 x base emissions)
 ## +/or VA Mitigating activities at each tier, activity level x base emissions x mitigated emissions factor (mitigated intensity/baseline intensity)
 for c in CH4sectors
-     @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*MAC_CH4_WiNDC_tot[1,c]  )) # +
-    # ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]   *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM5,c]/VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
-    #                                 VAM10[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM10,c]/VASInt[c]+
-    #                                 VAM15[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM15,c]/VASInt[c]+
-    #                                 VAM20[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM20,c]/VASInt[c]+
-    #                                 VAM30[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM30,c]/VASInt[c]+
-    #                                 VAM40[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM40,c]/VASInt[c]+
-    #                                 VAM50[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM50,c]/VASInt[c]+
-    #                                 VAM100[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM100,c]/VASInt[c]+
-    #                                 VAM500[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM500,c]/VASInt[c]+
-    #                                 VAM1000[c]*MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM1000,c]/VASInt[c]
-    # ))
+    if CH4abatement=="yes"
+        @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*MAC_CH4_WiNDC_tot[1,c] +
+        ifelse(VAM_costover[:VAM5,c]>1, VAM5[c]   *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM5,c]/VASInt[c] , 0) + # The $5/t tier includes sectors with negative costs, so have to filter those out here (AS WELL as in the production block)
+                                        VAM10[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM10,c]/VASInt[c]+
+                                        VAM15[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM15,c]/VASInt[c]+
+                                        VAM20[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM20,c]/VASInt[c]+
+                                        VAM30[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM30,c]/VASInt[c]+
+                                        VAM40[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM40,c]/VASInt[c]+
+                                        VAM50[c]  *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM50,c]/VASInt[c]+
+                                        VAM100[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM100,c]/VASInt[c]+
+                                        VAM500[c] *MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM500,c]/VASInt[c]+
+                                        VAM1000[c]*MAC_CH4_WiNDC_tot[1,c]*VAM_CH4EmInt[:VAM1000,c]/VASInt[c]
+        ))
+    else
+        @aux_constraint(MultiNat, CH4em[c],  CH4em[c] - (VAS[c]*MAC_CH4_WiNDC_tot[1,c]  )) # +
+    end
 end
  
 ## Total CH4 Emissions are the sum of emissions from CH4 emitting sectors
