@@ -172,6 +172,7 @@ TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
+# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
 MultiNat = MPSGEModel()
 
@@ -250,7 +251,6 @@ for j∈J
     end)
 end
 
-###---Commmented out for counterfactual without mitigation, only economic response to the tax, no technological mitigation or reallocation of renewables etc
 ## Loop over all the Marginal Abatement tiers as Value-Added production blocks
 if CH4abatement=="yes"
     VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
@@ -272,7 +272,6 @@ for m∈M
         [@input(PY[i], ms_0[yr,i,m], s) for i∈I]...
     end)
 end
-
  
 for i∈I
     @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
@@ -281,8 +280,10 @@ for i∈I
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
-        # @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CO2_tax * CO2Int[i]), Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])
-        @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff on oil, 'coal', and ch4 goods
+# Emissions tariff on CH4 goods because inputs
+        # @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])  # No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO2_tax * CO2Int[i]),
+# Alternative, no tariff on CH4 goods
+        @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
     end)
 end
 
@@ -630,7 +631,7 @@ set_upper_bound(MultiNat[:A][:pip], 10)
 # CH4sectors = [:agr,:min,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
 
 # png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
-println(length(Sectors[:,1]))
+println("CH4abatment is applied: ",CH4abatement)
 EmissUnits_mt = DataFrame();
 EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
 EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:end].*10^3] 

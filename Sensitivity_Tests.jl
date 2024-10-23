@@ -4,6 +4,7 @@ import JuMP
 using DataFrames, Plots, Tables, Dates, Distributions, CSV
 set_value!(CH4_tax, CH4_taxrate)
 set_value!(CO2_tax, CO2_taxrate)
+# set_value!(CH4_tax, 0)
 solve!(MultiNat)
 ###  SENSITIVITY TESTS
 ## First, save counterfactual baseline. Run this once, save and then comment out so it doesn't overwrite with values from random sampling
@@ -12,7 +13,7 @@ solve!(MultiNat)
 	# # :elas_va           :t_elas_m           :elas_m           
 	# 					value(t_elas_y) value(elas_y) value(t_elas_a) value(elas_a) value(elas_dm) value(d_elas_ra) transpose(rp[:,:value])]
 	# # 					# value(elas_va) value(t_elas_m) value(elas_m) 
-	# CSV.write("./SensitivityTest_Outputs/MultiNat_Both_CounterVals.csv", basecountervalues, missingstring="missing", bom=true)
+	# CSV.write("./SensitivityTest_Outputs/MultiNat_Both_CounterVals.csv", Tables.table(basecountervalues), missingstring="missing", bom=true)
 
 	# ## Before 1st run, set and write headers and baseline values into CSV for sensitivity test data output
 	# basecountervalues = DataFrame(CSV.File("./SensitivityTest_Outputs/MultiNat_Both_CounterVals.csv", header = 2, skipto=3))
@@ -167,7 +168,7 @@ end
 
 ## Here, we set a function to select a single elasticity and vary that according to the distribution argument, n times in each Monte Carlo run, and append values to csv
 function SensitivityTest(param, n, dist, m)
-	out = Array{Float64}(undef, n, length(rp[:,1])+1)
+	out = Array{Float64}(undef, n, 442)#length(rp[:,1])+1)
 	set_value!(t_elas_y, 0.)
 	set_value!(elas_y, 0.)
 	# set_value!(elas_va, 1.)
@@ -191,15 +192,15 @@ end
 
 ### Run heading function once, and then can run ST in batches
 # Example: for the first elasticity parameter
-# SensitivityTestHead(t_elas_y, MultiNat)
-# SensitivityTestHead(elas_y, MultiNat)
-# # SensitivityTestHead(elas_va, MultiNat)
-# # SensitivityTestHead(t_elas_m, MultiNat)
-# # SensitivityTestHead(elas_m, MultiNat)
-# SensitivityTestHead(t_elas_a, MultiNat)
-# SensitivityTestHead(elas_a, MultiNat)
-# SensitivityTestHead(elas_dm, MultiNat)
-# SensitivityTestHead(d_elas_ra, MultiNat)
+SensitivityTestHead(t_elas_y, MultiNat)
+SensitivityTestHead(elas_y, MultiNat)
+# SensitivityTestHead(elas_va, MultiNat)
+# SensitivityTestHead(t_elas_m, MultiNat)
+# SensitivityTestHead(elas_m, MultiNat)
+SensitivityTestHead(t_elas_a, MultiNat)
+SensitivityTestHead(elas_a, MultiNat)
+SensitivityTestHead(elas_dm, MultiNat)
+SensitivityTestHead(d_elas_ra, MultiNat)
 
 histogram(rand(truncated(Gamma(1,2),upper=2),10^6), label = "Gamma(1,2)")
 histogram(rand(truncated(Normal(2,2),lower=0, upper=4),10^6), label = "truncated Normal(2,2)")
@@ -312,15 +313,15 @@ function SensePlotInd(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u, filemane, title
 	label="   Baseline\n   Counterfactual\n   Value", color="green", legendfontsize=9,legend_title="Elasticity\n  Parameters",
 	legend_title_font_size=11, fg_legend=:transparent,labelspacing=0.8, framestyle=:none,
 	fontfamily="Computer Modern")
-	plot!(1,1, label="   t_elas_y", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="lightgreen")
-	plot!(1,1, label="   elas_y", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="orange")
-	# plot!(1,1, label="   elas_va", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="gray55")
-	# plot!(1,1, label="   t_elas_m", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="lightblue")
-	# plot!(1,1, label="   elas_m", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="blue")
-	plot!(1,1, label="   t_elas_a", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="purple")
-	plot!(1,1, label="   elas_a", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="red" )
-	plot!(1,1, label="   elas_dm", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="yellow")
-	plot!(1,1, label="   d_elas_ra", seriestype=:scatter, markersize=3, markerstrokewidth=0, color="cyan") # Any value other than 1 makes all values 1...
+	plot!(1,1, label="   t_elas_y:  "*string(pltvarsT_Y[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="lightgreen")
+	plot!(1,1, label="   elas_y:    "*string(pltvarsY[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="orange")
+	# plot!(1,1, label=" elas_va:   "*string(pltvarsVA[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="gray55")
+	# plot!(1,1, label=" t_elas_m:  "*string(pltvarsT_M[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="lightblue")
+	# plot!(1,1, label=" elas_m:    "*string(pltvarsM[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="blue")
+	plot!(1,1, label="   t_elas_a:  "*string(pltvarsT_A[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="purple")
+	plot!(1,1, label="   elas_a:    "*string(pltvarsA[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="red" )
+	plot!(1,1, label="   elas_dm:   "*string(pltvarsDM[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="yellow")
+	plot!(1,1, label="   d_elas_ra: "*string(pltvarsD_RA[1,1]), seriestype=:scatter, markersize=3, markerstrokewidth=0, color="cyan") # Any value other than 1 makes all values 1...
 	push!(groupplots, plt)
 	for i in 2:length(pltvarsA[1,:])
 	# 	# Start with original value from the model
@@ -354,7 +355,7 @@ end
 
 ### 21 variables chosen as sample, fed in as the 21 arguments
 # ,[440+6,  436 + 6, 439 + 6]
-SensePlotInd(440,441,439,2,13,16,73,87,129,146,210,204,214,281,275,285,286,287,288,144,145, "BothTaxes_noMit","CO2 & CH4 taxes, no abatement")
+SensePlotInd(436,434,437,2,13,16,73,87,129,146,210,204,214,281,275,285,286,287,288,144,145, "CO2Tax_noAbat_wTariffs","CO2 tax, no abatement, w CH4 tariffs")
 # SensePlotInd(88,44,99,135,136,75,60,114,145,212,206,216,283,277,288,289,143,144,77,37,287)
 # SensePlotInd(2,13,16,58,73,84,87,129,146,210,204,214,281,275,285,286,287,288,144,145,289)
 
