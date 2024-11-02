@@ -146,9 +146,9 @@ saveplots =[]
 ## SENSETIVITY TEST FOR INDIVIDUAL ELASTICITY PARAMETERS
 ## First, function to set header and baseline counterfactual values rows.
 function SensitivityTestHead(param, m::MPSGEModel)
-	out = Array{Any}(undef, 2, 442)#length(rp[:,1])+1) 
+	out = Array{Any}(undef, 2, 489)#length(rp[:,1])+1) 
 	set_value!(t_elas_y, 0.)
-	set_value!(elas_y, 0.)
+	set_value!(elas_y, 0.05)
 	# set_value!(elas_va, 1.)
 	# set_value!(t_elas_m, 0.)
 	# set_value!(elas_m, 0.)
@@ -168,9 +168,9 @@ end
 
 ## Here, we set a function to select a single elasticity and vary that according to the distribution argument, n times in each Monte Carlo run, and append values to csv
 function SensitivityTest(param, n, dist, m)
-	out = Array{Float64}(undef, n, 442)#length(rp[:,1])+1)
+	out = Array{Float64}(undef, n, 489)#length(rp[:,1])+1)
 	set_value!(t_elas_y, 0.)
-	set_value!(elas_y, 0.)
+	set_value!(elas_y, 0.05)
 	# set_value!(elas_va, 1.)
 	# set_value!(t_elas_m, 0.)
 	# set_value!(elas_m, 0.)
@@ -355,7 +355,7 @@ end
 
 ### 21 variables chosen as sample, fed in as the 21 arguments
 # ,[440+6,  436 + 6, 439 + 6]
-SensePlotInd(436,434,437,2,13,16,73,87,129,146,210,204,214,281,275,285,286,287,288,144,145, "CO2Tax_noAbat_wTariffs","CO2 tax, no abatement, w CH4 tariffs")
+SensePlotInd(488,480,489,2,13,16,73,87,129,146,210,204,214,281,275,285,286,287,288,144,145, "BothTax_wAbat_noTariffsElas05","CO2 & CH4 tax, with CH4 abatement & no emission tariffs")
 # SensePlotInd(88,44,99,135,136,75,60,114,145,212,206,216,283,277,288,289,143,144,77,37,287)
 # SensePlotInd(2,13,16,58,73,84,87,129,146,210,204,214,281,275,285,286,287,288,144,145,289)
 

@@ -151,7 +151,7 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
 
 CO2Int = DenseAxisArray(zeros(length(J)),J)
 # 2024 GHG Inv Table 3-5: CO2 Emissions from Fossil Fuel Combustion by Fuel Type and Sector (MMT CO2 Eq.)
-TotalCO2EmMMt_coal = 835.6 # 2020 895.9 # EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
+TotalCO2EmMMt_coal = 835.6 # 2020 2022=>895.9 # EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
 # Option with no transport emissions in the model: assumption that direct
 # TotalCO2EmMMt_gas_oil = 2104.80
 Natural_gasCO2 = 1615.7 #2020 (incl 58.7 transport)
@@ -183,7 +183,7 @@ MultiNat = MPSGEModel()
     CH4_tax, 0.
     CO2_tax, 0.
     t_elas_y, 0.
-    elas_y, 0.
+    elas_y, 0.05
     t_elas_a, 2.            
     elas_a, 0.
     elas_dm, 2.
@@ -235,11 +235,12 @@ end)
 testarrayelas = DenseAxisArray(fill(0,length(J)),J)
 # Domestic production for all sectors
 for j∈J 
-    @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y], begin
-    # @production(MultiNat, Y[j], [t=0, s = 0], begin
+    # @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y, sv=> s=0], begin
+    # @production(MultiNat, Y[j], [t=0, s = 0.05, sv=> s = 0], begin
+    @production(MultiNat, Y[j], [t= 0, s = elas_y, sv=> s=0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
-         @input(PVAM[j], sum(va_0[yr,VA,j]), s)
+         @input(PVAM[j], sum(va_0[yr,VA,j]), sv)
     end)
 end
 
@@ -274,26 +275,28 @@ for m∈M
 end
  
 for i∈I
-    @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
-    # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
+    # @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
+    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]...
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
         @input(PY[i], y_0[yr,i], dm)
-# Emissions tariff on CH4 goods because inputs
-        # @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])  # No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO2_tax * CO2Int[i]),
-# Alternative, no tariff on CH4 goods
-        @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
+## Emissions tariff on CH4 goods because inputs
+#         @input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[yr,i])# No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO2_tax * CO2Int[i]),
+#     end)
+# end; # print("CH4 tariff: yes, ")  
+## Alternative, no tariff on CH4 goods        
+@input(PFX, m_0[yr,i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[yr,i]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
     end)
-end
+end; print("CH4 tariff: no, ")
 
 @demand(MultiNat, RA, begin
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
-end, elasticity = d_elas_ra)
-# end, elasticity = 1)
+end, elasticity = 1)
+# end, elasticity = d_elas_ra)
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmGt_coal)
@@ -631,7 +634,14 @@ set_upper_bound(MultiNat[:A][:pip], 10)
 # CH4sectors = [:agr,:min,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
 
 # png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
-println("CH4abatment is applied: ",CH4abatement)
+println("CH4 abatment is applied: ",CH4abatement, ", elas_y = ",value(elas_y))
 EmissUnits_mt = DataFrame();
 EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
 EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:end].*10^3] 
+Emissions_Mt = DataFrame(names(EmissionReductionResults_Mt)[1] => EmissionReductionResults_Mt[:,1],
+names(EmissionReductionResults_Mt)[2] => EmissionReductionResults_Mt[:,2],
+names(EmissionReductionResults_Mt)[3] => EmissionReductionResults_Mt[:,3],
+chop(names(EmissionReductionResults_Mt)[4], tail=6) => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,4],
+chop(names(EmissionReductionResults_Mt)[5], tail=6) => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,5],
+names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,6],
+names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
