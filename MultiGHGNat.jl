@@ -331,7 +331,7 @@ end
 set_silent(MultiNat)
 
 # Benchmark 
-# fix(RA, sum(fd_0[yr,I,:pce])
+fix(RA, sum(fd_0[yr,I,:pce])) # Numeraire, fixed at benchmark
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
 solve!(MultiNat)
 #; cumulative_iteration_limit = 0)
@@ -441,7 +441,6 @@ end
 fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
 
-
 #Generate Dataframe with all results (including names expressions)
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrCO2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
 Compare = FullResults[1:end,[1,2,4,6,8,10]];
@@ -476,7 +475,6 @@ EmissionReductionResults = DataFrame(
 "CH4" "GtCO2eq" TotCH4bnchmk TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "GHGs" "GtCO2eq" TotGHGbnchmk TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:bothtaxes]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))], ["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_both_taxes", "taxes_combined" ,"Interactions"])
 
-set_value!(CH4_tax, 190); solve!(MultiNat) # re-solve so that running whole script ends up with both taxes for sensetivity etc.
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
 #filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
 
@@ -558,7 +556,6 @@ FDemand[:,:CO2Qpc]=FDemand[:,:cO2tax]./sum(FDemand[:,:cO2tax])*100
 FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 set_silent(MultiNat)
-fix(RA,16426.2) # RA value at $190/t
 # checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
 # checkch4CO2[7]
 # png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
