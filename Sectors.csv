@@ -1,72 +1,72 @@
-index,Short_description,Description,:compen,:surplus,labor%
-ppd,Paper,Paper products manufacturing (322),30.386,23.874,0.56%
-res,Food_places,Food services and drinking places (722),298.036,88.8,0.77%
-com,Computer_systems,Computer systems design and related services (5415),264.757,51.75,0.84%
-amb,Ambulatory,Ambulatory health care services (621),545.209,157.9,0.78%
-fbp,Food_bev_toba_mnf,Food and beverage and tobacco products manufacturing (311-312),113.482,123.503,0.48%
-rec,Recreation_gambling,"Amusements, gambling, and recreation industries (713)",54.197,20.652,0.72%
-con,Construction,Construction (23),520.422,271,0.66%
-agr,Farms,Farms (111-112),30.857,107.679,0.22%
-eec,Electrical_mnf,"Electrical equipment, appliance, and components manufacturing (335)",36.458,23.468,0.61%
-fnd,Fed_nondefense,Federal general government (nondefense) (GFGN),184.22,110.344,0.63%
-pub,Publishing,"Publishing industries, except Internet (includes software) (511)",130.913,115.643,0.53%
-hou,Housing,Housing (HS),18.921,1562.377,0.01%
-fbt,Food_bev_stores,Food and beverage stores (445),96.461,30.402,0.76%
-ins,Insurance,Insurance carriers and related activities (524),271.004,249.298,0.52%
-tex,Textile_mills,Textile mills and textile product mills (313-314),12.3,4.765,0.72%
-leg,Legal,Legal services (5411),131.525,110.81,0.54%
-fen,Fed_enterprises,Federal government enterprises (GFE),59.219,9.434,0.86%
-uti,Utilities,Utilities (22),81.578,171.711,0.32%
-nmp,Nonmetal_mineral_mnf,Nonmetallic mineral products manufacturing (327),29.47,30.674,0.49%
-brd,Telecommunications,"Broadcasting and telecommunications (515, 517)",112.173,295.361,0.28%
-bnk,Federal_banks,"Federal Reserve banks, credit intermediation, and related services (521-522)",263.353,362.801,0.42%
-ore,Other_real_estate,Other real estate (ORE),93.508,346.038,0.21%
-edu,Education,Educational services (61),192.422,47.998,0.80%
-ote,Other_transport_mnf,"Other transportation equipment manufacturing (3364-3366, 3369)",78.966,71.89,0.52%
-man,Management,Management of companies and enterprises (55),324.519,39.46,0.89%
-mch,Machinery_mnf,Machinery manufacturing (333),94.78,55.396,0.63%
-dat,Data,"Data processing, internet publishing, and other information services (518, 519)",70.251,137.848,0.34%
-amd,Accommodation,Accommodation (721),82.723,54.689,0.60%
-oil,Oil_gas_extr,Oil and gas extraction (211),29.293,114.815,0.20%
-hos,Hospitals,Hospitals (622),396.274,67.176,0.86%
-rnt,Rental_services,Rental and leasing services and lessors of intangible assets (532-533),36.227,172.172,0.17%
-pla,Plastics_rubber_mnf,Plastics and rubber products manufacturing (326),47.155,29.069,0.62%
-fof,Forestry_fishing,"Forestry, fishing, and related activities (113-115)",25.332,9.572,0.73%
-fin,financial,"Funds, trusts, and other financial vehicles (525)",2.059,20.118,0.09%
-tsv,prof_services,"Miscellaneous professional, scientific, and technical services (5412-5414, 5416-5419)",594.263,269.509,0.69%
-nrs,Nursing,Nursing and residential care facilities (623),131.54,8.191,0.94%
-sec,Securities_investments,"Securities, commodity contracts, and investments (523)",251.232,43.532,0.85%
-art,arts_sports,"Performing arts, spectator sports, museums, and related activities (711-712)",59.516,61.717,0.49%
-mov,Movies_music,Motion picture and sound recording industries (512),35.436,52.319,0.40%
-fpd,Furniture_mnf,Furniture and related products manufacturing (337),21.959,7.532,0.74%
-slg,State_local_gov,State and local general government (GSLG),1338.917,202.314,0.87%
-pri,Printing,Printing and related support activities (323),26.233,13.37,0.66%
-grd,Passenger_transport,Transit and ground passenger transportation (485),21.954,21.276,0.51%
-pip,Pipeline_transport,Pipeline transportation (486),7.617,29.05,0.21%
-sle,State_local_gov_enterprises,State and local government enterprises (GSLE),107.032,56.535,0.65%
-osv,Other_services,"Other services, except government (81)",305.492,85.942,0.78%
-trn,Rail,Rail transportation (482),21.893,18.887,0.54%
-smn,Support_mining,Support activities for mining (213),29.965,11.447,0.72%
-fmt,metal_products,Fabricated metal products (332),99.341,47.41,0.68%
-pet,Petroleum_coal_mnf,Petroleum and coal products manufacturing (324),19.43,108.467,0.15%
-mvt,Vehicles_and_parts,Motor vehicle and parts dealers (441),118.071,39.803,0.75%
-cep,Computer_elec_mnf,Computer and electronic products manufacturing (334),150.705,120.843,0.55%
-wst,Waste_mgt,Waste management and remediation services (562),30.195,19.985,0.60%
-mot,Vehicles_parts_mnf,"Motor vehicles, bodies and trailers, and parts manufacturing (3361-3363)",75.338,79.547,0.49%
-adm,Admin,Administrative and support services (561),409.331,130.604,0.76%
-soc,Social_assistance,Social assistance (624),114.086,9.796,0.92%
-alt,Apparel_mnf,Apparel and leather and allied products manufacturing (315-316),7.885,1.221,0.87%
-pmt,Metals_mnf,Primary metals manufacturing (331),31.764,29.445,0.52%
-trk,Truck_transport,Truck transportation (484),96.307,54.119,0.64%
-fdd,Fed_defense,Federal general government (defense) (GFGD),246.097,160.65,0.61%
-gmt,Stores,General merchandise stores (452),93.086,12.069,0.89%
-wtt,Water_transport,Water transportation (483),7.144,4.992,0.59%
-wpd,Wood_mnf,Wood products manufacturing (321),22.261,14.797,0.60%
-wht,Wholesale_trade,Wholesale trade (42),532.941,405.675,0.57%
-wrh,Warehousing,Warehousing and storage (493),53.892,7.61,0.88%
-ott,Other_retail,Other retail (4A0),299.25,157.713,0.65%
-che,Chemical_mnf,Chemical products manufacturing (325),101.682,242.611,0.30%
-air,Air_transport,Air transportation (481),57.095,56.778,0.50%
-mmf,Misc_mnf,Miscellaneous manufacturing (339),53.804,35.522,0.60%
-otr,Other_transport,"Other transportation and support activities (487-488, 492)",86.152,27.008,0.76%
-min,Mining_non_oil_gas,"Mining, except oil and gas (212)",17.623,33.92,0.34%
+index,Short_description,Description,:compen,:surplus,labor%,elec%,non%,mat&serv%
+ppd,Paper,Paper products manufacturing (322),30.386,23.874,0.56%,0.017387216,0.044244729,0.938368056
+res,Food_places,Food services and drinking places (722),298.036,88.8,0.77%,0.037304632,0.017283976,0.945411392
+com,Computer_systems,Computer systems design and related services (5415),264.757,51.75,0.84%,0.00996051,0.004614902,0.985424588
+amb,Ambulatory,Ambulatory health care services (621),545.209,157.9,0.78%,0.011525415,0.005339953,0.983134632
+fbp,Food_bev_toba_mnf,Food and beverage and tobacco products manufacturing (311-312),113.482,123.503,0.48%,0.004399357,0.011194911,0.984405732
+rec,Recreation_gambling,"Amusements, gambling, and recreation industries (713)",54.197,20.652,0.72%,0.036628202,0.016970573,0.946401225
+con,Construction,Construction (23),520.422,271,0.66%,0.010695155,0.027215643,0.962089202
+agr,Farms,Farms (111-112),30.857,107.679,0.22%,0.017736438,0.045133384,0.937130178
+eec,Electrical_mnf,"Electrical equipment, appliance, and components manufacturing (335)",36.458,23.468,0.61%,0.003252031,0.008275346,0.988472622
+fnd,Fed_nondefense,Federal general government (nondefense) (GFGN),184.22,110.344,0.63%,0.008650349,0.004007878,0.987341772
+pub,Publishing,"Publishing industries, except Internet (includes software) (511)",130.913,115.643,0.53%,0.006260683,0.002900698,0.990838619
+hou,Housing,Housing (HS),18.921,1562.377,0.01%,0.00193386,0.000895995,0.997170145
+fbt,Food_bev_stores,Food and beverage stores (445),96.461,30.402,0.76%,0.073541143,0.03407307,0.892385787
+ins,Insurance,Insurance carriers and related activities (524),271.004,249.298,0.52%,0.000859131,0.000398053,0.998742816
+tex,Textile_mills,Textile mills and textile product mills (313-314),12.3,4.765,0.72%,0.008407362,0.021393963,0.970198675
+leg,Legal,Legal services (5411),131.525,110.81,0.54%,0.00554947,0.00257118,0.99187935
+fen,Fed_enterprises,Federal government enterprises (GFE),59.219,9.434,0.86%,0.120738092,0.055940353,0.823321555
+uti,Utilities,Utilities (22),81.578,171.711,0.32%,0.127871305,0.325390295,0.546738399
+nmp,Nonmetal_mineral_mnf,Nonmetallic mineral products manufacturing (327),29.47,30.674,0.49%,0.021390595,0.054432009,0.924177396
+brd,Telecommunications,"Broadcasting and telecommunications (515, 517)",112.173,295.361,0.28%,0.013946482,0.006461682,0.979591837
+bnk,Federal_banks,"Federal Reserve banks, credit intermediation, and related services (521-522)",263.353,362.801,0.42%,0.013682146,0.00633921,0.979978644
+ore,Other_real_estate,Other real estate (ORE),93.508,346.038,0.21%,0.021599069,0.010007277,0.968393654
+edu,Education,Educational services (61),192.422,47.998,0.80%,0.022959327,0.010637511,0.966403162
+ote,Other_transport_mnf,"Other transportation equipment manufacturing (3364-3366, 3369)",78.966,71.89,0.52%,0.006186704,0.015743121,0.978070175
+man,Management,Management of companies and enterprises (55),324.519,39.46,0.89%,0.019176412,0.008884812,0.971938776
+mch,Machinery_mnf,Machinery manufacturing (333),94.78,55.396,0.63%,0.003489779,0.008880335,0.987629886
+dat,Data,"Data processing, internet publishing, and other information services (518, 519)",70.251,137.848,0.34%,0.016300186,0.007552199,0.976147615
+amd,Accommodation,Accommodation (721),82.723,54.689,0.60%,0.040198683,0.018624847,0.941176471
+oil,Oil_gas_extr,Oil and gas extraction (211),29.293,114.815,0.20%,0.015000448,0.038171193,0.946828358
+hos,Hospitals,Hospitals (622),396.274,67.176,0.86%,0.013950132,0.006463373,0.979586496
+rnt,Rental_services,Rental and leasing services and lessors of intangible assets (532-533),36.227,172.172,0.17%,0.010328125,0.004785225,0.98488665
+pla,Plastics_rubber_mnf,Plastics and rubber products manufacturing (326),47.155,29.069,0.62%,0.009282451,0.023620775,0.967096774
+fof,Forestry_fishing,"Forestry, fishing, and related activities (113-115)",25.332,9.572,0.73%,0.005642274,0.014357726,0.98
+fin,financial,"Funds, trusts, and other financial vehicles (525)",2.059,20.118,0.09%,0.009724649,0.004505623,0.985769728
+tsv,prof_services,"Miscellaneous professional, scientific, and technical services (5412-5414, 5416-5419)",594.263,269.509,0.69%,0.009376813,0.004344463,0.986278724
+nrs,Nursing,Nursing and residential care facilities (623),131.54,8.191,0.94%,0.026596318,0.012322601,0.961081081
+sec,Securities_investments,"Securities, commodity contracts, and investments (523)",251.232,43.532,0.85%,0.00976557,0.004524582,0.985709848
+art,arts_sports,"Performing arts, spectator sports, museums, and related activities (711-712)",59.516,61.717,0.49%,0.011182543,0.005181094,0.983636364
+mov,Movies_music,Motion picture and sound recording industries (512),35.436,52.319,0.40%,0.003833815,0.001776283,0.994389902
+fpd,Furniture_mnf,Furniture and related products manufacturing (337),21.959,7.532,0.74%,0.004864029,0.01237735,0.982758621
+slg,State_local_gov,State and local general government (GSLG),1338.917,202.314,0.87%,0.057525701,0.026652798,0.915821501
+pri,Printing,Printing and related support activities (323),26.233,13.37,0.66%,0.009702323,0.024689212,0.965608466
+grd,Passenger_transport,Transit and ground passenger transportation (485),21.954,21.276,0.51%,0,0.082822086,0.917177914
+pip,Pipeline_transport,Pipeline transportation (486),7.617,29.05,0.21%,0.022947047,0.058392666,0.918660287
+sle,State_local_gov_enterprises,State and local government enterprises (GSLE),107.032,56.535,0.65%,0.139478437,0.064623126,0.795898438
+osv,Other_services,"Other services, except government (81)",305.492,85.942,0.78%,0.020048383,0.009288814,0.970662803
+trn,Rail,Rail transportation (482),21.893,18.887,0.54%,0,0.099378882,0.900621118
+smn,Support_mining,Support activities for mining (213),29.965,11.447,0.72%,0.010532245,0.026801089,0.962666667
+fmt,metal_products,Fabricated metal products (332),99.341,47.41,0.68%,0.006676407,0.016989253,0.97633434
+pet,Petroleum_coal_mnf,Petroleum and coal products manufacturing (324),19.43,108.467,0.15%,0.008161901,0.020769345,0.971068754
+mvt,Vehicles_and_parts,Motor vehicle and parts dealers (441),118.071,39.803,0.75%,0.030638762,0.014195546,0.955165692
+cep,Computer_elec_mnf,Computer and electronic products manufacturing (334),150.705,120.843,0.55%,0.004530734,0.011529223,0.983940043
+wst,Waste_mgt,Waste management and remediation services (562),30.195,19.985,0.60%,0.01619858,0.007505123,0.976296296
+mot,Vehicles_parts_mnf,"Motor vehicles, bodies and trailers, and parts manufacturing (3361-3363)",75.338,79.547,0.49%,0.001873866,0.00476837,0.993357765
+adm,Admin,Administrative and support services (561),409.331,130.604,0.76%,0.011169385,0.005174998,0.983655617
+soc,Social_assistance,Social assistance (624),114.086,9.796,0.92%,0.012413169,0.005751267,0.981835564
+alt,Apparel_mnf,Apparel and leather and allied products manufacturing (315-316),7.885,1.221,0.87%,0,0,1
+pmt,Metals_mnf,Primary metals manufacturing (331),31.764,29.445,0.52%,0.01105554,0.028132703,0.960811756
+trk,Truck_transport,Truck transportation (484),96.307,54.119,0.64%,0,0.169585253,0.830414747
+fdd,Fed_defense,Federal general government (defense) (GFGD),246.097,160.65,0.61%,0.027086603,0.01254976,0.960363636
+gmt,Stores,General merchandise stores (452),93.086,12.069,0.89%,0.057801746,0.026780695,0.915417559
+wtt,Water_transport,Water transportation (483),7.144,4.992,0.59%,0,0.121212121,0.878787879
+wpd,Wood_mnf,Wood products manufacturing (321),22.261,14.797,0.60%,0.007700374,0.019594912,0.972704715
+wht,Wholesale_trade,Wholesale trade (42),532.941,405.675,0.57%,0.01326303,0.006145025,0.980591946
+wrh,Warehousing,Warehousing and storage (493),53.892,7.61,0.88%,0.06479251,0.030019655,0.905187835
+ott,Other_retail,Other retail (4A0),299.25,157.713,0.65%,0.02953151,0.013682534,0.956785955
+che,Chemical_mnf,Chemical products manufacturing (325),101.682,242.611,0.30%,0.011988694,0.030507272,0.957504034
+air,Air_transport,Air transportation (481),57.095,56.778,0.50%,0,0.184126984,0.815873016
+mmf,Misc_mnf,Miscellaneous manufacturing (339),53.804,35.522,0.60%,0.003767097,0.009586019,0.986646884
+otr,Other_transport,"Other transportation and support activities (487-488, 492)",86.152,27.008,0.76%,0,0.096153846,0.903846154
+min,Mining_non_oil_gas,"Mining, except oil and gas (212)",17.623,33.92,0.34%,0.036168423,0.092036706,0.871794872
