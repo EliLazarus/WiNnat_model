@@ -52,3 +52,6 @@ for i in I;
 
        # Govt sectors, by guess
        GovtSectors = [:fnd, :fen, :slg, :sle, :soc, :fdd]
+
+       println(i,": ",only(filter(y-> y.index ==(string(i)), Sectors)[!,:Short_description]),":\t",sum(ys_0[yr,i,:]))
+       filter(y-> y.index ==(string(:ppd)), Sectors)[!,:Short_description]

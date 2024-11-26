@@ -167,6 +167,18 @@ TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_gas_oil
 # TotCH4bnchmk = sum(CH4emiss[:EPAemiss,:]) # from single step data version, same data, same value
 TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end])
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
+
+
+# Crude oil barrels production 2020: 4144184x10^3
+# Average price per barrel 2020: $36.86
+value_of_oil_2020 = 36.86 * 4144184*10^3
+# Natural gas markets production 2020: 36,520,826 x 10^6 ft^3  (total withdrawals: 40,729,927 x 10^6 ft^3)
+# Average natural gas spot price 2020 #3.32/thousand ft^3 $2.03 / million Btu
+value_of_gas_2020 = 3.32 * 36520826 * 10^3
+oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
+
+# imports of crude oil 2020: 2150267 X10^3 barrel ; imports of oil products 727623 x 10^3 barrels
+# imports of natural gas 2929: 2.55 trillion ft^3 ; 5.25 trillion ft^3
 ## End data preparations
 
 ## Set tax rates
@@ -241,9 +253,28 @@ for j∈J
     @production(MultiNat, Y[j], [t=0, s = 0.05, sv=> s = 0], begin
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
+# @ input PE[j], sv)
          @input(PVAM[j], sum(va_0[yr,VA,j]), sv)
     end)
 end
+
+# Draft of structure for separating energy
+# # for j in J cost of energy for firm j, elasticity between electricity, oil, and gas. Assume not partularly substitutable. 
+# @output(PE[j])   
+#  @input( PEL)
+#  @input(PY[og], oil and gas input from Y, with tax)
+# # end
+
+# # One price of electricity, based on how all firms get energy. Taking electricity out of id_o and ys_0. And gas, coal, and oil out. 
+# begin
+#     @output(PEL, electriticy for all firms (sum elect for all firms ))for i in I...
+#     @input(PY[r], renewable energy from Y) # somehow I need to get some kind of estimate of renewable generation separated out from uti->elec (it's under it in NAICS, but no data in BEA: 22111 Electric Power Generation -> 
+#     # {221111	Hydroelectric Power Generation, 221112	Fossil Fuel Electric Power Generation, 221113	Nuclear Electric Power Generation, 221114	Solar Electric Power Generation, 221115	Wind Electric Power Generation, 221116	Geothermal Electric Power Generation, 221117	Biomass Electric Power Generation, 221118	Other Electric Power Generation}
+#      @input(PY[gc], gas and coal input from Y, for electricity, with tax )
+#     @input(PVAM) # pull out uti from VA too.
+#     [@input(PA[i] id_0[el]) for i in I]... #material/services for electricity
+# end
+
 
 # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
 for j∈J
