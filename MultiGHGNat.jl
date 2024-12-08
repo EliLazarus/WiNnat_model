@@ -20,6 +20,7 @@ YR = S[:yr] # Index for years for potential multi year runs
 M = S[:m] # Index for margins (transport and trade)
 a_0 = P[:a_0] #	    "Armington supply",
 id_0 = P[:id_0] #	"Intermediate demand",
+
 ys_0 = P[:ys_0]#	"Sectoral supply",
 va_0 = P[:va_0] #	"Value added",
 md_0 = P[:md_0] #	"Margin demand",
@@ -184,15 +185,15 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-# CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
+# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
 
 ## Upload table of elasticity parameter values drawn from SAGE 2.1.1 documentation and E3 book, with manual concordence
 Elasdf=CSV.read(joinpath(@__DIR__,"./data/Elasticities_SAGE_E3.csv"), DataFrame, header=1)
 Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(Elasdf)[2:end]))
 # Test to check significance of specific super high Armington elasticity for oil and gas by setting back to WiNDC 2 
 #TODO # Need to get a better reference to determine which end is appropriate (or in the middle) 
-Elas[:oil,:SAGE_nf_Armington] = 2 ;println("ArmingtonOil=2")
+# Elas[:oil,:SAGE_nf_Armington] = 2 ;println("ArmingtonOil=2")
 # Elas[:gas,:SAGE_nf_Armington] # Gas is not yet disaggregated
 
 MultiNat = MPSGEModel()
@@ -266,28 +267,48 @@ then split that data for elect, gas, and oil.
     then split elec for rnw, min (for now) and oil (for gas for now)
 """
 # Domestic production for all sectors
-# println("ElasY=",value(elas_y))
-# for j∈J 
-#     @production(MultiNat, Y[j], [t= t_elas_y, s = elas_y, sv=> s=0], begin
-println("ElasY=E3m")
-for j∈J 
-        @production(MultiNat, Y[j], [t= 0, s = Elas[j,:E3_m_ID], sv=> s=0], begin
-# println("ElasY=0")
-# for j∈J 
-#     @production(MultiNat, Y[j], [t=0, s = 0, sv=> s = 0], begin
-        [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
-        [@input(PA[i], id_0[yr,i,j], s, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
-# @ input PE[j], sv)
-         @input(PVAM[j], sum(va_0[yr,VA,j]), sv)
-    end)
+# # println("ElasY=E3m")
+# for j∈J
+#         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
+#         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
+#         [@input(PA[i], id_0[yr,i,j], sm, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
+#         @input(PVAM[j], sum(va_0[yr,VA,j]), va)
+#         end)
+# end
+
+# Test of re-nesting within Y block without disaggregation
+ID = [i for i ∈ I if i∉[:oil, :min] ]
+for j∈J
+    @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
+    va=>vae=0, oilmin=> vae=1
+    ],begin
+    [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
+    # take tax out here bc it will go in lower nests
+    [@input(PA[i], id_0[yr,i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
+    @input(PVAM[j], sum(va_0[yr,VA,j]), va)
+    [@input(PA[f], id_0[yr,f,j], oilmin, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :min]]...
+end)
 end
 
-# Draft of structure for separating energy
-# # for j in J cost of energy for firm j, elasticity between electricity, oil, and gas. Assume not partularly substitutable. 
-# @output(PE[j])   
-#  @input( PEL)
-#  @input(PY[og], oil and gas input from Y, with tax)
-# # end
+## Draft set up for full nesting after disaggregation
+# ID = [i for i ∈ I if i∉[:pet, :oil, :min, :ele, :rnw, :gas, :col]
+# for j∈J
+#     # @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
+#     # va=>vae=   , e=> vae = [j], el => e = [j, value irrelevant just linking nests], oilgas=> e=(btw oil and gas energy),f => e = (part gas & oil), fe=>el= (coal & gas)
+#     # ],begin
+#     [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
+#     [@input(PA[i], id_0[yr,i,j], sm, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈I]...
+    
+#     # take tax out here bc it will go in lower nests
+#     # [@input(PA[i], id_0[yr,i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
+#     @input(PVAM[j], sum(va_0[yr,VA,j]), va)
+#     # @input(PA[:uti], sum(electricity), el)
+#     # [@input(PA[f], sum(oil and part gas), oilgas) for f in [:oil, :gas]]...
+#     # @input(PA[:rnw], sum(benchmark renewables), rel)
+#     # [@input(PA[ff], sum(benchmark renewables), rel) for ff in [:gas, :col]]...
+# end)
+# end
+
 
 # # One price of electricity, based on how all firms get energy. Taking electricity out of id_o and ys_0. And gas, coal, and oil out. 
 # begin
@@ -301,12 +322,9 @@ end
 
 
 # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
-# println("ElasVA=1")
-# for j∈J
-#     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
 println("ElasVA = SAGEkl")
     for j∈J
-        @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin
+        @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])]) for va∈VA]...
     end)
@@ -315,8 +333,8 @@ end
 ## Loop over all the Marginal Abatement tiers as Value-Added production blocks
 if CH4abatement=="yes"
     VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
-    for vam in VAMcommodSet
-        for c∈CH4sectors
+    for c∈CH4sectors
+        for vam in VAMcommodSet
             if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                 @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
                 # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
@@ -335,12 +353,12 @@ for m∈M
     end)
 end
  
-# for i∈I
-#     # @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
-#     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-println("elasdm=SAGEnf")
 for i∈I
-    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_nf_Armington]], begin
+    @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
+    # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
+# println("elasdm=SAGEnf")
+# for i∈I
+#     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_nf_Armington]], begin
         [@output(PA[i], a_0[yr,i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[yr,i])]... 
         [@output(PFX, x_0[yr,i], t)]...
         [@input(PM[m], md_0[yr,m,i], s) for m∈M]...
@@ -392,15 +410,14 @@ end
 @aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
-set_silent(MultiNat)
+# set_silent(MultiNat)
 
 # Benchmark 
 # fix(PA[:oil],1)
 # fix(PA[:min], 1)
 fix(RA, sum(fd_0[yr,I,:pce])) # Numeraire, fixed at benchmark
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
-solve!(MultiNat)
-# , cumulative_iteration_limit = 0)
+solve!(MultiNat , cumulative_iteration_limit = 0)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
@@ -708,3 +725,7 @@ chop(names(EmissionReductionResults_Mt)[4], tail=6) => EmissionReductionResults_
 chop(names(EmissionReductionResults_Mt)[5], tail=6) => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,5],
 names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,6],
 names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
+
+#Check Benchmark
+fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
+sort!(fullvrbnch, [:bmkmarg])
