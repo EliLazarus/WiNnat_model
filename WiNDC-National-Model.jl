@@ -76,8 +76,6 @@ for j∈J
     end)
 end
 
-
-
 for m∈M
     @production(WiNnat, MS[m], [t = 0, s = 0], begin # 0, 0
     # @production(WiNnat, MS[m], [t = t_elas_m, s = elas_m], begin # 0, 0
@@ -99,8 +97,7 @@ end
 
 @demand(WiNnat, RA, begin
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
-    end,begin
-    [@endowment(PY[i], fs_0[yr,i]) for i∈I]...
+    # [@endowment(PY[i], fs_0[yr,i]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
@@ -112,7 +109,7 @@ end, elasticity = d_elas_ra)
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
 df_benchmark = generate_report(WiNnat);
-
+# sort!(df_benchmark, [:value])
 rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
 df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
 
