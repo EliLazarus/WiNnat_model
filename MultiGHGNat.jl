@@ -356,11 +356,11 @@ end
 @aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:min] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
-# set_silent(MultiNat)
+set_silent(MultiNat)
 
 # Benchmark 
 # fix(PA[:oil],1)
-# fix(PA[:min], 1)
+# fix(PA[:rec], 1)
 fix(RA, sum(fd_0[yr,I,:pce])) # Numeraire, fixed at benchmark
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
 solve!(MultiNat , cumulative_iteration_limit = 0)
@@ -376,7 +376,7 @@ desc=Vector{Symbol}(undef, length(I)),
 bnch=Vector{Float64}(undef, length(I)), 
 WiNcntfact=Vector{Float64}(undef, length(I)), 
 ch4tax=Vector{Float64}(undef, length(I)),
-cO2tax=Vector{Float64}(undef, length(I)),
+co2tax=Vector{Float64}(undef, length(I)),
 both=Vector{Float64}(undef, length(I)),
 ch4Qdelta=Vector{Float64}(undef, length(I)),
 CO2Qdelta=Vector{Float64}(undef, length(I)),
@@ -444,7 +444,7 @@ set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
 for (n,i) in enumerate(I)
-    FDemand[n,:cO2tax] = value(demand(RA,PA[i]))
+    FDemand[n,:co2tax] = value(demand(RA,PA[i]))
 end
 
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
@@ -452,8 +452,8 @@ end
 # Rs[:,2][1:4]
 # Rs[:,2][68:71]
 
-fullvrCO2 = generate_report(MultiNat)
-rename!(fullvrCO2, :value => :CO2tax, :margin => :CO2marg)
+fullvrco2 = generate_report(MultiNat)
+rename!(fullvrco2, :value => :CO2tax, :margin => :CO2marg)
 
 # # Counterfactual Fossil fuel extraction is ALSO taxed at emissions intensitiy of input x tax in $/ton
 set_value!(CO2_tax, CO2_taxrate)
@@ -471,7 +471,7 @@ fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
 
 #Generate Dataframe with all results (including names expressions)
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrCO2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
+FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
 Compare = FullResults[1:end,[1,2,4,6,8,10]];
 ## Sum the difference of each tax applied individually
 Compare.sum = Compare.ch4tax .- 1 + Compare.CO2tax .-1
@@ -577,11 +577,11 @@ end
 
 ## Add Quant diff and % of consumption columns for Final Demand report dataframe
 FDemand[:,:ch4Qdelta]=FDemand[:,:ch4tax].-FDemand[:,:bnch]
-FDemand[:,:CO2Qdelta]=FDemand[:,:cO2tax].-FDemand[:,:bnch]
+FDemand[:,:CO2Qdelta]=FDemand[:,:co2tax].-FDemand[:,:bnch]
 FDemand[:,:bothQdelta]=FDemand[:,:both].-FDemand[:,:bnch]
 FDemand[:,:bncQpc]=FDemand[:,:bnch]./sum(FDemand[:,:bnch])*100
 FDemand[:,:ch4Qpc]=FDemand[:,:ch4tax]./sum(FDemand[:,:ch4tax])*100
-FDemand[:,:CO2Qpc]=FDemand[:,:cO2tax]./sum(FDemand[:,:cO2tax])*100
+FDemand[:,:CO2Qpc]=FDemand[:,:co2tax]./sum(FDemand[:,:co2tax])*100
 FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 set_silent(MultiNat)
@@ -673,5 +673,5 @@ names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-Emissi
 names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
 
 #Check Benchmark
-fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
-print(sort!(fullvrbnch, [:bmkmarg]))
+# fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
+# print(sort!(fullvrbnch, [:bmkmarg]))
