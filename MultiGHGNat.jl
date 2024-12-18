@@ -179,11 +179,11 @@ if (CH4abatement=="yes")
 end)
 end
 
-
 @commodities(MultiNat,begin
     PA[I],   (description = "Armington Price")
     PY[J],   (description = "Supply",)
-    PVA[VA,J], (description = "Value-added Input to VA blocks",)
+    PVAK[J], (description = "Kapital Input to VA blocks",)
+    PVAL, (description = "Labour Input to VA blocks",)
     PVAM[J], (description = "Value-added output - Input to Y",)
     PM[M],   (description = "Margin Price",)
     PFX,     (description = "Foreign Exachange",)
@@ -272,7 +272,8 @@ println("ElasVA = SAGEkl")
     for j∈J
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        [@input(PVA[va,j], va_0[yr,va,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])]) for va∈VA]...
+        @input(PVAK[j], va_0[yr,:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
+        @input(PVAL, va_0[yr,:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
     end)
 end
 
@@ -322,7 +323,8 @@ end; print("CH4 tariff: no, ")
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
-    [@endowment(PVA[va,j], sum(va_0[yr,va,j])) for j∈J for va∈VA]...
+    [@endowment(PVAK[j], sum(va_0[yr,:surplus,j])) for j∈J]...
+    [@endowment(PVAL, sum(va_0[yr,:compen,j])) for j∈J]...
 end, elasticity = 1)
 # end, elasticity = d_elas_ra)
 
