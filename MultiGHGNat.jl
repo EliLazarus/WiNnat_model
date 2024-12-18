@@ -123,7 +123,6 @@ value_of_oil_2020 = 36.86 * 4144184*10^3
 # Average natural gas spot price 2020 #3.32/thousand ft^3 $2.03 / million Btu
 value_of_gas_2020 = 3.32 * 36520826 * 10^3
 oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
-
 # imports of crude oil 2020: 2150267 X10^3 barrel ; imports of oil products 727623 x 10^3 barrels
 # imports of natural gas 2929: 2.55 trillion ft^3 ; 5.25 trillion ft^3
 ## End data preparations
@@ -131,8 +130,8 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
+CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+# CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
 
 ## Upload table of elasticity parameter values drawn from SAGE 2.1.1 documentation and E3 book, with manual concordence
 Elasdf=CSV.read(joinpath(@__DIR__,"./data/Elasticities_SAGE_E3.csv"), DataFrame, header=1)
@@ -182,8 +181,9 @@ end
 @commodities(MultiNat,begin
     PA[I],   (description = "Armington Price")
     PY[J],   (description = "Supply",)
-    PVAK[J], (description = "Kapital Input to VA blocks",)
-    PVAL, (description = "Labour Input to VA blocks",)
+    PVA[VA], (description = "Value-added Input to VA blocks",)
+    # PVAK[J], (description = "Kapital Input to VA blocks",)
+    # PVAL, (description = "Labour Input to VA blocks",)
     PVAM[J], (description = "Value-added output - Input to Y",)
     PM[M],   (description = "Margin Price",)
     PFX,     (description = "Foreign Exachange",)
@@ -272,8 +272,9 @@ println("ElasVA = SAGEkl")
     for j∈J
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
-        @input(PVAK[j], va_0[yr,:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
-        @input(PVAL, va_0[yr,:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
+        [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])]) for va∈VA]...
+        # @input(PVAK[j], va_0[yr,:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
+        # @input(PVAL, va_0[yr,:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
     end)
 end
 
@@ -287,6 +288,8 @@ if CH4abatement=="yes"
                 # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
                     [@output(PVAM[c],sum(va_0[yr,:,c]), t)]... 
                     [@input(PVA[va], va_0[yr,va,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])]) for va∈VA]...
+                    # @input(PVAK[c],va_0[yr,:surplus,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
+                    # @input(PVAL,    va_0[yr,:compen,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
                 end)
             end
         end
@@ -323,8 +326,9 @@ end; print("CH4 tariff: no, ")
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
-    [@endowment(PVAK[j], sum(va_0[yr,:surplus,j])) for j∈J]...
-    [@endowment(PVAL, sum(va_0[yr,:compen,j])) for j∈J]...
+    [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
+    # [@endowment(PVAK[j], sum(va_0[yr,:surplus,j])) for j∈J]...
+    # [@endowment(PVAL, sum(va_0[yr,:compen,j])) for j∈J]...
 end, elasticity = 1)
 # end, elasticity = d_elas_ra)
 
@@ -419,8 +423,7 @@ set_value!(ta,ta_0[yr,J])
 set_value!(tm,tm_0[yr,J])
 
 # tax are at $/t of CH4(CO2eq)
-## "EPA SC CH4 is $1600/t. Possibly set as CO2eq * CO2 conversion rate back to per ton of CH4? But 1600/190 is 8.42, not 29.8 conversion...  
-## Or alternatively, re-work data to calculate CH4 in actual tons"
+## "EPA SC CH4 is $1600/t. 
 set_value!(CH4_tax, CH4_taxrate)
 set_value!(CO2_tax,0.) # Set CO2 tax to 0 for running separately.
 solve!(MultiNat)
