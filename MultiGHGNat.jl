@@ -132,6 +132,8 @@ CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2%
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
 CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
+# Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
+Kmobile="no"  # Fix kapital in sectors, allow Labor to flow between
 
 ## Upload table of elasticity parameter values drawn from SAGE 2.1.1 documentation and E3 book, with manual concordence
 Elasdf=CSV.read(joinpath(@__DIR__,"./data/Elasticities_SAGE_E3.csv"), DataFrame, header=1)
@@ -177,13 +179,21 @@ if (CH4abatement=="yes")
     VAM1000[CH4sectors],(description = "Value Added, with max mitigating activity, up to \$1000/t")
 end)
 end
+if (Kmobile=="yes")
+    @commodities(MultiNat,begin
+    PVA[VA], (description = "Value-added Input to VA blocks",) # fully mobile, single price for all compen, and for surplus
+end)
+else
+    @commodities(MultiNat, begin
+    PVAK[J], (description = "Kapital Input to VA blocks",) # separate from L and fix within sector
+    PVAL, (description = "Labour Input to VA blocks",) # separate from K, and mobile btw sectors (1 price)
+    end)
+
+end
 
 @commodities(MultiNat,begin
     PA[I],   (description = "Armington Price")
     PY[J],   (description = "Supply",)
-    PVA[VA], (description = "Value-added Input to VA blocks",)
-    # PVAK[J], (description = "Kapital Input to VA blocks",)
-    # PVAL, (description = "Labour Input to VA blocks",)
     PVAM[J], (description = "Value-added output - Input to Y",)
     PM[M],   (description = "Margin Price",)
     PFX,     (description = "Foreign Exachange",)
@@ -269,32 +279,52 @@ end
 
 # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
 println("ElasVA = SAGEkl")
-    for j∈J
+if (Kmobile=="yes")
+for j∈J
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
         [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
         [@input(PVA[va], va_0[yr,va,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])]) for va∈VA]...
-        # @input(PVAK[j], va_0[yr,:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
-        # @input(PVAL, va_0[yr,:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
-    end)
+        end)
+    end
+else
+    for j∈J
+        @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
+        [@output(PVAM[j],sum(va_0[yr,:,j]), t)]... 
+        @input(PVAK[j], va_0[yr,:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
+        @input(PVAL, va_0[yr,:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
+        end)
+    end
 end
-
 ## Loop over all the Marginal Abatement tiers as Value-Added production blocks
-if CH4abatement=="yes"
-    VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
-    for c∈CH4sectors
-        for vam in VAMcommodSet
-            if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-                @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
-                # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-                    [@output(PVAM[c],sum(va_0[yr,:,c]), t)]... 
-                    [@input(PVA[va], va_0[yr,va,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])]) for va∈VA]...
-                    # @input(PVAK[c],va_0[yr,:surplus,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
-                    # @input(PVAL,    va_0[yr,:compen,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
-                end)
+    if CH4abatement=="yes"
+        VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
+        if (Kmobile=="yes")
+            for c∈CH4sectors
+                for vam in VAMcommodSet
+                    if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+                        @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
+                        # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+                            [@output(PVAM[c],sum(va_0[yr,:,c]), t)]... 
+                            [@input(PVA[va], va_0[yr,va,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])]) for va∈VA]...
+                        end)
+                    end
+                end
+            end
+        else
+            for c∈CH4sectors
+                for vam in VAMcommodSet
+                    if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
+                        @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
+                        # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+                            [@output(PVAM[c],sum(va_0[yr,:,c]), t)]... 
+                            @input(PVAK[c],va_0[yr,:surplus,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
+                            @input(PVAL,    va_0[yr,:compen,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
+                        end)
+                    end
+                end
             end
         end
     end
-end
 
 for m∈M
     @production(MultiNat, MS[m], [t = 0, s = 0], begin
@@ -322,15 +352,25 @@ for i∈I
     end)
 end; print("CH4 tariff: no, ")
 
-@demand(MultiNat, RA, begin
+if (Kmobile=="yes")
+    @demand(MultiNat, RA, begin
     [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
     @endowment(PFX, bopdef_0[yr])
     [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
     [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
-    # [@endowment(PVAK[j], sum(va_0[yr,:surplus,j])) for j∈J]...
-    # [@endowment(PVAL, sum(va_0[yr,:compen,j])) for j∈J]...
-end, elasticity = 1)
-# end, elasticity = d_elas_ra)
+    end, elasticity = 1)
+    # end, elasticity = d_elas_ra)
+else
+    @demand(MultiNat, RA, begin
+    [@final_demand(PA[i], fd_0[yr,i,:pce]) for i∈I]...
+    @endowment(PFX, bopdef_0[yr])
+    [@endowment(PA[i], -sum(fd_0[yr,i,xfd] for xfd∈FD if xfd!=:pce)) for i∈I]...
+    # [@endowment(PVA[va], sum(va_0[yr,va,j] for j∈J)) for va∈VA]...
+    [@endowment(PVAK[j], sum(va_0[yr,:surplus,j])) for j∈J]...
+    [@endowment(PVAL, sum(va_0[yr,:compen,j])) for j∈J]...
+    end, elasticity = 1)
+    # end, elasticity = d_elas_ra)
+end
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:min],  CO2em[:min] - Y[:min]*TotalCO2EmGt_coal)
