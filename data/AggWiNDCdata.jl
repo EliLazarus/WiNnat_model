@@ -80,7 +80,9 @@ get_set(callibrated_national_data, "labor_demand")
 # example correspondence table
 # Currently set to replicate the WiNDC summary, but can be any abitraray mapping been BEA_detail, and any aggregation set
 Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv"), DataFrame, header=1)
-X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
+# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
+X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
+aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
 
 ## To callibrate first=> get_table(callibrated_national_data), or get_table(raw_national_data) and callibrate below
 double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
@@ -140,21 +142,23 @@ for i in subs_TMP[:,:subtable]
     println(i,": ",length(unique(get_subtable(TMP,i)[!,:commodities])),": ",length(unique(get_subtable(raw_national_data,i)[!,:commodities]))) # Compared to get_subtable(raw_national_data,i)
 end
 
+# TODO fix the joins for exp/imp
 ## Make DataFrames to compare values
 x_0[yr,:]  #	    "Exports of goods and services",
 ex_tmp = get_subtable(TMP,"exports"); ex_tmp.commodities=Symbol.(ex_tmp.commodities)
 ex = DataFrame([x_0[yr,:].axes[1] x_0[yr,:].data], [:Win, :exp]); ex.Win = Symbol.(ex.Win)
-ex_bea = leftjoin(get_subtable(national_data_summary, "exports")[:,[1,4]], unique(Codes[:,[1,4]]), on=:commodities=>:WiNDC_summary); ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
+ex_bea = leftjoin(get_subtable(national_data_summary, "exports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); 
+ex_bea[!,aggcol] = Symbol.(ex_bea[!,aggcol])
 comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
-comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>:WiNDC, makeunique=true)
+comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, makeunique=true)
 print(comp_x)# "Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
 
 m_0[yr,:]  #	    "Imports",
 im_tmp = get_subtable(TMP,"imports")#; im_tmp.commodities=Symbol.(im_tmp.commodities)
 im = DataFrame([m_0[yr,:].axes[1] m_0[yr,:].data], [:Win, :im]); im.Win=string.(im.Win)
-im_bea = leftjoin(get_subtable(national_data_summary, "imports")[:,[1,4]], unique(Codes[:,[1,4]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
+im_bea = leftjoin(get_subtable(national_data_summary, "imports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
 comp_m_1 = outerjoin(im_tmp,im, on=:commodities=>:Win) 
-comp_m = outerjoin(comp_m_1,im_bea, on=:commodities=>:WiNDC, makeunique=true)
+comp_m = outerjoin(comp_m_1,im_bea, on=:commodities=>aggcol, makeunique=true)
 print(comp_m)
 
 ms_0[yr,:,:]  #	"Margin supply",
@@ -175,14 +179,16 @@ pce_tmp = get_subtable(TMP,"personal_consumption"); pce_tmp.commodities=Symbol.(
 pce = DataFrame([[i for x in  fd_0[yr,:,:pce].axes for i in x] fd_0[yr,:,:pce].data], [:Win, :pce])
 comp_fdpce = outerjoin(pce_tmp,pce, on=:commodities=>:Win)
 print(comp_fdpce)
+
+# TODO fix join for this too maybe, it's a 3-way
 # Exog fd
 fd = stack(DataFrame([fd_0.axes[2] fd_0[yr,:,[x for x in FD if x!=:pce]].data], [:Win ; [x for x in FD if x !=:pce]]),2:18); fd.variable=Symbol.(fd.variable); fd.Win=Symbol.(fd.Win)
 fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
 fdbea = get_subtable(national_data_summary, "exogenous_final_demand")
 fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
 comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
-fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[1,2,4,7]];  fd_tmp.WiNDC = Symbol.(fd_tmp.WiNDC); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
-comp_fd = outerjoin(fd_tmp, fd, on=[:WiNDC=>:variable, :commodities=>:Win], renamecols = "" => "_fd_0")[:1:125,:]
+fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
+comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_fd_0")[:1:125,:]
 print(comp_fd)
 
 bop_tmp = WiNDC.balance_of_payments(TMP)
@@ -215,25 +221,25 @@ print(comp_ta)
 ys_0[yr,:,:]   #	"Intermediate Supply",
 ys_tmp = get_subtable(TMP,"intermediate_supply"); ys_tmp.commodities=Symbol.(ys_tmp.commodities); ys_tmp.sectors=Symbol.(ys_tmp.sectors)
 ys = stack(DataFrame([ys_0.axes[3] ys_0[yr,:,:].data], [:Win ; [x for x in I]]),2:72); ys.variable=Symbol.(ys.variable); ys.Win=Symbol.(ys.Win)
-comp_ys = rightjoin(ys_tmp, ys, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
+comp_ys = outerjoin(ys_tmp, ys, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
 print(comp_ys[1:900,:])
 
 id_0[yr,:,:]  #	"Intermediate demand",
 id_tmp = get_subtable(TMP,"intermediate_demand"); id_tmp.sectors = Symbol.(id_tmp.sectors); id_tmp.commodities = Symbol.(id_tmp.commodities)
 id = stack(DataFrame([id_0.axes[3] id_0[yr,:,:].data], [:Win ; [x for x in I]]),2:72); id.variable=Symbol.(id.variable); id.Win=Symbol.(id.Win)
-comp_id = leftjoin(id_tmp, id, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_win")
-print(comp_id)
+comp_id = outerjoin(id_tmp, id, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_win")
+print(comp_id[1:1000,:])
 
 va_0[yr,:,:]  #	"Value added",
 va_tmp = append!(get_subtable(TMP,"labor_demand"),get_subtable(TMP,"capital_demand")); va_tmp.commodities=Symbol.(va_tmp.commodities); va_tmp.sectors=Symbol.(va_tmp.sectors)
 va = stack(DataFrame([va_0.axes[3] transpose(va_0[yr,[va for va in VA],:].data)], [:Win; [va for va in VA]]),2:3); va.Win = Symbol.(va.Win); va.variable = Symbol.(va.variable)
-comp_va = outerjoin(testva,va, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
+comp_va = outerjoin(va_tmp,va, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
 print(comp_va)
 
 ty_0[yr,:]  #	"Output tax rate"
 ty_tmp = WiNDC.other_tax_rate(TMP); ty_tmp.sectors=Symbol.(ty_tmp.sectors)
 ty = DataFrame([ty_0[yr,:].axes[1] ty_0[yr,:].data], [:Win, :ty]); ty.Win = Symbol.(ty.Win)
-comp_ty = outerjoin(testother_tax_rate,ty, on=:sectors=>:Win)
+comp_ty = outerjoin(ty_tmp,ty, on=:sectors=>:Win)
 print(comp_ty)
 
 macro varname(arg)
@@ -265,7 +271,7 @@ comp_md.commodities=string.(comp_md.commodities); comp_md.sectors=string.(comp_m
 exp_to_xlsx(comp_md, @varname(comp_md))
 comp_fdpce.commodities=string.(comp_fdpce.commodities)
 exp_to_xlsx(comp_fdpce, @varname(comp_fdpce))
-comp_fd.commodities=string.(comp_fd.commodities); comp_fd.WiNDC=string.(comp_fd.WiNDC)
+comp_fd.commodities=string.(comp_fd.commodities); comp_fd[!,aggcol]=string.(comp_fd[!,aggcol])
 exp_to_xlsx(comp_fd, @varname(comp_fd))
 comp_tm.commodities=string.(comp_tm.commodities)
 exp_to_xlsx(comp_tm, @varname(comp_tm))
