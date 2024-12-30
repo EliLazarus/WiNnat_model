@@ -142,7 +142,7 @@ for i in subs_TMP[:,:subtable]
     println(i,": ",length(unique(get_subtable(TMP,i)[!,:commodities])),": ",length(unique(get_subtable(raw_national_data,i)[!,:commodities]))) # Compared to get_subtable(raw_national_data,i)
 end
 
-# TODO fix the joins for exp/imp
+# TODO fix the joins for exp/imp, bc the bea summary join doesn't work with the new uti split is mulitple joining on uti, and min/coa on min
 ## Make DataFrames to compare values
 x_0[yr,:]  #	    "Exports of goods and services",
 ex_tmp = get_subtable(TMP,"exports"); ex_tmp.commodities=Symbol.(ex_tmp.commodities)
@@ -151,7 +151,7 @@ ex_bea = leftjoin(get_subtable(national_data_summary, "exports")[:,[1,4]], uniqu
 ex_bea[!,aggcol] = Symbol.(ex_bea[!,aggcol])
 comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
 comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, makeunique=true)
-print(comp_x)# "Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
+print(comp_x)# "BEA Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
 
 m_0[yr,:]  #	    "Imports",
 im_tmp = get_subtable(TMP,"imports")#; im_tmp.commodities=Symbol.(im_tmp.commodities)
@@ -180,13 +180,13 @@ pce = DataFrame([[i for x in  fd_0[yr,:,:pce].axes for i in x] fd_0[yr,:,:pce].d
 comp_fdpce = outerjoin(pce_tmp,pce, on=:commodities=>:Win)
 print(comp_fdpce)
 
-# TODO fix join for this too maybe, it's a 3-way
+# TODO fix join for this too maybe, not showing the new disaggs: it's a 3-way
 # Exog fd
 fd = stack(DataFrame([fd_0.axes[2] fd_0[yr,:,[x for x in FD if x!=:pce]].data], [:Win ; [x for x in FD if x !=:pce]]),2:18); fd.variable=Symbol.(fd.variable); fd.Win=Symbol.(fd.Win)
 fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
 fdbea = get_subtable(national_data_summary, "exogenous_final_demand")
 fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
-comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
+# comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
 fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
 comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_fd_0")[:1:125,:]
 print(comp_fd)
@@ -212,6 +212,7 @@ tm_tmp = WiNDC.import_tariff_rate(TMP); tm_tmp.commodities=Symbol.(tm_tmp.commod
 tm = DataFrame([tm_0[yr,:].axes[1] tm_0[yr,:].data], [:Win, :tm]); tm.Win = Symbol.(tm.Win)
 comp_tm = outerjoin(tm_tmp,tm, on=:commodities=>:Win)
 print(comp_tm)
+
 ta_0[yr,:]  #	"Tax net subsidy rate on intermediate demand", benchmark data also for price level
 ta_tmp = WiNDC.absorption_tax_rate(TMP); ta_tmp.commodities=Symbol.(ta_tmp.commodities)
 ta = DataFrame([ta_0[yr,:].axes[1] ta_0[yr,:].data], [:Win, :ta]); ta.Win = Symbol.(ta.Win)
@@ -223,6 +224,7 @@ ys_tmp = get_subtable(TMP,"intermediate_supply"); ys_tmp.commodities=Symbol.(ys_
 ys = stack(DataFrame([ys_0.axes[3] ys_0[yr,:,:].data], [:Win ; [x for x in I]]),2:72); ys.variable=Symbol.(ys.variable); ys.Win=Symbol.(ys.Win)
 comp_ys = outerjoin(ys_tmp, ys, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
 print(comp_ys[1:900,:])
+
 
 id_0[yr,:,:]  #	"Intermediate demand",
 id_tmp = get_subtable(TMP,"intermediate_demand"); id_tmp.sectors = Symbol.(id_tmp.sectors); id_tmp.commodities = Symbol.(id_tmp.commodities)
@@ -242,6 +244,32 @@ ty = DataFrame([ty_0[yr,:].axes[1] ty_0[yr,:].data], [:Win, :ty]); ty.Win = Symb
 comp_ty = outerjoin(ty_tmp,ty, on=:sectors=>:Win)
 print(comp_ty)
 
+
+#############################################################################
+# Generate DenseAxisArrays for WiNDC national/MultiNat model, one year only #
+#############################################################################
+x_m0 = DenseAxisArray(ex_tmp.value, ex_tmp.commodities)
+m_m0 = DenseAxisArray(im_tmp.value, im_tmp.commodities)
+ms_m0df = unstack(ms_tmp,:commodities, :sectors,:value, fill=0)
+ms_m0 = DenseAxisArray(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]), ms_m0df.commodities, [:trn, :trd])
+md_m0df = unstack(md_tmp,:commodities, :sectors,:value, fill=0)
+md_m0 = DenseAxisArray(transpose(hcat(md_m0df[:,:trn], md_m0df[:,:trd])), [:trn, :trd], md_m0df.commodities)
+fd_m0exog = unstack(fd_tmp,:commodities, :WiNDC_plus,:value, fill=0)
+fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
+fd_m0 = DenseAxisArray(Matrix(fd_m0df[:,2:end]), fd_m0df.commodities, Symbol.(names(fd_m0df)[2:end]))
+bop_m0 = DenseAxisArray(bop_tmp.value, [:2020])
+a_m0 = DenseAxisArray(a_tmp.value, a_tmp.commodities)
+y_m0 = DenseAxisArray(y_tmp.value, y_tmp.commodities)
+tm_m0 = DenseAxisArray(tm_tmp.value, tm_tmp.commodities)
+ta_m0 = DenseAxisArray(ta_tmp.value, ta_tmp.commodities)
+ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
+ys_m0 = DenseAxisArray(Matrix(ys_m0df), ys_m0df.commodities, names(ys_m0df)[2:end])
+id_m0df = unstack(id_tmp,:commodities, :sectors,:value, fill=0)
+id_m0 = DenseAxisArray(Matrix(id_m0df), id_m0df.commodities, names(id_m0df)[2:end])
+va_m0df = unstack(va_tmp,:commodities, :sectors,:value, fill=0)
+va_m0 = DenseAxisArray(Matrix(va_m0df), va_m0df[:,:commodities], Symbol.(names(va_m0df)[2:end]))
+ty_m0 = DenseAxisArray(ty_tmp.value, ty_tmp.sectors)
+
 macro varname(arg)
     string(arg)
 end
@@ -256,32 +284,38 @@ function exp_to_xlsx(df, dfname, filename="CompareSummary.xlsx")
 end
 end
 
-comp_x.commodities=string.(comp_x.commodities)
-exp_to_xlsx(comp_x, @varname(comp_x))
-comp_m.commodities=string.(comp_m.commodities)
-exp_to_xlsx(comp_m, @varname(comp_m))
-exp_to_xlsx(comp_bop, @varname(comp_bop))
-comp_a.commodities=string.(comp_a.commodities)
-exp_to_xlsx(comp_a, @varname(comp_a))
-comp_y.commodities=string.(comp_y.commodities)
-exp_to_xlsx(comp_y, @varname(comp_y))
-comp_ms.commodities=string.(comp_ms.commodities); comp_ms.sectors=string.(comp_ms.sectors)
-exp_to_xlsx(comp_ms, @varname(comp_ms))
-comp_md.commodities=string.(comp_md.commodities); comp_md.sectors=string.(comp_md.sectors)
-exp_to_xlsx(comp_md, @varname(comp_md))
-comp_fdpce.commodities=string.(comp_fdpce.commodities)
-exp_to_xlsx(comp_fdpce, @varname(comp_fdpce))
-comp_fd.commodities=string.(comp_fd.commodities); comp_fd[!,aggcol]=string.(comp_fd[!,aggcol])
-exp_to_xlsx(comp_fd, @varname(comp_fd))
-comp_tm.commodities=string.(comp_tm.commodities)
-exp_to_xlsx(comp_tm, @varname(comp_tm))
-comp_ta.commodities=string.(comp_ta.commodities)
-exp_to_xlsx(comp_ta, @varname(comp_ta))
-comp_ys.commodities=string.(comp_ys.commodities); comp_ys.sectors=string.(comp_ys.sectors)
-exp_to_xlsx(comp_ys, @varname(comp_ys))
-comp_id.commodities=string.(comp_id.commodities); comp_id.sectors=string.(comp_id.sectors)
-exp_to_xlsx(comp_id, @varname(comp_id))
-comp_va.commodities=string.(comp_va.commodities); comp_va.sectors=string.(comp_va.sectors)
-exp_to_xlsx(comp_va, @varname(comp_va))
-comp_ty.sectors = string.(comp_ty.sectors) 
-exp_to_xlsx(comp_ty, @varname(comp_ty))
+
+
+
+
+
+
+# comp_x.commodities=string.(comp_x.commodities)
+# exp_to_xlsx(comp_x, @varname(comp_x))
+# comp_m.commodities=string.(comp_m.commodities)
+# exp_to_xlsx(comp_m, @varname(comp_m))
+# exp_to_xlsx(comp_bop, @varname(comp_bop))
+# comp_a.commodities=string.(comp_a.commodities)
+# exp_to_xlsx(comp_a, @varname(comp_a))
+# comp_y.commodities=string.(comp_y.commodities)
+# exp_to_xlsx(comp_y, @varname(comp_y))
+# comp_ms.commodities=string.(comp_ms.commodities); comp_ms.sectors=string.(comp_ms.sectors)
+# exp_to_xlsx(comp_ms, @varname(comp_ms))
+# comp_md.commodities=string.(comp_md.commodities); comp_md.sectors=string.(comp_md.sectors)
+# exp_to_xlsx(comp_md, @varname(comp_md))
+# comp_fdpce.commodities=string.(comp_fdpce.commodities)
+# exp_to_xlsx(comp_fdpce, @varname(comp_fdpce))
+# comp_fd.commodities=string.(comp_fd.commodities); comp_fd[!,aggcol]=string.(comp_fd[!,aggcol])
+# exp_to_xlsx(comp_fd, @varname(comp_fd))
+# comp_tm.commodities=string.(comp_tm.commodities)
+# exp_to_xlsx(comp_tm, @varname(comp_tm))
+# comp_ta.commodities=string.(comp_ta.commodities)
+# exp_to_xlsx(comp_ta, @varname(comp_ta))
+# comp_ys.commodities=string.(comp_ys.commodities); comp_ys.sectors=string.(comp_ys.sectors)
+# exp_to_xlsx(comp_ys, @varname(comp_ys))
+# comp_id.commodities=string.(comp_id.commodities); comp_id.sectors=string.(comp_id.sectors)
+# exp_to_xlsx(comp_id, @varname(comp_id))
+# comp_va.commodities=string.(comp_va.commodities); comp_va.sectors=string.(comp_va.sectors)
+# exp_to_xlsx(comp_va, @varname(comp_va))
+# comp_ty.sectors = string.(comp_ty.sectors) 
+# exp_to_xlsx(comp_ty, @varname(comp_ty))
