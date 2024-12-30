@@ -154,7 +154,7 @@ comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, makeunique=true)
 print(comp_x)# "BEA Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
 
 m_0[yr,:]  #	    "Imports",
-im_tmp = get_subtable(TMP,"imports")#; im_tmp.commodities=Symbol.(im_tmp.commodities)
+im_tmp = get_subtable(TMP,"imports"); im_tmp.commodities=Symbol.(im_tmp.commodities)
 im = DataFrame([m_0[yr,:].axes[1] m_0[yr,:].data], [:Win, :im]); im.Win=string.(im.Win)
 im_bea = leftjoin(get_subtable(national_data_summary, "imports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
 comp_m_1 = outerjoin(im_tmp,im, on=:commodities=>:Win) 
@@ -247,28 +247,58 @@ print(comp_ty)
 
 #############################################################################
 # Generate DenseAxisArrays for WiNDC national/MultiNat model, one year only #
+# Add 0s and missing indices (messy, but kinda works)
 #############################################################################
-x_m0 = DenseAxisArray(ex_tmp.value, ex_tmp.commodities)
-m_m0 = DenseAxisArray(im_tmp.value, im_tmp.commodities)
+Iplus1 = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :use, :oth]]
+
+othersectors_ex_tmp = [x for x in Iplus1 if x∉ex_tmp.commodities]
+x_m0 = DenseAxisArray(vcat(ex_tmp.value,zeros(length(othersectors_ex_tmp))), vcat(ex_tmp.commodities,othersectors_ex_tmp))
+othersectors_im_tmp = [x for x in Iplus1 if x∉im_tmp.commodities]
+m_m0 = DenseAxisArray(vcat(im_tmp.value,zeros(length(othersectors_im_tmp))), vcat(im_tmp.commodities,othersectors_im_tmp))
 ms_m0df = unstack(ms_tmp,:commodities, :sectors,:value, fill=0)
-ms_m0 = DenseAxisArray(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]), ms_m0df.commodities, [:trn, :trd])
+othersectors_ms_tmp = [x for x in Iplus1 if x∉ms_tmp.commodities]
+ms_m0 = DenseAxisArray(vcat(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]),zeros(length(othersectors_ms_tmp),2)), vcat(ms_m0df.commodities,othersectors_ms_tmp), [:trn, :trd])
 md_m0df = unstack(md_tmp,:commodities, :sectors,:value, fill=0)
-md_m0 = DenseAxisArray(transpose(hcat(md_m0df[:,:trn], md_m0df[:,:trd])), [:trn, :trd], md_m0df.commodities)
+othersectors_md_tmp = [x for x in Iplus1 if x∉md_tmp.commodities]
+md_m0 = DenseAxisArray(transpose(vcat(hcat(md_m0df[:,:trn], md_m0df[:,:trd]),zeros(length(othersectors_md_tmp),2))), [:trn, :trd], vcat(md_m0df.commodities,othersectors_md_tmp))
 fd_m0exog = unstack(fd_tmp,:commodities, :WiNDC_plus,:value, fill=0)
 fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
-fd_m0 = DenseAxisArray(Matrix(fd_m0df[:,2:end]), fd_m0df.commodities, Symbol.(names(fd_m0df)[2:end]))
+othersectors_fddf_tmp = [x for x in Iplus1 if x∉fd_m0df.commodities]
+fd_m0 = DenseAxisArray(vcat(Matrix(fd_m0df[:,2:end]),zeros(length(othersectors_fddf_tmp),size(fd_m0df,2)-1)), vcat(fd_m0df.commodities,othersectors_fddf_tmp), Symbol.(names(fd_m0df)[2:end]))
 bop_m0 = DenseAxisArray(bop_tmp.value, [:2020])
-a_m0 = DenseAxisArray(a_tmp.value, a_tmp.commodities)
-y_m0 = DenseAxisArray(y_tmp.value, y_tmp.commodities)
-tm_m0 = DenseAxisArray(tm_tmp.value, tm_tmp.commodities)
-ta_m0 = DenseAxisArray(ta_tmp.value, ta_tmp.commodities)
+othersectors_a_tmp = [x for x in Iplus1 if x∉a_tmp.commodities]
+a_m0 = DenseAxisArray(vcat(a_tmp.value,zeros(length(othersectors_a_tmp))), vcat(a_tmp.commodities,othersectors_a_tmp))
+othersectors_y_tmp = [x for x in Iplus1 if x∉y_tmp.commodities]# Nice this has everything, but still works
+y_m0 = DenseAxisArray(vcat(y_tmp.value,zeros(length(othersectors_y_tmp))), vcat(y_tmp.commodities,othersectors_y_tmp))
+othersectors_tm_tmp = [x for x in Iplus1 if x∉tm_tmp.commodities]
+tm_m0 = DenseAxisArray(vcat(tm_tmp.value,zeros(length(othersectors_tm_tmp))), vcat(tm_tmp.commodities,othersectors_tm_tmp))
+othersectors_ta_tmp = [x for x in Iplus1 if x∉ta_tmp.commodities]
+ta_m0 = DenseAxisArray(vcat(ta_tmp.value,zeros(length(othersectors_ta_tmp))), vcat(ta_tmp.commodities,othersectors_ta_tmp))
 ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
-ys_m0 = DenseAxisArray(Matrix(ys_m0df), ys_m0df.commodities, names(ys_m0df)[2:end])
+othersectors_ys_tmp = [x for x in Iplus1 if x∉ys_tmp.commodities]# None, so no set up YET to add sectors
+othersectors_ys_tmp2 = [x for x in Iplus1 if x∉ unique(ys_tmp.sectors)]
+for i in (1:length(othersectors_ys_tmp2))
+    ys_m0df[!,othersectors_ys_tmp2[i]] .= 0
+end
+ys_m0 = DenseAxisArray(Matrix(ys_m0df[!,2:end]), ys_m0df.commodities, Symbol.(names(ys_m0df)[2:end]))
 id_m0df = unstack(id_tmp,:commodities, :sectors,:value, fill=0)
-id_m0 = DenseAxisArray(Matrix(id_m0df), id_m0df.commodities, names(id_m0df)[2:end])
+othersectors_id_tmp = [x for x in Iplus1 if x∉id_tmp.commodities]
+othersectors_id_tmp2 = [x for x in Iplus1 if x∉ unique(id_tmp.sectors)]
+for i in (1:length(othersectors_id_tmp2))
+    id_m0df[!,othersectors_id_tmp2[i]] .= 0
+end
+id_m0 = DenseAxisArray(vcat(Matrix(id_m0df[:,2:end]),zeros(length(othersectors_id_tmp),size(id_m0df,2)-1))
+, vcat(id_m0df.commodities,othersectors_id_tmp), names(id_m0df)[2:end])
 va_m0df = unstack(va_tmp,:commodities, :sectors,:value, fill=0)
-va_m0 = DenseAxisArray(Matrix(va_m0df), va_m0df[:,:commodities], Symbol.(names(va_m0df)[2:end]))
-ty_m0 = DenseAxisArray(ty_tmp.value, ty_tmp.sectors)
+othersectors_va_tmp = [x for x in Iplus1 if x∉va_tmp.sectors]
+for i in (1:length(othersectors_va_tmp))
+    va_m0df[!,othersectors_va_tmp[i]] .= 0
+end
+va_m0 = DenseAxisArray(Matrix(va_m0df[!,2:end]), va_m0df[:,:commodities], Symbol.(names(va_m0df)[2:end]))
+othersectors_ty_tmp = [x for x in Iplus1 if x∉ty_tmp.sectors]
+ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vcat(ty_tmp.sectors,othersectors_ty_tmp))
+
+
 
 macro varname(arg)
     string(arg)
