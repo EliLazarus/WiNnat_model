@@ -55,3 +55,9 @@ for i in I;
 
        println(i,": ",only(filter(y-> y.index ==(string(i)), Sectors)[!,:Short_description]),":\t",sum(ys_0[yr,i,:]))
        filter(y-> y.index ==(string(:ppd)), Sectors)[!,:Short_description]
+
+    "   unstack([data_frame],
+        [columns to use as row keys],
+        [column storing column names],
+        [column storing the values];
+        combine=[function to apply to the values]) "
