@@ -12,7 +12,7 @@ $if not set ds $set ds data%sep%nationaldata_%matbal% - Notoriginal%sep%WiNDC_Na
 *$if not set ds $set ds data%WiNDC_National.gdx
 
 *$if not set run $set run 1997*2017
-$if not set run $set run 2017
+$if not set run $set run 2020
 
 SET	yr	"Years in WiNDC Database",
    	i	"BEA Goods and sectors categories",
@@ -332,6 +332,8 @@ REPORT("PVA",va,"benchmarkmge") = PVA.L(va);
 REPORT("PM",m,"benchmarkmge") = PM.L(M);
 REPORT("PFX","","benchmarkmge") = PFX.L;
 REPORT("RA","","benchmarkmge") = RA.L;
+REPORT("CWI","","benchmarkmge") = CWI.L;
+
 
 *	2. MCP model
 
@@ -382,6 +384,7 @@ REPORT("PVA",va,"Countermge") = PVA.L(va);
 REPORT("PM",m,"Countermge") = PM.L(M);
 REPORT("PFX","","Countermge") = PFX.L;
 REPORT("RA","","Countermge") = RA.L;
+REPORT("CWI","","Countermge") = CWI.L;
 
 *	4. Verify that the MGE solution also solves the MCP model.
 
@@ -423,6 +426,7 @@ REPORT("PVA",va,"delas=0") = PVA.L(va);
 REPORT("PM",m,"delas=0") = PM.L(M);
 REPORT("PFX","","delas=0") = PFX.L;
 REPORT("RA","","delas=0") = RA.L;
+REPORT("CWI","","delas=0") = CWI.L;
 
 *	3. Counterfactual with the MCP model:
 
@@ -454,6 +458,7 @@ REPORT("PVA",va,"delas=0.5") = PVA.L(va);
 REPORT("PM",m,"delas=0.5") = PM.L(M);
 REPORT("PFX","","delas=0.5") = PFX.L;
 REPORT("RA","","delas=0.5") = RA.L;
+REPORT("CWI","","delas=0.5") = CWI.L;
 
 option decimals=8;
 display REPORT;
