@@ -1,5 +1,4 @@
 using WiNDC, DataFrames, MPSGE, GamsStructure, CSV
-
 ##cd to top level of the data files
 raw_data_directory = "./detailed_data/national"
 # all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :raw_detailed); # only for  2007, 2012, 2017
@@ -19,6 +18,7 @@ projected_det_national_data_yr =
         all_det_national_data.sets
     )
 
+
 raw_summary_national_data_yr = 
 NationalTable(
     get_table(all_summary_national_data)|>
@@ -30,9 +30,8 @@ NationalTable(
 
 # Calibrate the model. The JuMP model is also returned. 
 callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
+# TMP,MS = calibrate(raw_summary_national_data_yr)
 callibrated_summary_national_data,MS = calibrate(raw_summary_national_data_yr)
-
-
 # Apparently there is an error here using the summary data. I have the value added
 # categories hard coded... which is super smart of me! I should fix that.
 # M = national_mpsge(national_data)
@@ -85,57 +84,119 @@ get_set(callibrated_det_national_data, "labor_demand")
 # example correspondence table
 # Currently has WiNDC_plus and WiNDC summary (theoretically to replicate summary but doesn't), but can be any abitraray mapping been BEA_detail, and any aggregation set
 Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv"), DataFrame, header=1)
-
-#######################################################################################
-# X is the correspondence table between bea detail and whatever aggregation is set up #
-#######################################################################################
-# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
-X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
-aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
-
-## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
+X = DataFrame([unique(Codes[:,:WiNDC_summary]), unique(Codes[:,:WiNDC])], [:commodities, :name])
 double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
 TMP = NationalTable( vcat(
-    get_table(callibrated_det_national_data) |>
+    get_table(callibrated_summary_national_data) |>
     x -> filter(:subtable => !(in(double_aggregate_subtables)), x) |> #ggregate the simple tables separately
     x -> leftjoin(
         x,
         X,
         on = :commodities,
-        renamecols = "" => "_com"
+        # renamecols = "" => "_com"
     ) |>
-    x -> transform(x,
-        [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value),
-# Now aggregate the tables that also need to aggregate sectors, in 2 steps
-    get_table(callibrated_det_national_data) |>
+    x ->hcat(x, x.sec_codes.=missing) |>
+    x ->x[:,1:7] |>
+    x -> rename!(x, :commodities => :codes, :name =>:commodities)
+,
+# # Now aggregate the tables that also need to aggregate sectors, in 2 steps
+    get_table(callibrated_summary_national_data) |>
     x -> filter(:subtable => (in(double_aggregate_subtables)), x) |>
     x -> leftjoin(
         x,
         X,
         on = :commodities,
-        renamecols = "" => "_com"
-    ) |>
-    x -> transform(x,
-        [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value) |>
+        # renamecols = "" => "_com"
+    ) |> 
+    # |>
     x -> leftjoin(
     x,
     X,
     on = :sectors=>:commodities,
-    renamecols = "" => "_com") |>
-    x -> transform!(x,
-        [:sectors, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :sectors,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value)
-    ),
+    # )
+    # ,
+    renamecols = "" => "_sec") |>
+    x -> rename!(x, :commodities => :codes, :name =>:commodities, :sectors=>:sec_codes, :name_sec=>:sectors)
+    )
+    ,
         callibrated_det_national_data.sets
 )
+
+# TMP = NationalTable( 
+#         get_table(callibrated_summary_national_data) |>
+#         x -> leftjoin(
+#             x,
+#             X,
+#             on = :commodities,
+            
+#             # renamecols .= ["commodities","name"] .=> ["codes", "commodities"]),
+#         ) 
+#         |>
+#         x -> rename!(x, :commodities => :codes, :name =>:commodities)
+#         |>
+#         x -> leftjoin(
+#             x,
+#             X,
+#             on = :sectors => :commodities
+#             ,)
+#             |>
+#             x -> rename!(x, :sectors => :seccodes, :name =>:sectors)
+#         # )
+#         ,
+#         callibrated_summary_national_data.sets
+# )
+
+#######################################################################################
+# X is the correspondence table between bea detail and whatever aggregation is set up #
+#######################################################################################
+# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
+# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
+# aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
+aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
+
+## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
+double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
+# TMP = NationalTable( vcat(
+#     get_table(callibrated_det_national_data) |>
+#     x -> filter(:subtable => !(in(double_aggregate_subtables)), x) |> #ggregate the simple tables separately
+#     x -> leftjoin(
+#         x,
+#         X,
+#         on = :commodities,
+#         renamecols = "" => "_com"
+#     ) |>
+#     x -> transform(x,
+#         [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value),
+# # Now aggregate the tables that also need to aggregate sectors, in 2 steps
+#     get_table(callibrated_det_national_data) |>
+#     x -> filter(:subtable => (in(double_aggregate_subtables)), x) |>
+#     x -> leftjoin(
+#         x,
+#         X,
+#         on = :commodities,
+#         renamecols = "" => "_com"
+#     ) |>
+#     x -> transform(x,
+#         [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value) |>
+#     x -> leftjoin(
+#     x,
+#     X,
+#     on = :sectors=>:commodities,
+#     renamecols = "" => "_com") |>
+#     x -> transform!(x,
+#         [:sectors, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :sectors,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value)
+#     ),
+#         callibrated_det_national_data.sets
+# )
 
 #Take a look to check and look at the difference
 get_subtable(TMP, "labor_demand")
@@ -194,33 +255,39 @@ end
 ## Make DataFrames to compare values
 x_0[yr,:]  #	    "Exports of goods and services",
 ex_tmp = get_subtable(TMP,"exports"); ex_tmp.commodities=Symbol.(ex_tmp.commodities)
+
+# ex_tmp = leftjoin(ex_tmp1, unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);  ex_tmp.WiNDC=Symbol.(ex_tmp.WiNDC)
 ex = DataFrame([x_0[yr,:].axes[1] x_0[yr,:].data], [:Win, :exp]); ex.Win = Symbol.(ex.Win)
 
 ex_bea = leftjoin(filter(x->x.year==2020,get_subtable(all_summary_national_data,"exports"))[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); 
 ex_bea[!,aggcol] = Symbol.(ex_bea[!,aggcol])
 
 comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
-comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, makeunique=true)
+comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, renamecols=""=>"_beasum")#, makeunique=true)
 print(comp_x)# "BEA Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
 
 m_0[yr,:]  #	    "Imports",
-im_tmp = get_subtable(TMP,"imports"); im_tmp.commodities=Symbol.(im_tmp.commodities)
+# im_tmp = filter(x->x.subtable=="imports",TMP.table); im_tmp.commodities=Symbol.(im_tmp.commodities)
+im_tmp = get_subtable(TMP,"imports"); #im_tmp.commodities=Symbol.(im_tmp.commodities)
 im = DataFrame([m_0[yr,:].axes[1] m_0[yr,:].data], [:Win, :im]); im.Win=string.(im.Win)
-im_bea = leftjoin(get_subtable(all_summary_national_data, "imports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
+im_bea = leftjoin(filter(x->x.year==2020,get_subtable(all_summary_national_data, "imports"))[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
+# comp_m_1 = outerjoin(im_tmp,im, on=:name_com=>:Win) 
 comp_m_1 = outerjoin(im_tmp,im, on=:commodities=>:Win) 
 comp_m = outerjoin(comp_m_1,im_bea, on=:commodities=>aggcol, makeunique=true)
 print(comp_m)
 
 ms_0[yr,:,:]  #	"Margin supply",
 ms_tmp = get_subtable(TMP,"margin_supply"); ms_tmp.commodities=Symbol.(ms_tmp.commodities)
-ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
+ms_tmp[:,:sectors] = [item == "Trans" ? "trn" : "trd" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
+# ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
 ms = stack(DataFrame([ms_0.axes[2] ms_0[yr,:,:].data], [:Win ; ms_0.axes[3]]),2:3); ms.variable=Symbol.(ms.variable); ms.Win=Symbol.(ms.Win)
 comp_ms = outerjoin(ms_tmp,ms, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_ms_0")
 print(comp_ms)
 
 md_0[yr,:,:]  #	"Margin demand",
 md_tmp = get_subtable(TMP,"margin_demand"); md_tmp.commodities=Symbol.(md_tmp.commodities)
-md_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
+md_tmp[:,:sectors] = [item == "Trans" ? "trn" : "trd" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
+# md_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
 md = stack(DataFrame([md_0.axes[3] transpose(md_0[yr,:,:].data)], [:Win ; md_0.axes[2]]),2:3); md.variable=Symbol.(md.variable); md.Win=Symbol.(md.Win)
 comp_md = outerjoin(md_tmp,md, on=[:commodities=>:Win,:sectors=>:variable], renamecols=""=>"_md_0")
 print(comp_md)
@@ -235,10 +302,11 @@ print(comp_fdpce)
 # Exog fd
 fd = stack(DataFrame([fd_0.axes[2] fd_0[yr,:,[x for x in FD if x!=:pce]].data], [:Win ; [x for x in FD if x !=:pce]]),2:18); fd.variable=Symbol.(fd.variable); fd.Win=Symbol.(fd.Win)
 fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
-fdbea = get_subtable(all_summary_national_data, "exogenous_final_demand")
-fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
+fdbea = filter(x->x.year==2020,get_subtable(all_summary_national_data, "exogenous_final_demand"))
+# fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
 # comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
-fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
+# fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_summary)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
+# fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
 comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_fd_0")[:1:125,:]
 print(comp_fd)
 
@@ -296,58 +364,59 @@ comp_ty = outerjoin(ty_tmp,ty, on=:sectors=>:Win)
 print(comp_ty)
 
 
-# #############################################################################
-# # Generate DenseAxisArrays for WiNDC national/MultiNat model, one year only #
-# # Add 0s and missing indices (messy, but kinda works)
-# #############################################################################
-Iplus1 = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :use, :oth, :gas]]
+# # #############################################################################
+# # # Generate DenseAxisArrays for WiNDC PLUS national/MultiNat model, one year only #
+# # # Add 0s and missing indices (messy, but kinda works)
+# # #############################################################################
+# # Iplus1 = copy(I) To generate DAAs for WiNDC aggregation
+# Iplus1 = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :use, :oth, :gas]]
 
-othersectors_ex_tmp = [x for x in Iplus1 if x∉ex_tmp.commodities]
-x_m0 = DenseAxisArray(vcat(ex_tmp.value,zeros(length(othersectors_ex_tmp))), vcat(ex_tmp.commodities,othersectors_ex_tmp))
-othersectors_im_tmp = [x for x in Iplus1 if x∉im_tmp.commodities]
-m_m0 = DenseAxisArray(vcat(im_tmp.value,zeros(length(othersectors_im_tmp))), vcat(im_tmp.commodities,othersectors_im_tmp))
-ms_m0df = unstack(ms_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_ms_tmp = [x for x in Iplus1 if x∉ms_tmp.commodities]
-ms_m0 = DenseAxisArray(vcat(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]),zeros(length(othersectors_ms_tmp),2)), vcat(ms_m0df.commodities,othersectors_ms_tmp), [:trn, :trd])
-md_m0df = unstack(md_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_md_tmp = [x for x in Iplus1 if x∉md_tmp.commodities]
-md_m0 = DenseAxisArray(transpose(vcat(hcat(md_m0df[:,:trn], md_m0df[:,:trd]),zeros(length(othersectors_md_tmp),2))), [:trn, :trd], vcat(md_m0df.commodities,othersectors_md_tmp))
-fd_m0exog = unstack(fd_tmp,:commodities, :WiNDC_plus,:value, fill=0)
-fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
-othersectors_fddf_tmp = [x for x in Iplus1 if x∉fd_m0df.commodities]
-fd_m0 = DenseAxisArray(vcat(Matrix(fd_m0df[:,2:end]),zeros(length(othersectors_fddf_tmp),size(fd_m0df,2)-1)), vcat(fd_m0df.commodities,othersectors_fddf_tmp), Symbol.(names(fd_m0df)[2:end]))
-bop_m0 = DenseAxisArray(bop_tmp.value, [:2020])
-othersectors_a_tmp = [x for x in Iplus1 if x∉a_tmp.commodities]
-a_m0 = DenseAxisArray(vcat(a_tmp.value,zeros(length(othersectors_a_tmp))), vcat(a_tmp.commodities,othersectors_a_tmp))
-othersectors_y_tmp = [x for x in Iplus1 if x∉y_tmp.commodities]# Nice this has everything, but still works
-y_m0 = DenseAxisArray(vcat(y_tmp.value,zeros(length(othersectors_y_tmp))), vcat(y_tmp.commodities,othersectors_y_tmp))
-othersectors_tm_tmp = [x for x in Iplus1 if x∉tm_tmp.commodities]
-tm_m0 = DenseAxisArray(vcat(tm_tmp.value,zeros(length(othersectors_tm_tmp))), vcat(tm_tmp.commodities,othersectors_tm_tmp))
-othersectors_ta_tmp = [x for x in Iplus1 if x∉ta_tmp.commodities]
-ta_m0 = DenseAxisArray(vcat(ta_tmp.value,zeros(length(othersectors_ta_tmp))), vcat(ta_tmp.commodities,othersectors_ta_tmp))
-ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_ys_tmp = [x for x in Iplus1 if x∉ys_tmp.commodities]# None, so no set up YET to add sectors
-othersectors_ys_tmp2 = [x for x in Iplus1 if x∉ unique(ys_tmp.sectors)]
-for i in (1:length(othersectors_ys_tmp2))
-    ys_m0df[!,othersectors_ys_tmp2[i]] .= 0
-end
-ys_m0 = DenseAxisArray(Matrix(ys_m0df[!,2:end]), ys_m0df.commodities, Symbol.(names(ys_m0df)[2:end]))
-id_m0df = unstack(id_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_id_tmp = [x for x in Iplus1 if x∉id_tmp.commodities]
-othersectors_id_tmp2 = [x for x in Iplus1 if x∉ unique(id_tmp.sectors)]
-for i in (1:length(othersectors_id_tmp2))
-    id_m0df[!,othersectors_id_tmp2[i]] .= 0
-end
-id_m0 = DenseAxisArray(vcat(Matrix(id_m0df[:,2:end]),zeros(length(othersectors_id_tmp),size(id_m0df,2)-1))
-, vcat(id_m0df.commodities,othersectors_id_tmp), Symbol.(names(id_m0df)[2:end]))
-va_m0df = unstack(va_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_va_tmp = [x for x in Iplus1 if x∉va_tmp.sectors]
-for i in (1:length(othersectors_va_tmp))
-    va_m0df[!,othersectors_va_tmp[i]] .= 0
-end
-va_m0 = DenseAxisArray(Matrix(va_m0df[!,2:end]), va_m0df[:,:commodities], Symbol.(names(va_m0df)[2:end]))
-othersectors_ty_tmp = [x for x in Iplus1 if x∉ty_tmp.sectors]
-ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vcat(ty_tmp.sectors,othersectors_ty_tmp))
+# othersectors_ex_tmp = [x for x in Iplus1 if x∉ex_tmp.commodities]
+# x_m0 = DenseAxisArray(vcat(ex_tmp.value,zeros(length(othersectors_ex_tmp))), vcat(ex_tmp.commodities,othersectors_ex_tmp))
+# othersectors_im_tmp = [x for x in Iplus1 if x∉im_tmp.commodities]
+# m_m0 = DenseAxisArray(vcat(im_tmp.value,zeros(length(othersectors_im_tmp))), vcat(im_tmp.commodities,othersectors_im_tmp))
+# ms_m0df = unstack(ms_tmp,:commodities, :sectors,:value, fill=0)
+# othersectors_ms_tmp = [x for x in Iplus1 if x∉ms_tmp.commodities]
+# ms_m0 = DenseAxisArray(vcat(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]),zeros(length(othersectors_ms_tmp),2)), vcat(ms_m0df.commodities,othersectors_ms_tmp), [:trn, :trd])
+# md_m0df = unstack(md_tmp,:commodities, :sectors,:value, fill=0)
+# othersectors_md_tmp = [x for x in Iplus1 if x∉md_tmp.commodities]
+# md_m0 = DenseAxisArray(transpose(vcat(hcat(md_m0df[:,:trn], md_m0df[:,:trd]),zeros(length(othersectors_md_tmp),2))), [:trn, :trd], vcat(md_m0df.commodities,othersectors_md_tmp))
+# fd_m0exog = unstack(fd_tmp,:commodities, :WiNDC_plus,:value, fill=0)
+# fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
+# othersectors_fddf_tmp = [x for x in Iplus1 if x∉fd_m0df.commodities]
+# fd_m0 = DenseAxisArray(vcat(Matrix(fd_m0df[:,2:end]),zeros(length(othersectors_fddf_tmp),size(fd_m0df,2)-1)), vcat(fd_m0df.commodities,othersectors_fddf_tmp), Symbol.(names(fd_m0df)[2:end]))
+# bop_m0 = DenseAxisArray(bop_tmp.value, [:2020])
+# othersectors_a_tmp = [x for x in Iplus1 if x∉a_tmp.commodities]
+# a_m0 = DenseAxisArray(vcat(a_tmp.value,zeros(length(othersectors_a_tmp))), vcat(a_tmp.commodities,othersectors_a_tmp))
+# othersectors_y_tmp = [x for x in Iplus1 if x∉y_tmp.commodities]# Nice this has everything, but still works
+# y_m0 = DenseAxisArray(vcat(y_tmp.value,zeros(length(othersectors_y_tmp))), vcat(y_tmp.commodities,othersectors_y_tmp))
+# othersectors_tm_tmp = [x for x in Iplus1 if x∉tm_tmp.commodities]
+# tm_m0 = DenseAxisArray(vcat(tm_tmp.value,zeros(length(othersectors_tm_tmp))), vcat(tm_tmp.commodities,othersectors_tm_tmp))
+# othersectors_ta_tmp = [x for x in Iplus1 if x∉ta_tmp.commodities]
+# ta_m0 = DenseAxisArray(vcat(ta_tmp.value,zeros(length(othersectors_ta_tmp))), vcat(ta_tmp.commodities,othersectors_ta_tmp))
+# ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
+# othersectors_ys_tmp = [x for x in Iplus1 if x∉ys_tmp.commodities]# None, so no set up YET to add sectors
+# othersectors_ys_tmp2 = [x for x in Iplus1 if x∉ unique(ys_tmp.sectors)]
+# for i in (1:length(othersectors_ys_tmp2))
+#     ys_m0df[!,othersectors_ys_tmp2[i]] .= 0
+# end
+# ys_m0 = DenseAxisArray(Matrix(ys_m0df[!,2:end]), ys_m0df.commodities, Symbol.(names(ys_m0df)[2:end]))
+# id_m0df = unstack(id_tmp,:commodities, :sectors,:value, fill=0)
+# othersectors_id_tmp = [x for x in Iplus1 if x∉id_tmp.commodities]
+# othersectors_id_tmp2 = [x for x in Iplus1 if x∉ unique(id_tmp.sectors)]
+# for i in (1:length(othersectors_id_tmp2))
+#     id_m0df[!,othersectors_id_tmp2[i]] .= 0
+# end
+# id_m0 = DenseAxisArray(vcat(Matrix(id_m0df[:,2:end]),zeros(length(othersectors_id_tmp),size(id_m0df,2)-1))
+# , vcat(id_m0df.commodities,othersectors_id_tmp), Symbol.(names(id_m0df)[2:end]))
+# va_m0df = unstack(va_tmp,:commodities, :sectors,:value, fill=0)
+# othersectors_va_tmp = [x for x in Iplus1 if x∉va_tmp.sectors]
+# for i in (1:length(othersectors_va_tmp))
+#     va_m0df[!,othersectors_va_tmp[i]] .= 0
+# end
+# va_m0 = DenseAxisArray(Matrix(va_m0df[!,2:end]), va_m0df[:,:commodities], Symbol.(names(va_m0df)[2:end]))
+# othersectors_ty_tmp = [x for x in Iplus1 if x∉ty_tmp.sectors]
+# ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vcat(ty_tmp.sectors,othersectors_ty_tmp))
 
 
 
@@ -371,32 +440,32 @@ ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vc
 
 
 
-# comp_x.commodities=string.(comp_x.commodities)
-# exp_to_xlsx(comp_x, @varname(comp_x))
-# comp_m.commodities=string.(comp_m.commodities)
-# exp_to_xlsx(comp_m, @varname(comp_m))
-# exp_to_xlsx(comp_bop, @varname(comp_bop))
-# comp_a.commodities=string.(comp_a.commodities)
-# exp_to_xlsx(comp_a, @varname(comp_a))
-# comp_y.commodities=string.(comp_y.commodities)
-# exp_to_xlsx(comp_y, @varname(comp_y))
-# comp_ms.commodities=string.(comp_ms.commodities); comp_ms.sectors=string.(comp_ms.sectors)
-# exp_to_xlsx(comp_ms, @varname(comp_ms))
-# comp_md.commodities=string.(comp_md.commodities); comp_md.sectors=string.(comp_md.sectors)
-# exp_to_xlsx(comp_md, @varname(comp_md))
-# comp_fdpce.commodities=string.(comp_fdpce.commodities)
-# exp_to_xlsx(comp_fdpce, @varname(comp_fdpce))
-# comp_fd.commodities=string.(comp_fd.commodities); comp_fd[!,aggcol]=string.(comp_fd[!,aggcol])
-# exp_to_xlsx(comp_fd, @varname(comp_fd))
-# comp_tm.commodities=string.(comp_tm.commodities)
-# exp_to_xlsx(comp_tm, @varname(comp_tm))
-# comp_ta.commodities=string.(comp_ta.commodities)
-# exp_to_xlsx(comp_ta, @varname(comp_ta))
-# comp_ys.commodities=string.(comp_ys.commodities); comp_ys.sectors=string.(comp_ys.sectors)
-# exp_to_xlsx(comp_ys, @varname(comp_ys))
-# comp_id.commodities=string.(comp_id.commodities); comp_id.sectors=string.(comp_id.sectors)
-# exp_to_xlsx(comp_id, @varname(comp_id))
-# comp_va.commodities=string.(comp_va.commodities); comp_va.sectors=string.(comp_va.sectors)
-# exp_to_xlsx(comp_va, @varname(comp_va))
-# comp_ty.sectors = string.(comp_ty.sectors) 
-# exp_to_xlsx(comp_ty, @varname(comp_ty))
+comp_x.commodities=string.(comp_x.commodities)
+exp_to_xlsx(comp_x, @varname(comp_x))
+comp_m.commodities=string.(comp_m.commodities)
+exp_to_xlsx(comp_m, @varname(comp_m))
+exp_to_xlsx(comp_bop, @varname(comp_bop))
+comp_a.commodities=string.(comp_a.commodities)
+exp_to_xlsx(comp_a, @varname(comp_a))
+comp_y.commodities=string.(comp_y.commodities)
+exp_to_xlsx(comp_y, @varname(comp_y))
+comp_ms.commodities=string.(comp_ms.commodities); comp_ms.sectors=string.(comp_ms.sectors)
+exp_to_xlsx(comp_ms, @varname(comp_ms))
+comp_md.commodities=string.(comp_md.commodities); comp_md.sectors=string.(comp_md.sectors)
+exp_to_xlsx(comp_md, @varname(comp_md))
+comp_fdpce.commodities=string.(comp_fdpce.commodities)
+exp_to_xlsx(comp_fdpce, @varname(comp_fdpce))
+comp_fd.commodities=string.(comp_fd.commodities); comp_fd[!,aggcol]=string.(comp_fd[!,aggcol])
+exp_to_xlsx(comp_fd, @varname(comp_fd))
+comp_tm.commodities=string.(comp_tm.commodities)
+exp_to_xlsx(comp_tm, @varname(comp_tm))
+comp_ta.commodities=string.(comp_ta.commodities)
+exp_to_xlsx(comp_ta, @varname(comp_ta))
+comp_ys.commodities=string.(comp_ys.commodities); comp_ys.sectors=string.(comp_ys.sectors)
+exp_to_xlsx(comp_ys, @varname(comp_ys))
+comp_id.commodities=string.(comp_id.commodities); comp_id.sectors=string.(comp_id.sectors)
+exp_to_xlsx(comp_id, @varname(comp_id))
+comp_va.commodities=string.(comp_va.commodities); comp_va.sectors=string.(comp_va.sectors)
+exp_to_xlsx(comp_va, @varname(comp_va))
+comp_ty.sectors = string.(comp_ty.sectors) 
+exp_to_xlsx(comp_ty, @varname(comp_ty))
