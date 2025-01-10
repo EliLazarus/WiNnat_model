@@ -32,6 +32,13 @@ NationalTable(
 callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
 # TMP,MS = calibrate(raw_summary_national_data_yr)
 callibrated_summary_national_data,MS = calibrate(raw_summary_national_data_yr)
+
+# check match from callibrated summary to raw summary
+checkCall = outerjoin(callibrated_summary_national_data.table, raw_summary_national_data_yr.table, on = [:commodities, :sectors, :year, :subtable], 
+renamecols = "" => "_raw")
+checkCall.diff = checkCall.value - checkCall.value_raw 
+sort!(checkCall, :diff)
+
 # Apparently there is an error here using the summary data. I have the value added
 # categories hard coded... which is super smart of me! I should fix that.
 # M = national_mpsge(national_data)
@@ -87,7 +94,7 @@ Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv
 X = DataFrame([unique(Codes[:,:WiNDC_summary]), unique(Codes[:,:WiNDC])], [:commodities, :name])
 double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
 TMP = NationalTable( vcat(
-    get_table(callibrated_summary_national_data) |>
+    get_table(raw_summary_national_data_yr) |>
     x -> filter(:subtable => !(in(double_aggregate_subtables)), x) |> #ggregate the simple tables separately
     x -> leftjoin(
         x,
@@ -100,7 +107,7 @@ TMP = NationalTable( vcat(
     x -> rename!(x, :commodities => :codes, :name =>:commodities)
 ,
 # # Now aggregate the tables that also need to aggregate sectors, in 2 steps
-    get_table(callibrated_summary_national_data) |>
+    get_table(raw_summary_national_data_yr) |>
     x -> filter(:subtable => (in(double_aggregate_subtables)), x) |>
     x -> leftjoin(
         x,
@@ -151,7 +158,7 @@ TMP = NationalTable( vcat(
 #######################################################################################
 # X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
 # X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
-# aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
+aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
 aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
 
 ## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
