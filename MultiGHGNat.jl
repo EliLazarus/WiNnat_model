@@ -138,10 +138,10 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-# CH4abatement="no" # Umtil there's also CO2 abatemment, no CH4 abatement by default
-Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
-# Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
+# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
+# Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
+Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
 
@@ -722,11 +722,8 @@ set_upper_bound(MultiNat[:A][:pip], 10)
 
 # print("checkch4",checkch4[3])
 # print(check[1])
-
-print("$CH4abatement CH4 Abatement: ") # Comment out CH4abatement="no" to allow CH4 abatment
-print("$Kmobile mobile Kapital:: ")# Allow kapital & Labor to flow between sectors (original WiNDC)
-# Kmobile="no"; print("Not mobile Kapital: ")
 # png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
+
 println("Emissions (remaining, i.e. not mitigated)")
 EmissUnits_mt = DataFrame();
 EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
@@ -739,11 +736,16 @@ chop(names(EmissionReductionResults_Mt)[5], tail=6) => EmissionReductionResults_
 names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,6],
 names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
 
-return Emissions_Mt, 
+# return Emissions_Mt, 
+print(Emissions_Mt)
+print(
 filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]")
-, Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare),
+, Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare)
+,
+);println(
 sum([value(demand(RA,PA[i]))*value(PA[i]) for i in I])
 
+)
 #Check Benchmark
 # fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
 # print(sort!(fullvrbnch, [:bmkmarg]))
