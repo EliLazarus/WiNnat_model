@@ -32,6 +32,11 @@ NationalTable(
 callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
 callibrated_summary_national_data,MS = calibrate(raw_summary_national_data_yr)
 
+checkCall = outerjoin(callibrated_summary_national_data.table, raw_summary_national_data_yr.table, on = [:commodities, :sectors, :year, :subtable], 
+renamecols = "" => "_raw")
+checkCall.diff = checkCall.value - checkCall.value_raw 
+sort!(checkCall, :diff)
+
 
 # Apparently there is an error here using the summary data. I have the value added
 # categories hard coded... which is super smart of me! I should fix that.
@@ -89,9 +94,9 @@ Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv
 #######################################################################################
 # X is the correspondence table between bea detail and whatever aggregation is set up #
 #######################################################################################
-# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
-X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
-aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
+X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
+# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
+aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
 
 ## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
 double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
@@ -194,75 +199,100 @@ end
 ## Make DataFrames to compare values
 x_0[yr,:]  #	    "Exports of goods and services",
 ex_tmp = get_subtable(TMP,"exports"); ex_tmp.commodities=Symbol.(ex_tmp.commodities)
-ex = DataFrame([x_0[yr,:].axes[1] x_0[yr,:].data], [:Win, :exp]); ex.Win = Symbol.(ex.Win)
-
+ex = DataFrame([x_0[yr,:].axes[1] x_0[yr,:].data], [:Win, :value]); ex.Win = Symbol.(ex.Win)
+ex.subtable .= "exports"# add subtable column for aggregation with all subtables to match and join .table versions
+ex.variable .= "F04000"
 ex_bea = leftjoin(filter(x->x.year==2020,get_subtable(all_summary_national_data,"exports"))[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); 
 ex_bea[!,aggcol] = Symbol.(ex_bea[!,aggcol])
 
-comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
-comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, makeunique=true)
+comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win, renamecols = ""=>"_JLD2") 
+comp_x = outerjoin(comp_x_1,ex_bea, on=:commodities=>aggcol, renamecols = ""=>"_callBEA")
 print(comp_x)# "BEA Summary doesn't split for 11CA for (agr &) fof, or 525	to fin hou ore"
 
 m_0[yr,:]  #	    "Imports",
 im_tmp = get_subtable(TMP,"imports"); im_tmp.commodities=Symbol.(im_tmp.commodities)
-im = DataFrame([m_0[yr,:].axes[1] m_0[yr,:].data], [:Win, :im]); im.Win=string.(im.Win)
-im_bea = leftjoin(get_subtable(all_summary_national_data, "imports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary);# ex_bea.WiNDC=Symbol.(ex_bea.WiNDC)
-comp_m_1 = outerjoin(im_tmp,im, on=:commodities=>:Win) 
-comp_m = outerjoin(comp_m_1,im_bea, on=:commodities=>aggcol, makeunique=true)
+im = DataFrame([m_0[yr,:].axes[1] m_0[yr,:].data], [:Win, :value]); #im.Win=string.(im.Win)
+im.subtable .= "imports" # add subtable column for aggregation with all subtables to match and join .table versions
+im.variable .= "MCIF"
+im_bea = leftjoin(get_subtable(all_summary_national_data, "imports")[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); im_bea.WiNDC=Symbol.(im_bea.WiNDC)
+comp_m_1 = outerjoin(im_tmp,im, on=:commodities=>:Win, renamecols = ""=>"_JLD2") 
+comp_m = outerjoin(comp_m_1,im_bea, on=:commodities=>aggcol, renamecols = ""=>"_callBEA")
 print(comp_m)
 
 ms_0[yr,:,:]  #	"Margin supply",
 ms_tmp = get_subtable(TMP,"margin_supply"); ms_tmp.commodities=Symbol.(ms_tmp.commodities)
 ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
 ms = stack(DataFrame([ms_0.axes[2] ms_0[yr,:,:].data], [:Win ; ms_0.axes[3]]),2:3); ms.variable=Symbol.(ms.variable); ms.Win=Symbol.(ms.Win)
-comp_ms = outerjoin(ms_tmp,ms, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_ms_0")
+ms.subtable .= "margin_supply" # add subtable column for aggregation with all subtables to match and join .table versions
+comp_ms = outerjoin(ms_tmp,ms, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_JLD2")
 print(comp_ms)
 
 md_0[yr,:,:]  #	"Margin demand",
 md_tmp = get_subtable(TMP,"margin_demand"); md_tmp.commodities=Symbol.(md_tmp.commodities)
 md_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
 md = stack(DataFrame([md_0.axes[3] transpose(md_0[yr,:,:].data)], [:Win ; md_0.axes[2]]),2:3); md.variable=Symbol.(md.variable); md.Win=Symbol.(md.Win)
-comp_md = outerjoin(md_tmp,md, on=[:commodities=>:Win,:sectors=>:variable], renamecols=""=>"_md_0")
+md.subtable .= "margin_demand" # add subtable column for aggregation with all subtables to match and join .table versions
+
+comp_md = outerjoin(md_tmp,md, on=[:commodities=>:Win,:sectors=>:variable], renamecols=""=>"_JLD2")
 print(comp_md)
 
 fd_0[yr,:,:pce]  #	"Final demand", # pce
 pce_tmp = get_subtable(TMP,"personal_consumption"); pce_tmp.commodities=Symbol.(pce_tmp.commodities)
-pce = DataFrame([[i for x in  fd_0[yr,:,:pce].axes for i in x] fd_0[yr,:,:pce].data], [:Win, :pce])
-comp_fdpce = outerjoin(pce_tmp,pce, on=:commodities=>:Win)
+pce = DataFrame([[i for x in  fd_0[yr,:,:pce].axes for i in x] fd_0[yr,:,:pce].data], [:Win, :value])
+pce.subtable .= "personal_consumption" # add subtable column for aggregation with all subtables to match and join .table versions
+pce.variable .= "F01000"
+comp_fdpce = outerjoin(pce_tmp,pce, on=:commodities=>:Win, renamecols = ""=>"_JLD2")
 print(comp_fdpce)
 
 # TODO fix join for this too maybe, not showing the new disaggs: it's a 3-way
 # Exog fd
 fd = stack(DataFrame([fd_0.axes[2] fd_0[yr,:,[x for x in FD if x!=:pce]].data], [:Win ; [x for x in FD if x !=:pce]]),2:18); fd.variable=Symbol.(fd.variable); fd.Win=Symbol.(fd.Win)
+fd.subtable .= "exogenous_final_demand" # add subtable column for aggregation with all subtables to match and join .table versions
 fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
 fdbea = get_subtable(all_summary_national_data, "exogenous_final_demand")
 fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
 # comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
 fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
-comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_fd_0")[:1:125,:]
+comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_JLD2")[:1:125,:]
 print(comp_fd)
 
 va_0[yr,:,:]  #	"Value added",
 va_tmp = append!(get_subtable(TMP,"labor_demand"),get_subtable(TMP,"capital_demand")); va_tmp.commodities=Symbol.(va_tmp.commodities); va_tmp.sectors=Symbol.(va_tmp.sectors)
 va = stack(DataFrame([va_0.axes[3] transpose(va_0[yr,[va for va in VA],:].data)], [:Win; [va for va in VA]]),2:3); va.Win = Symbol.(va.Win); va.variable = Symbol.(va.variable)
-comp_va = outerjoin(va_tmp,va, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
+va.subtable .=  [var == :compen ? "labor_demand" : "capital_demand" for var in va.variable]# add subtable column for aggregation with all subtables to match and join .table versions
+comp_va = outerjoin(va_tmp,va, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_JLD2")
 print(comp_va)
 
 ys_0[yr,:,:]   #	"Intermediate Supply",
-ys_tmp = get_subtable(TMP,"intermediate_supply"); ys_tmp.commodities=Symbol.(ys_tmp.commodities); ys_tmp.sectors=Symbol.(ys_tmp.sectors)
-ys = stack(DataFrame([ys_0.axes[3] ys_0[yr,:,:].data], [:Win ; [x for x in I]]),2:72); ys.variable=Symbol.(ys.variable); ys.Win=Symbol.(ys.Win)
-comp_ys = outerjoin(ys_tmp, ys, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_win")
+ys_tmp = get_subtable(TMP,"intermediate_supply"); #ys_tmp.commodities=Symbol.(ys_tmp.commodities);# ys_tmp.sectors=Symbol.(ys_tmp.sectors)
+ys = stack(DataFrame([ys_0.axes[3] ys_0[yr,:,:].data], [:variable_ ; [x for x in I]]),2:72); #ys.Win=string.(ys.Win)#ys.variable=Symbol.(ys.variable); 
+ys.subtable .= "intermediate_supply" # add subtable column for aggregation with all subtables to match and join .table versions
+
+comp_ys = outerjoin(ys_tmp, ys, on=[:commodities=>:variable, :sectors=>:Win], renamecols=""=>"_JLD2")
 print(comp_ys[1:900,:])
 
 
 id_0[yr,:,:]  #	"Intermediate demand",
 id_tmp = get_subtable(TMP,"intermediate_demand"); id_tmp.sectors = Symbol.(id_tmp.sectors); id_tmp.commodities = Symbol.(id_tmp.commodities)
 id = stack(DataFrame([id_0.axes[3] id_0[yr,:,:].data], [:Win ; [x for x in I]]),2:72); id.variable=Symbol.(id.variable); id.Win=Symbol.(id.Win)
-comp_id = outerjoin(id_tmp, id, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_win")
+id.subtable .= "intermediate_demand" # add subtable column for aggregation with all subtables to match and join .table versions
+comp_id = outerjoin(id_tmp, id, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_JLD2")
 print(comp_id[1:1000,:])
+
+rename!(ys,[:variable_, :variable] .=> [:variable,:Win])
+
+JLD2WinNat = vcat(ex,im,pce,ms,md,fd,va,ys,id); JLD2WinNat.Win = string.(JLD2WinNat.Win); JLD2WinNat.variable = string.(JLD2WinNat.variable)
+compare = outerjoin(TMP.table, JLD2WinNat, on = [:subtable, :commodities=>:Win, :sectors=>:variable], renamecols=""=>"_JLD2")
+# filter(x -> x.commodities=="sle",outerjoin(filter(x-> x.subtable=="intermediate_supply",TMP.table), filter(x -> x.subtable=="intermediate_supply", JLD2WinNat), on = [:subtable, :commodities=>:variable, :sectors=>:Win], renamecols=""=>"_JLD2"))
+filter(x->x.commodities=="ins",filter(x-> x.subtable=="intermediate_demand", compare))
+
+compare.diff .= compare.value - compare.value_JLD2
+print(sort!(compare, :diff, by=abs)[3000:4250,:])
+# x->(!ismissing(abs(x)), x) , rev=true
 
 bop_tmp = WiNDC.balance_of_payments(TMP)
 bop = DataFrame([bopdef_0.axes[1][bopdef_0.axes[1].==[yr]] bopdef_0[yr]],[:year,:value_0]); bop.year = parse.(Int,string.(bop.year))  #	"Balance of payments deficit",
+
 comp_bop = leftjoin(bop_tmp,bop, on=:year)
 print(comp_bop)
 
@@ -351,19 +381,22 @@ ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vc
 
 
 
-# macro varname(arg)
-#     string(arg)
-# end
-# using XLSX
-# filename="CompareSummary.xlsx"
-# XLSX.openxlsx(filename, mode="w") do creation_of_the_excelfile
-# end
+macro varname(arg)
+    string(arg)
+end
+using XLSX
+filename="CompareSummary.xlsx"
+filename="Combos.xlsx"
+
+XLSX.openxlsx(filename, mode="w") do creation_of_the_excelfile
+end
+function exp_to_xlsx(df, dfname, filename="Combos.xlsx")
 # function exp_to_xlsx(df, dfname, filename="CompareSummary.xlsx")
-#     XLSX.openxlsx(filename,mode="rw") do xf
-#     XLSX.addsheet!(xf,dfname)
-#     XLSX.writetable!(xf[dfname], df)
-# end
-# end
+    XLSX.openxlsx(filename,mode="rw") do xf
+    XLSX.addsheet!(xf,dfname)
+    XLSX.writetable!(xf[dfname], df)
+end
+end
 
 
 
