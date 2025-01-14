@@ -737,12 +737,12 @@ names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-Emissi
 names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
 
 # return Emissions_Mt, 
-print(Emissions_Mt)
-print(
+println(Emissions_Mt)
+println(
 filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]")
 , Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare)
 ,
-);println(
+);println("RA check, it's the 'both' bc that's the last simulation:",
 sum([value(demand(RA,PA[i]))*value(PA[i]) for i in I])
 
 )
