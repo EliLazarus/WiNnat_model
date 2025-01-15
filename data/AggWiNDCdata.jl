@@ -1,4 +1,4 @@
-using WiNDC, DataFrames, MPSGE, GamsStructure, CSV
+using WiNDC, DataFrames, MPSGE, GamsStructure, CSV, JuMP.Containers
 
 ##cd to top level of the data files
 raw_data_directory = "./detailed_data/national"
@@ -9,20 +9,21 @@ all_summary_national_data = WiNDC.national_tables(raw_data_directory; aggregatio
 # For the summary level data, no issue using all years. Several years are failing
 # calibration for the detailed data. 2022 works, as does 2017. Others do too, but
 # those are the "important" ones for me at the moment.
-
+year = 2020
 projected_det_national_data_yr = 
     NationalTable(
         get_table(all_det_national_data)|>
-            x -> subset(x, :year => ByRow(==(2020))), # |>#,
+            x -> subset(x, :year => ByRow(==(year))) |>#,
 ## TEST: removing use and oth before callibration
-##  # filter(x -> x[:commodities] !="S00401" && x[:commodities] !="S00402" && x[:commodities] !="S00300" && x[:commodities] !="S00900"), 
+ filter(x -> x[:commodities] !="S00401" && x[:commodities] !="S00402" && x[:commodities] !="S00300" && x[:commodities] !="S00900"), 
         all_det_national_data.sets
     )
 
 raw_summary_national_data_yr = 
 NationalTable(
     get_table(all_summary_national_data)|>
-        x -> subset(x, :year => ByRow(==(2020))), 
+        x -> subset(x, :year => ByRow(==(year))) |>#,
+        filter(x -> x[:commodities] !="S00401" && x[:commodities] !="S00402" && x[:commodities] !="S00300" && x[:commodities] !="S00900"), 
     all_summary_national_data.sets
 )
 
@@ -32,12 +33,26 @@ NationalTable(
 callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
 callibrated_summary_national_data,MS = calibrate(raw_summary_national_data_yr)
 
+#### Try not callibrating until after the aggregation
+# TMP = deepcopy(callibrated_summary_national_data) # Test of WiNDC summary :: Doesn't work without updating ALL the codes to WiNDC
+# callibrated_det_national_data = deepcopy(projected_det_national_data_yr)
+# callibrated_summary_national_data = deepcopy(raw_summary_national_data_yr)
+#####
+
 checkCall = outerjoin(callibrated_summary_national_data.table, raw_summary_national_data_yr.table, on = [:commodities, :sectors, :year, :subtable], 
 renamecols = "" => "_raw")
 checkCall.diff = checkCall.value - checkCall.value_raw 
 sort!(checkCall, :diff)
 
+checkCall = outerjoin(callibrated_det_national_data.table, projected_det_national_data_yr.table, on = [:commodities, :sectors, :year, :subtable], 
+renamecols = "" => "_raw")
+checkCall.diff = checkCall.value - checkCall.value_raw 
+sort!(checkCall, :diff)
 
+checkCall = outerjoin(callibrated_det_national_data.table, projected_det_national_data_yr.table, on = [:commodities, :sectors, :year, :subtable], 
+renamecols = "" => "_raw")
+checkCall.diff = checkCall.value - checkCall.value_raw 
+sort!(checkCall, :diff)
 # Apparently there is an error here using the summary data. I have the value added
 # categories hard coded... which is super smart of me! I should fix that.
 # M = national_mpsge(national_data)
@@ -97,6 +112,7 @@ Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv
 # X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
 X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
 aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
+# aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
 
 ## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
 double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
@@ -142,6 +158,13 @@ TMP = NationalTable( vcat(
         callibrated_det_national_data.sets
 )
 
+
+checkCall = outerjoin(callibrated_det_national_data.table, TMP.table, on = [:commodities, :sectors, :year, :subtable], 
+renamecols = "" => "_raw")
+checkCall.diff = checkCall.value - checkCall.value_raw 
+sort!(checkCall, :diff)
+
+# TMP,M = calibrate(TMP1)
 #Take a look to check and look at the difference
 get_subtable(TMP, "labor_demand")
 get_subtable(TMP, "intermediate_demand")
@@ -156,109 +179,123 @@ for i in subs_TMP[:,:subtable]
     println(i,": ",length(unique(get_subtable(TMP,i)[!,:commodities])),": ",length(unique(get_subtable(projected_det_national_data_yr,i)[!,:commodities]))) # Compared to get_subtable(projected_det_national_data_yr,i)
 end
 
-    ########################
-    ### oil => gas & oil ###
-    ########################
-    Gas_oil_splits=Dict(:imgas=>0.4308, :exgas=>0.3961, :prodgas=>0.4003, :imoil=>0.5692,:exoil=>0.6039,:prodoil=>0.5997)
-    ### This has to be done in the main dataframe, so it's pickup up with the tax functions etc.
-    # Add gas and give value of oil & gas x gas %
-    push!(TMP.table, (subtable="exports",commodities="gas", sectors=only(filter(x->(x.subtable=="exports") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="exports") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:exgas]))
-    # update oil value to value of oil & gas x oil %
-    TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:exoil]
-    push!(TMP.table, (subtable="imports",commodities="gas", sectors=only(filter(x->(x.subtable=="imports") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="imports") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:imgas]))
-    TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:imoil]
-    # #### no oil&gas import, nothing to split 
-    # # push!(ms_tmp, (commodities=:gas, sectors=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trn),ms_tmp)[:,2]),year=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trn),ms_tmp)[:,3]),value=only(ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value])*Gas_oil_splits[:prodgas]))
-    # # push!(ms_tmp, (commodities=:gas, sectors=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trd),ms_tmp)[:,2]),year=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trd),ms_tmp)[:,3]),value=only(ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value])*Gas_oil_splits[:prodgas]))
-    # ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value]=ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value]*Gas_oil_splits[:prodoil]
-    # ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value]=ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value]*Gas_oil_splits[:prodoil]
-    push!(TMP.table, (subtable="margin_demand",commodities="gas", sectors=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRANS"),TMP.table)[:,2]),year=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRANS"),TMP.table)[:,3]),value=only(TMP.table[(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value])*Gas_oil_splits[:prodgas]))
-    push!(TMP.table, (subtable="margin_demand",commodities="gas", sectors=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRADE "),TMP.table)[:,2]),year=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRADE "),TMP.table)[:,3]),value=only(TMP.table[(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value])*Gas_oil_splits[:prodgas]))
-    TMP.table[(TMP.table.subtable.=="margin_demand").&(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value] =TMP.table[(TMP.table.subtable.=="margin_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value]*Gas_oil_splits[:prodoil]
-    TMP.table[(TMP.table.subtable.=="margin_demand").&(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value]=TMP.table[(TMP.table.subtable.=="margin_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value]*Gas_oil_splits[:prodoil]
-
-    # "personal_consumption" # 0 ie. not in TMP, nothing to split (this time)
-    # push!(TMP.table, (subtable="personal_consumption",commodities="gas", sectors=only(filter(x->(x.subtable=="personal_consumption") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="personal_consumption") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:consgas]))
-    # TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:consoil]
+#     ########################
+#     ### oil => gas & oil ###
+#     ########################
+#     Gas_oil_splits=Dict(:imgas=>0.4308, :exgas=>0.3961, :prodgas=>0.4003, :imoil=>0.5692,:exoil=>0.6039,:prodoil=>0.5997)
+#     ### This has to be done in the main dataframe, so it's pickup up with the tax functions etc.
+#     # Add gas and give value of oil & gas x gas %
+#     push!(TMP.table, (subtable="exports",commodities="gas", sectors=only(filter(x->(x.subtable=="exports") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="exports") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:exgas]))
+#     # update oil value to value of oil & gas x oil %
+#     TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="exports").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:exoil]
+#     push!(TMP.table, (subtable="imports",commodities="gas", sectors=only(filter(x->(x.subtable=="imports") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="imports") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:imgas]))
+#     TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="imports").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:imoil]
+#     # -	“duty” w imports
+#     push!(TMP.table, (subtable="duty",commodities="gas", sectors=only(filter(x->(x.subtable=="duty") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="duty") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="duty").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:imgas]))
+#     TMP.table[(TMP.table.subtable.=="duty").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="duty").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:imoil]
     
-    # loop over final demand sectors in data, for each with data, add gas for each at oil x gas %, and multiply oil by oil %
-    for s in unique(TMP.table[TMP.table.subtable.=="exogenous_final_demand",:sectors])
-        println(s)
-        if size(TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:],1)>0  # But actually just
-        push!(TMP.table, (subtable="exogenous_final_demand",commodities="gas", sectors=only(filter(x->(x.subtable=="exogenous_final_demand") & (x.sectors==s) & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="exogenous_final_demand") & (x.sectors==s) & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:prodgas]))
-        TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s).& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:prodoil]
-    end
-    end
-    push!(TMP.table, (subtable="labor_demand",sectors="gas", commodities=only(filter(x->(x.subtable=="labor_demand") & (x.sectors=="oil"),TMP.table)[:,1]),year=only(filter(x->(x.subtable=="labor_demand") & (x.sectors=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value])*Gas_oil_splits[:prodgas]))
-    TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value]*Gas_oil_splits[:prodoil]
-    push!(TMP.table, (subtable="capital_demand",sectors="gas", commodities=only(filter(x->(x.subtable=="capital_demand") & (x.sectors=="oil"),TMP.table)[:,1]),year=only(filter(x->(x.subtable=="capital_demand") & (x.sectors=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value])*Gas_oil_splits[:prodgas]))
-    TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value]*Gas_oil_splits[:prodoil]
+#     # #### no oil&gas margin_supply, nothing to split 
+#     # # push!(ms_tmp, (commodities=:gas, sectors=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trn),ms_tmp)[:,2]),year=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trn),ms_tmp)[:,3]),value=only(ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value])*Gas_oil_splits[:prodgas]))
+#     # # push!(ms_tmp, (commodities=:gas, sectors=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trd),ms_tmp)[:,2]),year=only(filter(x->(x.commodities ==:oil) .& (x.sectors ==:trd),ms_tmp)[:,3]),value=only(ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value])*Gas_oil_splits[:prodgas]))
+#     # ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value]=ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trn),:value]*Gas_oil_splits[:prodoil]
+#     # ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value]=ms_tmp[(ms_tmp.commodities.==:oil) .& (ms_tmp.sectors.==:trd),:value]*Gas_oil_splits[:prodoil]
+#     push!(TMP.table, (subtable="margin_demand",commodities="gas", sectors=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRANS"),TMP.table)[:,2]),year=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRANS"),TMP.table)[:,3]),value=only(TMP.table[(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value])*Gas_oil_splits[:prodgas]))
+#     push!(TMP.table, (subtable="margin_demand",commodities="gas", sectors=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRADE "),TMP.table)[:,2]),year=only(filter(x->(x.subtable =="margin_demand") .&(x.commodities =="oil") .& (x.sectors =="TRADE "),TMP.table)[:,3]),value=only(TMP.table[(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value])*Gas_oil_splits[:prodgas]))
+#     TMP.table[(TMP.table.subtable.=="margin_demand").&(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value] =TMP.table[(TMP.table.subtable.=="margin_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRANS"),:value]*Gas_oil_splits[:prodoil]
+#     TMP.table[(TMP.table.subtable.=="margin_demand").&(TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value]=TMP.table[(TMP.table.subtable.=="margin_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="TRADE "),:value]*Gas_oil_splits[:prodoil]
+
+#     # "personal_consumption" # 0 ie. not in TMP, nothing to split (this time)
+#     # push!(TMP.table, (subtable="personal_consumption",commodities="gas", sectors=only(filter(x->(x.subtable=="personal_consumption") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="personal_consumption") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:consgas]))
+#     # TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="personal_consumption").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:consoil]
     
-    # "intermediate_demand"
-    print(rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil"),:], on=:index=>:commodities) )  # demand of commodities by oil sector: split by production
+#     # loop over final demand sectors in data, for each with data, add gas for each at oil x gas %, and multiply oil by oil %
+#     for s in unique(TMP.table[TMP.table.subtable.=="exogenous_final_demand",:sectors])
+#         println(s)
+#         if size(TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:],1)>0  # But actually just
+#         push!(TMP.table, (subtable="exogenous_final_demand",commodities="gas", sectors=only(filter(x->(x.subtable=="exogenous_final_demand") & (x.sectors==s) & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="exogenous_final_demand") & (x.sectors==s) & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:prodgas]))
+#         TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s) .& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="exogenous_final_demand").& (TMP.table.sectors.==s).& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:prodoil]
+#     end
+#     end
+#     push!(TMP.table, (subtable="labor_demand",sectors="gas", commodities=only(filter(x->(x.subtable=="labor_demand") & (x.sectors=="oil"),TMP.table)[:,1]),year=only(filter(x->(x.subtable=="labor_demand") & (x.sectors=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value])*Gas_oil_splits[:prodgas]))
+#     TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="labor_demand").& (TMP.table.sectors.=="oil"),:value]*Gas_oil_splits[:prodoil]
+#     push!(TMP.table, (subtable="capital_demand",sectors="gas", commodities=only(filter(x->(x.subtable=="capital_demand") & (x.sectors=="oil"),TMP.table)[:,1]),year=only(filter(x->(x.subtable=="capital_demand") & (x.sectors=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value])*Gas_oil_splits[:prodgas]))
+#     TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="capital_demand").& (TMP.table.sectors.=="oil"),:value]*Gas_oil_splits[:prodoil]
+#     # 👍   
+
+#     # "intermediate_demand"
+#     print(rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil"),:], on=:index=>:commodities) )  # demand of commodities by oil sector: split by production
     
-    checksumsec = sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])
-    checksumcom = sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])
-    checksumall = sum(get_subtable(TMP,"intermediate_demand")[:,:value])
-    # Split sectors by demand by oil
-    for i in TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil"),:][!,:commodities]
-        push!(TMP.table, (commodities=i, sectors="gas", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
-        TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]*Gas_oil_splits[:prodoil]
-    end
+#     checksumsec = sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])
+#     checksumcom = sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])
+#     checksumall = sum(get_subtable(TMP,"intermediate_demand")[:,:value])
+#     # Split sectors by demand by oil
+#     for i in TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil"),:][!,:commodities];
+#         push!(TMP.table, (commodities=i, sectors="gas", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
+#         TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]*Gas_oil_splits[:prodoil]
+#     end
+ 
+#     print(rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="gas"),:], on=:index=>:commodities) )
     
-    print(rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="gas"),:], on=:index=>:commodities) )
-    TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="oil"),:] # demand of gas/oil by sectors pet: .07/0.93, pip: 1/0.0, ugs: 1/0.0, uel:1/0.0, trn: 0.0/1, all other by production
-    TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="gas"),:] # demand of gas/oil by sectors pet: .07/0.93, pip: 1/0.0, ugs: 1/0.0, uel:1/0.0, trn: 0.0/1, all other by production
+#     # Check that oil is a commodity & how many, then gas should be 0
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="oil"),:] # demand of gas/oil by sectors pet: .07/0.93, pip: 1/0.0, ugs: 1/0.0, uel:1/0.0, trn: 0.0/1, all other by production
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="gas"),:] # demand of gas/oil by sectors pet: .07/0.93, pip: 1/0.0, ugs: 1/0.0, uel:1/0.0, trn: 0.0/1, all other by production
+#     @assert(nrow(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="gas"),:])==0)
+#     # Split commodities by demand for gas/oil
+#     # Split the oil commodity to oil & gas for pet, pip, ugs, and uel by specific ratios
+#     push!(TMP.table, (commodities = "gas", sectors="pet", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="pet") .& (TMP.table.commodities .=="oil"),:][!,:value])*0.07)) #TODO add reference
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pet"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pet"),:value]*0.93
+#     push!(TMP.table, (commodities = "gas", sectors="pip", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="pip") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pip"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pip"),:value]*0.0
+#     push!(TMP.table, (commodities = "gas", sectors="ugs", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="ugs") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="ugs"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="ugs"),:value]*0.0
+#     push!(TMP.table, (commodities = "gas", sectors="uel", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="uel") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="uel"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="uel"),:value]*0.0
+#     # Zero demand for gas/oil by trn transport
+#     # push!(TMP.table, (commodities = "gas", sectors="trn", year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="trn") .& (TMP.table.commodities .=="oil"),:][!,:value])*0.0)) #TODO add reference
+#     # TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="trn"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="trn"),:value]*1.0
+# # Then split the oil commodity to oil & gas for all the other sectors    
+#     for i in [i for i in TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="oil"),:][!,:sectors] if i ∉ ["pet", "pip", "ugs", "uel"]]
+#         push!(TMP.table, (commodities="gas", sectors=i, year=parse(Int,string(year)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities .=="oil") .& (TMP.table.sectors.==i),:][!,:value])*Gas_oil_splits[:prodgas]))
+#         TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.==i) .& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]*Gas_oil_splits[:prodoil]
+#     end
+
+#     TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="gas"),:] 
+# # Make sure that totals for the subtable are still correct.
+#     @assert(isapprox(checksumsec, sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])+sum(filter(x->x.sectors=="gas",get_subtable(TMP,"intermediate_demand"))[:,:value]), atol=10^-12),"uh oh, post-split sum of sectors in int_dem doesn't match")
+#     @assert(isapprox(checksumcom , sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])+sum(filter(x->x.commodities=="gas",get_subtable(TMP,"intermediate_demand"))[:,:value]), atol=10^-12),"uh oh, post-split sum of commodities in int_dem doesn't match")
+#     @assert(isapprox(checksumall , sum(get_subtable(TMP,"intermediate_demand")[:,:value]), atol=10^-11))
+
+#     # "intermediate_supply"
+#     checksumsec = sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])
+#     checksumcom = sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])
+# # Split oil sector into oil & gas sectors by supply of commodities
+# # First just pet with a specific ratio
+#     push!(TMP.table, (commodities = "pet", sectors="gas", year=parse(Int,string(year)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .=="pet"),:][!,:value])*0.07)) #TODO add reference
+#     TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="pet") .& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="pet") .& (TMP.table.sectors.=="oil"),:value]*0.93
+# # Then the rest with ratio of production
+#     for i in [i for i in TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil"),:][!,:commodities] if i ∉ ["pet"]]
+#         push!(TMP.table, (commodities=i, sectors="gas", year=parse(Int,string(year)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
+#         TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]*Gas_oil_splits[:prodoil]
+#     end
+# # Split oil/gas commodity from all sectors into 2
+# for i in TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil"),:][!,:sectors]
+#     push!(TMP.table, (sectors=i, commodities="gas", year=parse(Int,string(year)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil") .& (TMP.table.sectors .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
+#     TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]*Gas_oil_splits[:prodoil]
+# end
+
+#    rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil" .|| TMP.table.sectors.=="gas"),:], on=:index=>:commodities)  # supply of commodities from oil sector, what oil produces: pet: .07/0.93, all other by production
+#    TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil" .|| TMP.table.commodities.=="gas"),:] # supply of gas/oil, from each sector. all by production
+
+#    @assert(isapprox(checksumsec , sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])+sum(filter(x->x.sectors=="gas",get_subtable(TMP,"intermediate_supply"))[:,:value]), atol=10^-12),"uh oh, post-split sum of sectors in int_supp doesn't match")
+#    @assert(isapprox(checksumcom , sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])+sum(filter(x->x.commodities=="gas",get_subtable(TMP,"intermediate_supply"))[:,:value]), atol=10^12),"uh oh, post-split sum of commodities in int_supp doesn't match")
+
+# #    -	“other_tax", w int_supply
+#    push!(TMP.table, (subtable="other_tax",sectors="gas", commodities=only(filter(x->(x.subtable=="other_tax") & (x.sectors=="oil"),TMP.table)[:,1]),year=only(filter(x->(x.subtable=="other_tax") & (x.sectors=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="other_tax").& (TMP.table.sectors.=="oil"),:value])*Gas_oil_splits[:prodgas]))
+#    TMP.table[(TMP.table.subtable.=="other_tax").& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="other_tax").& (TMP.table.sectors.=="oil"),:value]*Gas_oil_splits[:prodoil]
     
-# Split commodities by demand for gas/oil
-    # Split the oil commodity to oil & gas for pet, pip, ugs, and uel by specific ratios
-    push!(TMP.table, (commodities = "gas", sectors="pet", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="pet") .& (TMP.table.commodities .=="oil"),:][!,:value])*0.07)) #TODO add reference
-    TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pet"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pet"),:value]*0.93
-    push!(TMP.table, (commodities = "gas", sectors="pip", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="pip") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
-    TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pip"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="pip"),:value]*0.0
-    push!(TMP.table, (commodities = "gas", sectors="ugs", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="ugs") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
-    TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="ugs"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="ugs"),:value]*0.0
-    push!(TMP.table, (commodities = "gas", sectors="uel", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="uel") .& (TMP.table.commodities .=="oil"),:][!,:value])*1)) #TODO add reference
-    TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="uel"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="uel"),:value]*0.0
-    # Zero demand for gas/oil by trn transport
-    # push!(TMP.table, (commodities = "gas", sectors="trn", year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.sectors.=="trn") .& (TMP.table.commodities .=="oil"),:][!,:value])*0.0)) #TODO add reference
-    # TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="trn"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.=="trn"),:value]*1.0
-# Then split the oil commodity to oil & gas for all the other sectors    
-    for i in [i for i in TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="oil"),:][!,:sectors] if i ∉ ["pet", "pip", "ugs", "uel"]]
-        push!(TMP.table, (commodities="gas", sectors=i, year=parse(Int,string(yr)), subtable="intermediate_demand", value=only(TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities .=="oil") .& (TMP.table.sectors.==i),:][!,:value])*Gas_oil_splits[:prodgas]))
-        TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.sectors.==i) .& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_demand").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]*Gas_oil_splits[:prodoil]
-    end
-
-    TMP.table[(TMP.table.subtable.=="intermediate_demand") .& (TMP.table.commodities.=="gas"),:] 
-# Make sure that totals for the subtable are still correct.
-    @assert(checksumsec == sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])+sum(filter(x->x.sectors=="gas",get_subtable(TMP,"intermediate_demand"))[:,:value]),"uh oh, post-split sum of sectors doesn't match")
-    @assert(checksumcom == sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_demand"))[:,:value])+sum(filter(x->x.commodities=="gas",get_subtable(TMP,"intermediate_demand"))[:,:value]),"uh oh, post-split sum of commodities doesn't match")
-    @assert(checksumall == sum(get_subtable(TMP,"intermediate_demand")[:,:value]))
-
-    # "intermediate_supply"
-    checksumsec = sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])
-    checksumcom = sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])
-# Split oil sector into oil & gas sectors by supply of commodities
-# First just pet with a specific ratio
-    push!(TMP.table, (commodities = "pet", sectors="gas", year=parse(Int,string(yr)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .=="pet"),:][!,:value])*0.07)) #TODO add reference
-    TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="pet") .& (TMP.table.sectors.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="pet") .& (TMP.table.sectors.=="oil"),:value]*0.93
-# Then the rest with ratio of production
-    for i in [i for i in TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil"),:][!,:commodities] if i ∉ ["pet"]]
-        push!(TMP.table, (commodities=i, sectors="gas", year=parse(Int,string(yr)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil") .& (TMP.table.commodities .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
-        TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.sectors.=="oil") .& (TMP.table.commodities.==i),:value]*Gas_oil_splits[:prodoil]
-    end
-# Split oil/gas commodity from all sectors into 2
-for i in TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil"),:][!,:sectors]
-    push!(TMP.table, (sectors=i, commodities="gas", year=parse(Int,string(yr)), subtable="intermediate_supply", value=only(TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil") .& (TMP.table.sectors .==i),:][!,:value])*Gas_oil_splits[:prodgas]))
-    TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]=TMP.table[(TMP.table.subtable.=="intermediate_supply").& (TMP.table.commodities.=="oil") .& (TMP.table.sectors.==i),:value]*Gas_oil_splits[:prodoil]
-end
-
-   rightjoin(Sectors[:,1:2], TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.sectors.=="oil" .|| TMP.table.sectors.=="gas"),:], on=:index=>:commodities)  # supply of commodities from oil sector, what oil produces: pet: .07/0.93, all other by production
-   TMP.table[(TMP.table.subtable.=="intermediate_supply") .& (TMP.table.commodities.=="oil" .|| TMP.table.commodities.=="gas"),:] # supply of gas/oil, from each sector. all by production
-
-   @assert(isapprox(checksumsec , sum(filter(x->x.sectors=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])+sum(filter(x->x.sectors=="gas",get_subtable(TMP,"intermediate_supply"))[:,:value]), atol=10^-12),"uh oh, post-split sum of sectors doesn't match")
-   @assert(isapprox(checksumcom , sum(filter(x->x.commodities=="oil",get_subtable(TMP,"intermediate_supply"))[:,:value])+sum(filter(x->x.commodities=="gas",get_subtable(TMP,"intermediate_supply"))[:,:value]), atol=10^12),"uh oh, post-split sum of commodities doesn't match")
-
+# #    -	“tax” and “subsidies”, w arm_supply 
+#     push!(TMP.table, (subtable="tax",commodities="gas", sectors=only(filter(x->(x.subtable=="tax") & (x.commodities=="oil"),TMP.table)[:,2]),year=only(filter(x->(x.subtable=="tax") & (x.commodities=="oil"),TMP.table)[:,3]), value=only(TMP.table[(TMP.table.subtable.=="tax").& (TMP.table.commodities.=="oil"),:value])*Gas_oil_splits[:prodgas]))
+#     TMP.table[(TMP.table.subtable.=="tax").& (TMP.table.commodities.=="oil"),:value]=TMP.table[(TMP.table.subtable.=="tax").& (TMP.table.commodities.=="oil"),:value]*Gas_oil_splits[:prodoil]
 # ###################################
 # # Joins to compare to BEA summary #
 # ###################################
@@ -288,7 +325,12 @@ im_tmp = get_subtable(TMP,"imports"); im_tmp.commodities=Symbol.(im_tmp.commodit
 
 # ms_0[yr,:,:]  #	"Margin supply",
 ms_tmp = get_subtable(TMP,"margin_supply"); ms_tmp.commodities=Symbol.(ms_tmp.commodities)
-ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
+if "TRADE " in unique(get_subtable(TMP,"margin_supply")[!,:sectors])
+    ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
+    elseif "Trade" in unique(get_subtable(TMP,"margin_supply")[!,:sectors])
+    ms_tmp[:,:sectors] = [item == "Trade" ? "trd" : "trn" for item in ms_tmp[:,:sectors]]; ms_tmp.sectors=Symbol.(ms_tmp.sectors)
+    else exit
+    end
 # ms = stack(DataFrame([ms_0.axes[2] ms_0[yr,:,:].data], [:Win ; ms_0.axes[3]]),2:3); ms.variable=Symbol.(ms.variable); ms.Win=Symbol.(ms.Win)
 # ms.subtable .= "margin_supply" # add subtable column for aggregation with all subtables to match and join .table versions
 # comp_ms = outerjoin(ms_tmp,ms, on=[:commodities=>:Win, :sectors=>:variable], renamecols=""=>"_JLD2")
@@ -296,7 +338,12 @@ ms_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in ms_tmp[:,:sec
 
 # md_0[yr,:,:]  #	"Margin demand",
 md_tmp = get_subtable(TMP,"margin_demand"); md_tmp.commodities=Symbol.(md_tmp.commodities)
+if "TRADE " in unique(get_subtable(TMP,"margin_demand")[!,:sectors])
 md_tmp[:,:sectors] = [item == "TRADE " ? "trd" : "trn" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
+elseif "Trade" in unique(get_subtable(TMP,"margin_demand")[!,:sectors])
+md_tmp[:,:sectors] = [item == "Trade" ? "trd" : "trn" for item in md_tmp[:,:sectors]]; md_tmp.sectors=Symbol.(md_tmp.sectors)
+else exit
+end
 # md = stack(DataFrame([md_0.axes[3] transpose(md_0[yr,:,:].data)], [:Win ; md_0.axes[2]]),2:3); md.variable=Symbol.(md.variable); md.Win=Symbol.(md.Win)
 # md.subtable .= "margin_demand" # add subtable column for aggregation with all subtables to match and join .table versions
 
@@ -315,11 +362,15 @@ pce_tmp = get_subtable(TMP,"personal_consumption"); pce_tmp.commodities=Symbol.(
 # # Exog fd
 # fd = stack(DataFrame([fd_0.axes[2] fd_0[yr,:,[x for x in FD if x!=:pce]].data], [:Win ; [x for x in FD if x !=:pce]]),2:18); fd.variable=Symbol.(fd.variable); fd.Win=Symbol.(fd.Win)
 # fd.subtable .= "exogenous_final_demand" # add subtable column for aggregation with all subtables to match and join .table versions
-# fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
+fd_temp = get_subtable(TMP,"exogenous_final_demand"); #fd_temp.sectors = Symbol.(fd_temp.sectors); 
 # fdbea = get_subtable(all_summary_national_data, "exogenous_final_demand")
 # fd_bea = leftjoin(fdbea, Codes, on=[:sectors=>:BEA_summary])#; fd_bea.WiNDC=Symbol.(fd_bea.WiNDC)
 # # comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win) 
+
 fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_detail)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
+#### TODONE THSI WAS FOR SUMMARY TEST, CHANGE BACK TO DETAIL FOR REAL AGGREGATION
+# fd_tmp = leftjoin(fd_temp, Codes, on =:sectors=>:BEA_summary)[:,[:commodities,:sectors,:value,aggcol]];  fd_tmp[!,aggcol] = Symbol.(fd_tmp[!,aggcol]); fd_tmp.commodities = Symbol.(fd_tmp.commodities)
+####
 # comp_fd = outerjoin(fd_tmp, fd, on=[aggcol=>:variable, :commodities=>:Win], renamecols = "" => "_JLD2")[:1:125,:]
 # print(comp_fd)
 
@@ -397,7 +448,11 @@ ty_tmp = WiNDC.other_tax_rate(TMP); ty_tmp.sectors=Symbol.(ty_tmp.sectors)
 # # Generate DenseAxisArrays for WiNDC national/MultiNat model, one year only #
 # # Add 0s and missing indices (messy, but kinda works)
 # #############################################################################
-Iplus1 = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :use, :oth, :gas]]
+I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
+Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa]]#, :gas]]
+# J = deepcopy(I) # Index for WiNDC BEA Sectors
+
+Iplus1 = deepcopy(Ip) #if I updated in MultiGHGNat           # [[x for x in I if x∉[:uti]]; :uel ; :ugs ; :uwt ; :coa ; :gas] # :use, :oth,
 
 othersectors_ex_tmp = [x for x in Iplus1 if x∉ex_tmp.commodities]
 x_m0 = DenseAxisArray(vcat(ex_tmp.value,zeros(length(othersectors_ex_tmp))), vcat(ex_tmp.commodities,othersectors_ex_tmp))
@@ -409,7 +464,7 @@ ms_m0 = DenseAxisArray(vcat(hcat(ms_m0df[:,:trn], ms_m0df[:,:trd]),zeros(length(
 md_m0df = unstack(md_tmp,:commodities, :sectors,:value, fill=0)
 othersectors_md_tmp = [x for x in Iplus1 if x∉md_tmp.commodities]
 md_m0 = DenseAxisArray(transpose(vcat(hcat(md_m0df[:,:trn], md_m0df[:,:trd]),zeros(length(othersectors_md_tmp),2))), [:trn, :trd], vcat(md_m0df.commodities,othersectors_md_tmp))
-fd_m0exog = unstack(fd_tmp,:commodities, :WiNDC_plus,:value, fill=0)
+fd_m0exog = unstack(fd_tmp,:commodities, aggcol,:value, fill=0)
 fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
 othersectors_fddf_tmp = [x for x in Iplus1 if x∉fd_m0df.commodities]
 fd_m0 = DenseAxisArray(vcat(Matrix(fd_m0df[:,2:end]),zeros(length(othersectors_fddf_tmp),size(fd_m0df,2)-1)), vcat(fd_m0df.commodities,othersectors_fddf_tmp), Symbol.(names(fd_m0df)[2:end]))
@@ -418,17 +473,27 @@ othersectors_a_tmp = [x for x in Iplus1 if x∉a_tmp.commodities]
 a_m0 = DenseAxisArray(vcat(a_tmp.value,zeros(length(othersectors_a_tmp))), vcat(a_tmp.commodities,othersectors_a_tmp))
 othersectors_y_tmp = [x for x in Iplus1 if x∉y_tmp.commodities]# Nice this has everything, but still works
 y_m0 = DenseAxisArray(vcat(y_tmp.value,zeros(length(othersectors_y_tmp))), vcat(y_tmp.commodities,othersectors_y_tmp))
+# tiny values generated for these sectors casue mismatch with 0s in output, so change back to 0
+y_m0[:fbt]= 0; y_m0[:gmt]= 0; y_m0[:mvt]= 0
+
 othersectors_tm_tmp = [x for x in Iplus1 if x∉tm_tmp.commodities]
 tm_m0 = DenseAxisArray(vcat(tm_tmp.value,zeros(length(othersectors_tm_tmp))), vcat(tm_tmp.commodities,othersectors_tm_tmp))
 othersectors_ta_tmp = [x for x in Iplus1 if x∉ta_tmp.commodities]
 ta_m0 = DenseAxisArray(vcat(ta_tmp.value,zeros(length(othersectors_ta_tmp))), vcat(ta_tmp.commodities,othersectors_ta_tmp))
-ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
-othersectors_ys_tmp = [x for x in Iplus1 if x∉ys_tmp.commodities]# None, so no set up YET to add sectors
-othersectors_ys_tmp2 = [x for x in Iplus1 if x∉ unique(ys_tmp.sectors)]
-for i in (1:length(othersectors_ys_tmp2))
-    ys_m0df[!,othersectors_ys_tmp2[i]] .= 0
+
+ys_tmp = get_subtable(TMP,"intermediate_supply"); #ys_tmp.commodities=Symbol.(ys_tmp.commodities);# ys_tmp.sectors=Symbol.(ys_tmp.sectors)
+
+
+othersectors_ys_tmp = [x for x in Iplus1 if x∉Symbol.(unique(ys_tmp.commodities))]# None, so no set up YET to add sectors
+for i in [x for x in Iplus1 if x∉ Symbol.(unique(ys_tmp.sectors))]
+push!(ys_tmp,[string(i) string(i) ys_tmp.year[1] 0])
 end
-ys_m0 = DenseAxisArray(Matrix(ys_m0df[!,2:end]), ys_m0df.commodities, Symbol.(names(ys_m0df)[2:end]))
+ys_m0df = unstack(ys_tmp,:commodities, :sectors,:value, fill=0)
+
+# for i in (1:length(othersectors_ys_tmp2))
+#     ys_m0df[!,othersectors_ys_tmp2[i]] .= 0
+# end
+ys_m0 = DenseAxisArray(Matrix(ys_m0df[!,2:end]), Symbol.(ys_m0df.commodities), Symbol.(names(ys_m0df)[2:end]))
 id_m0df = unstack(id_tmp,:commodities, :sectors,:value, fill=0)
 othersectors_id_tmp = [x for x in Iplus1 if x∉id_tmp.commodities]
 othersectors_id_tmp2 = [x for x in Iplus1 if x∉ unique(id_tmp.sectors)]
@@ -447,7 +512,7 @@ othersectors_ty_tmp = [x for x in Iplus1 if x∉ty_tmp.sectors]
 ty_m0 = DenseAxisArray(vcat(ty_tmp.value,zeros(length(othersectors_ty_tmp))), vcat(ty_tmp.sectors,othersectors_ty_tmp))
 
 
-CSV.write("id_plus.csv",Tables.table(transpose(id_m0.data)), header=axes(id_m0)[1])
+# CSV.write("id_plus.csv",Tables.table(transpose(id_m0.data)), header=axes(id_m0)[1])
 # id_m0[row,col] id_m0[secs,coms]
 
 macro varname(arg)
@@ -469,7 +534,22 @@ end
 
 
 
-
+MultiNatdata = Dict(
+  :a_0      => a_m0,
+  :id_0     => id_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :ys_0     => ys_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :tm_0     => tm_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+  :va_0     => va_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :md_0     => md_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :fd_0     => fd_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :m_0      => m_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+  :ty_0     => ty_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+  :ms_0     => ms_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
+  :bopdef_0 => bop_m0, # 1-dimensional DenseAxisArray{Float64,1,...} 
+  :x_0      => x_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+  :ta_0     => ta_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+  :y_0      => y_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
+)
 
 
 
