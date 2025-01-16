@@ -100,14 +100,14 @@ end
 
 @demand(WiNnat, RA, begin
     [@final_demand(PA[i], fd_m0[i,:pce]) for i∈Ip]...
-    # [@endowment(PY[i], fs_m0[i]) for i∈I]...
+    # [@endowment(PY[i], fs_m0[i]) for i∈Ip]...
     @endowment(PFX, only(bopdef_m0))
     [@endowment(PA[i], -sum(fd_m0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVA[va], sum(va_m0[va,j] for j∈Jp)) for va∈VA]...
 end, elasticity = d_elas_ra)
 
 # Benchmark 
-# fix(RA, sum(fd_m0[i,:pce] for i∈I))
+# fix(RA, sum(fd_m0[i,:pce] for i∈Ip))
 
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
@@ -120,14 +120,14 @@ print(sort(df_benchmark, :bmkmarg))
 # Sectors = CSV.read(joinpath(@__DIR__,"Sectorsplus.csv"), DataFrame);
 
 # # Initialize a Dataframe to save final demand results
-# FDemandWiNnat = DataFrame(index=Vector{Symbol}(undef, length(I)),
-# desc=Vector{Symbol}(undef, length(I)), 
-# bnch=Vector{Float64}(undef, length(I)), 
-# bnchPr=Vector{Float64}(undef, length(I)), 
-# cntr=Vector{Float64}(undef, length(I)),
-# cntrPr=Vector{Float64}(undef, length(I)),
-# cntrval=Vector{Float64}(undef, length(I)))
-# for (n,i) in enumerate(I)
+# FDemandWiNnat = DataFrame(index=Vector{Symbol}(undef, length(Ip)),
+# desc=Vector{Symbol}(undef, length(Ip)), 
+# bnch=Vector{Float64}(undef, length(Ip)), 
+# bnchPr=Vector{Float64}(undef, length(Ip)), 
+# cntr=Vector{Float64}(undef, length(Ip)),
+# cntrPr=Vector{Float64}(undef, length(Ip)),
+# cntrval=Vector{Float64}(undef, length(Ip)))
+# for (n,i) in enumerate(Ip)
 #     FDemandWiNnat[n,:index]= i
 #     FDemandWiNnat[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
 #     FDemandWiNnat[n,:bnch] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
@@ -137,16 +137,16 @@ print(sort(df_benchmark, :bmkmarg))
 # # Counterfactual
 # # fix(RA,12453.896315446877)
 
-# # 12453.896315446877/sum(fd_0[i,:pce] for i∈I)
-# # 13154.978277803244/sum(fd_0[i,:pce] for i∈I)
-# # for i in I; fdW+=sum(fd_0[i,FD[2:18]])*-value(PA[i])+sum(va_0[VA[1],i])*value(PVA[VA[1]])+sum(va_0[VA[2],i])*value(PVA[VA[2]])
+# # 12453.896315446877/sum(fd_0[i,:pce] for i∈Ip)
+# # 13154.978277803244/sum(fd_0[i,:pce] for i∈Ip)
+# # for i in Ip; fdW+=sum(fd_0[i,FD[2:18]])*-value(PA[i])+sum(va_0[VA[1],i])*value(PVA[VA[1]])+sum(va_0[VA[2],i])*value(PVA[VA[2]])
 # # end
 
-# # for i in I; fdW+=sum(fd_0[i,:pce])*-value(PA[i])
+# # for i in Ip; fdW+=sum(fd_0[i,:pce])*-value(PA[i])
 # # end
 
-# set_value!(ta,0)
-# set_value!(tm,0)
+# set_value!(ta_m,0)
+# set_value!(tm_m,0)
 
 # solve!(WiNnat)
 
