@@ -23,7 +23,7 @@ Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas]]
 Jp = deepcopy(Ip) # Index for WiNDC BEA Sectors
-CH4sectors = [:agr,:coa,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
+CH4sectors = [:agr,:coa,:gas,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd] # Index for final demand categories (pce, and investment types)
 TS = S[:ts] #index for taxes/subsidies
@@ -51,19 +51,32 @@ yr = Symbol(2020)
 ## Base Marginal Abatement Cost EPA data (2020). $/t and MMtCO2eq
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
+
+#####################################################
+### TODO Something is wrong, but I don't know what ####
+# It may/may not resolve when I figure out the aggregation data issue.
+# Need to figure out the implications of separating gas from oil
+# I THINK split CH4 emissions by production %, and then allocate a % ???! to pip...?
+#####################################################################
+
 # % split for pipelines and oil from MAC for 'GAS' by proportion of combined economic output
-pip_of_GAS = sum(ys_0[:pip,:])/((sum(ys_0[:pip,:])+sum(ys_0[:oil,:])))
-oil_of_GAS = sum(ys_0[:oil,:])/((sum(ys_0[:pip,:])+sum(ys_0[:oil,:])))
+gas_of_GAS = sum(ys_0[:gas,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))
+pip_of_GAS = sum(ys_0[:pip,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))# 0.3693442274100097 from just pip and oil b4
+oil_of_GAS = sum(ys_0[:oil,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))# 0.6306557725899902 from just pip and oil b4
 # Aggregate/disaggregate for WiNDC sectors, $/t and MMtCO2eq 
-MAC_CH4_WiNDC=DataFrame([MAC_CH4_data[:,:cost_per_t], MAC_CH4_data[:,:agr_livestock]+MAC_CH4_data[:,:agr_rice],
- MAC_CH4_data[:,:coa], 
+MAC_CH4_WiNDC=DataFrame([MAC_CH4_data[:,:cost_per_t], 
+ MAC_CH4_data[:,:agr_livestock]+MAC_CH4_data[:,:agr_rice],
+ MAC_CH4_data[:,:COL], 
+ MAC_CH4_data[:,:GAS]*gas_of_GAS,
  MAC_CH4_data[:,:GAS]*pip_of_GAS,
  MAC_CH4_data[:,:GAS]*oil_of_GAS,
  MAC_CH4_data[:,:wst_land]+MAC_CH4_data[:,:wst_water]],
  [:cost_per_t; CH4sectors])
 # Aggregate/disaggregate Total CH4 Emissions for WiNDC sectors, and include total VA for convenience, MMt and BillUS$
-MAC_CH4_WiNDC_tot_MMt = DataFrame([MAC_CH4_totemiss[:,:cost_per_t], MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice],
- MAC_CH4_totemiss[:,:coa], 
+MAC_CH4_WiNDC_tot_MMt = DataFrame([MAC_CH4_totemiss[:,:cost_per_t],
+ MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice],
+ MAC_CH4_totemiss[:,:COL], 
+ MAC_CH4_totemiss[:,:GAS]*gas_of_GAS,
  MAC_CH4_totemiss[:,:GAS]*pip_of_GAS,
  MAC_CH4_totemiss[:,:GAS]*oil_of_GAS,
  MAC_CH4_totemiss[:,:wst_land]+MAC_CH4_totemiss[:,:wst_water]],
@@ -115,18 +128,22 @@ TotalCO2EmMMt_coal = 835.6 # 2020 2022=>895.9 # EPA Inventory CO2 Stationary Com
 Natural_gasCO2 = 1615.7 #2020 (incl 58.7 transport)
 PetroleumCO2 = 1890.0 # 2020 (incl 1,514.2 transport)
 # Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
-TotalCO2EmMMt_gas_oil = Natural_gasCO2 + PetroleumCO2 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
+# TotalCO2EmMMt_gas_oil = Natural_gasCO2 + PetroleumCO2 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
 # (MMtCO2eq/$Bill x 10-^3 -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
 TotalCO2EmGt_coal = TotalCO2EmMMt_coal*10^-3
-TotalCO2EmGt_gas_oil = TotalCO2EmMMt_gas_oil*10^-3
+TotalCO2EmGt_gas = Natural_gasCO2*10^-3
+TotalCO2EmGt_oil = PetroleumCO2*10^-3
+
 CO2Int[:coa] =  TotalCO2EmGt_coal/sum(id_0[:coa,:]) 
-CO2Int[:oil] =   TotalCO2EmGt_gas_oil/sum(id_0[:oil,:])  
-TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_gas_oil
+CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
+CO2Int[:gas] =   TotalCO2EmGt_gas/sum(id_0[:gas,:])
+
+TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
 # TotCH4bnchmk = sum(CH4emiss[:EPAemiss,:]) # from single step data version, same data, same value
-TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end])
-TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk
+TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 0.6902703880400002
+TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 5.0315703880400005
 
-
+### NOT USED
 # Crude oil barrels production 2020: 4144184x10^3
 # Average price per barrel 2020: $36.86
 value_of_oil_2020 = 36.86 * 4144184*10^3
@@ -137,14 +154,15 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 # imports of crude oil 2020: 2150267 X10^3 barrel ; imports of oil products 727623 x 10^3 barrels
 # imports of natural gas 2929: 2.55 trillion ft^3 ; 5.25 trillion ft^3
 ## End data preparations
+###
 
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
-# Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
-Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
+CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+# CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
+Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
+# Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
 
@@ -155,7 +173,7 @@ Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(E
 # Test to check significance of specific super high Armington elasticity for oil and gas by setting back to WiNDC 2 
 #TODO # Need to get a better reference to determine which end is appropriate (or in the middle) 
 # Elas[:oil,:SAGE_nf_Armington] = 2 ;println("ArmingtonOil=2")
-# Elas[:gas,:SAGE_nf_Armington] # Gas is not yet disaggregated
+# Elas[:gas,:SAGE_nf_Armington] = 2 ; ;println("ArmingtonGas=2")
 
 # function Multiloop(CO2_taxrate,CH4_taxrate) 
 
@@ -216,10 +234,10 @@ end
 end)
 
 # Variables to track and report levels of CO2 emissions
-@auxiliary(MultiNat, CO2em, index = [[:coa, :oil]])
+@auxiliary(MultiNat, CO2em, index = [[:gas, :oil, :coa]])
 @auxiliary(MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
 # Variables to track and report levels of CH4 emissions
-@auxiliary(MultiNat, CH4em, index = [[:agr,:coa,:oil,:pip,:wst]])
+@auxiliary(MultiNat, CH4em, index = [[:agr,:coa,:gas,:pip,:oil,:wst]])
 @auxiliary(MultiNat, CH4TotEm, description = "Total CH4 emissions")
 @auxiliary(MultiNat, TotEm, description = "Total both emissions")
 
@@ -249,16 +267,16 @@ then split that data for elect, gas, and oil.
 # end
 
 # Test of re-nesting within Y block without disaggregation
-ID = [i for i ∈ Ip if i∉[:oil, :coa] ] # Intermediate inputs EXCEPT oil and min
+ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
     @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
-    va=>vae=0, oilmin=> vae=1
+    va=>vae=0, oilgascoa=> vae=1
     ],begin
     [@output(PY[i],ys_0[j,i], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
     # take tax out here bc it will go in lower nests
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
     @input(PVAM[j], sum(va_0[VA,j]), va)
-    [@input(PA[f], id_0[f,j], oilmin, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :coa]]...
+    [@input(PA[f], id_0[f,j], oilgascoa, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :coa, :gas]]...
 end)
 end
 
@@ -371,7 +389,7 @@ end; println("No CH4 tariff:: ")
 if (Kmobile=="yes")
     @demand(MultiNat, RA, begin
     [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
-    @endowment(PFX, bopdef_0[yr])
+    @endowment(PFX, only(bopdef_0))
     [@endowment(PA[i], -sum(fd_0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVA[va], sum(va_0[va,j] for j∈Jp)) for va∈VA]...
     end, elasticity = 1)
@@ -389,9 +407,10 @@ end
 
 ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:coa],  CO2em[:coa] - Y[:coa]*TotalCO2EmGt_coal)
-@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmGt_gas_oil)
+@aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmGt_oil)
+@aux_constraint(MultiNat, CO2em[:gas],  CO2em[:gas] - Y[:gas]*TotalCO2EmGt_gas)
 ## Total CO2 emissions are the sum of emissions from the 2 fossil fuel sectors (constraint expressed as equantion = 0)
-@aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:coa] + CO2em[:oil]))
+@aux_constraint(MultiNat, CO2TotEm, CO2TotEm - (CO2em[:coa] + CO2em[:oil] + CO2em[:gas]))
 ## CH4 emissions for each CH4 emitting sector are the sum of (either): VA Standard activity levels x standard CH4 emissions intensity (benchmark = 1 x base emissions)
 ## +/or VA Mitigating activities at each tier, activity level x base emissions x mitigated emissions factor (mitigated intensity/baseline intensity)
 for c in CH4sectors
@@ -414,7 +433,7 @@ for c in CH4sectors
 end
  
 ## Total CH4 Emissions are the sum of emissions from CH4 emitting sectors
-@aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:coa] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
+@aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:coa] + CH4em[:gas] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
 # set_silent(MultiNat)
@@ -423,13 +442,14 @@ end
 # fix(PA[:oil],1)
 # fix(PA[:rec], 1)
 # fix(RA, sum(fd_0[Ip,:pce])) # Numeraire, fixed at benchmark
+fix(RA, 14972.3)
 ## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
 solve!(MultiNat , cumulative_iteration_limit = 0)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
 # print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
-# fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
 #  Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"),
@@ -653,7 +673,7 @@ FDemand[:,:ch4Qpc]=FDemand[:,:ch4tax]./sum(FDemand[:,:ch4tax])*100
 FDemand[:,:CO2Qpc]=FDemand[:,:co2tax]./sum(FDemand[:,:co2tax])*100
 FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
-set_silent(MultiNat)
+# set_silent(MultiNat)
 # checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 1, 1600, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
 # checkch4CO2[7]
 # png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
@@ -742,8 +762,7 @@ names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-Emissi
 # return Emissions_Mt, 
 println(Emissions_Mt)
 println(
-filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]")
-, Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare)
+filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), Symbol("Y[uel]"), Symbol("Y[ugs]"), Symbol("Y[uwt]"), Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare)
 ,
 );println("RA check, it's the 'both' bc that's the last simulation:",
 sum([value(demand(RA,PA[i]))*value(PA[i]) for i in Ip])
