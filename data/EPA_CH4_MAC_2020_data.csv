@@ -1,5 +1,5 @@
 ﻿U.S. 2020 Mitigation potential per sector,,,,,,
-cost_per_t,agr_livestock,agr_rice,min,GAS,wst_land,wst_water
+cost_per_t,agr_livestock,agr_rice,COL,GAS,wst_land,wst_water
 -20,0.521386998,0.049011,0,3.187172651,0.919958656,0
 -10,0.521386998,1.022176988,0,3.201247891,0.926326583,0
 -5,0.521386998,1.022176988,4.228633493,19.66364269,0.927903954,0
