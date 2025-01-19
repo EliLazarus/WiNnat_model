@@ -5,45 +5,56 @@ using JuMP
 using MPSGE.JuMP.Containers
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
-P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
-P = MultiNatdata
+# P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
+# P = MultiNatdata
+P = Wplusdata
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
-Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa]]#, :gas]]
+Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas]]
 Jp = deepcopy(Ip) # Index for WiNDC BEA Sectors
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd]
 TS = S[:ts]
 YR = S[:yr] # Index for years for potential multi year runs
 M = S[:m]
+M = [:trans, :trade]
 
-a_m0 = P[:a_0] #	    "Armington supply",
-id_m0 = P[:id_0] #	"Intermediate demand",
-ys_m0 = P[:ys_0]#	"Sectoral supply",
-va_m0 = P[:va_0] #	"Value added",
-md_m0 = P[:md_0] #	"Margin demand",
-fd_m0 = P[:fd_0] #	"Final demand",
-m_m0 = P[:m_0] #	    "Imports",
-ms_m0 = P[:ms_0] #	"Margin supply",
-bopdef_m0 = P[:bopdef_0] #	"Balance of payments deficit",
-x_m0 = P[:x_0] #	    "Exports of goods and services",
-# fs_m0 = P[:fs_0] #	"Household supply", # All zeros
-y_m0 = P[:y_0];  #	"Gross output",
+a_m0 = deepcopy(P[:a_0]) #	    "Armington supply",
+id_m0 = deepcopy(P[:id_0]) #	"Intermediate demand",
+ys_m0 = deepcopy(P[:ys_0]) #	"Sectoral supply",
+va_m0 = deepcopy(P[:va_0]) #	"Value added",
+md_m0 = deepcopy(P[:md_0]) #	"Margin demand",
+fd_m0 = deepcopy(P[:fd_0]) #	"Final demand",
+pce_m0 = deepcopy(P[:pce_0])
+m_m0 = deepcopy(P[:m_0]) #	    "Imports",
+ms_m0 = deepcopy(P[:ms_0]) #	"Margin supply",
+bopdef_m0 = deepcopy(P[:bopdef_0]) #	"Balance of payments deficit",
+x_m0 = deepcopy(P[:x_0]) #	    "Exports of goods and services",
+# fs_m0 = deepcopy(P[:fs_0]) #	"Household supply", # All zeros
+y_m0 = deepcopy(P[:y_0];)  #	"Gross output",
+y_m0[:fbt,:value]=0; y_m0[:mvt,:value]=0; ; y_m0[:gmt,:value]=0
+ty_m0 = deepcopy(P[:ty_0]) #	"Output tax rate"
+tm_m0 = deepcopy(P[:tm_0]) #	"Import tariff"; Initial, for price 
+ta_m0 = deepcopy(P[:ta_0]) #	"Tax net subsidy rate on intermediate demand", benchmark as data also for price level
 
-ty_m0 = P[:ty_0] #	"Output tax rate"
-tm_m0 = P[:tm_0] #	"Import tariff"; Initial, for price 
-ta_m0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark as data also for price level
+# # DenseAxisArray(
+# P[:ta_0][names(P[:ta_0])[1],:value]
+# P[:ta_0][:oil,:value]
+# for row in eachrow(WiNDC.absorption_tax_rate(Wplus))
+# P[:ta_0][:oil,:value]
+# [x -> P[:ta_0][x,:value] for x in names(P[:ta_0])[1]]
+# ), names(P[:ta_0])
 
 yr = Symbol(2020)
 
 WiNnat = MPSGEModel()
 
 @parameters(WiNnat, begin
-    ta_m[Jp], ta_m0[Jp]
-    ty_m[Jp], ty_m0[Jp]
-    tm_m[Jp], tm_m0[Jp]
+    ta_m[Jp], 0 #ta_m0[Jp]
+    ty_m[Jp], 0 # ty_m0[Jp]
+    tm_m[Jp], 0 #tm_m0[Jp]
     t_elas_y, 0            
     elas_y,   0            
     elas_va,  1          
@@ -54,6 +65,17 @@ WiNnat = MPSGEModel()
     elas_dm,  2          
     d_elas_ra,1
 end)
+for n in names(ta_m0)[1]
+    set_value!(WiNnat[:ta_m][n], ta_m0[n,:value])
+end
+for n in names(ty_m0)[1]
+    set_value!(WiNnat[:ty_m][n], ty_m0[n,:value])
+end
+for n in names(tm_m0)[1]
+    set_value!(WiNnat[:tm_m][n], tm_m0[n,:value])
+end
+
+
 
 @sectors(WiNnat,begin
     Y[Jp],  (description = "Sectoral Production",)
@@ -73,7 +95,7 @@ end)
 
 for j∈Jp
     @production(WiNnat, Y[j], [t= t_elas_y, s = elas_y, va => s = elas_va], begin # 0, 0, 1
-        [@output(PY[i],ys_m0[j,i], t, taxes = [Tax(RA,ty_m[j])]) for i∈Ip]... 
+        [@output(PY[i],ys_m0[i,j], t, taxes = [Tax(RA,ty_m[j])]) for i∈Ip]... 
         [@input(PA[i], id_m0[i,j], s) for i∈Ip]...
         [@input(PVA[va], va_m0[va,j], va) for va∈VA]...
     end)
@@ -90,16 +112,16 @@ end
 for i∈Ip
     # @production(WiNnat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin # 2, 0, 2
     @production(WiNnat, A[i], [t = 2, s = 0, dm => s = 2], begin # 2, 0, 2
-        [@output(PA[i], a_m0[i], t, taxes=[Tax(RA,ta_m[i])],reference_price=1-ta_m0[i])]...
-        [@output(PFX, x_m0[i], t)]...
-        [@input(PM[m], md_m0[m,i], s) for m∈M]...
-        @input(PY[i], y_m0[i], dm)
-        @input(PFX, m_m0[i], dm, taxes = [Tax(RA,tm_m[i])],reference_price=1+tm_m0[i])
+        [@output(PA[i], a_m0[i,:value], t, taxes=[Tax(RA,ta_m[i])],reference_price=1-ta_m0[i,:value])]...
+        [@output(PFX, x_m0[i, :exports], t)]...
+        [@input(PM[m], md_m0[i,m], s) for m∈M]...
+        @input(PY[i], y_m0[i,:value], dm)
+        @input(PFX, m_m0[i,:imports], dm, taxes = [Tax(RA,tm_m[i])],reference_price=1+tm_m0[i,:value])
     end)
 end
 
 @demand(WiNnat, RA, begin
-    [@final_demand(PA[i], fd_m0[i,:pce]) for i∈Ip]...
+    [@final_demand(PA[i], pce_m0[i,:pce]) for i∈Ip]...
     # [@endowment(PY[i], fs_m0[i]) for i∈Ip]...
     @endowment(PFX, only(bopdef_m0))
     [@endowment(PA[i], -sum(fd_m0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
@@ -112,10 +134,12 @@ end, elasticity = d_elas_ra)
 solve!(WiNnat; cumulative_iteration_limit = 0)
 
 df_benchmark = generate_report(WiNnat);
-# sort!(df_benchmark, [:value])
-rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
-df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
-print(sort(df_benchmark, :bmkmarg))
+sort!(df_benchmark, [:margin])
+# rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
+# df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
+# print(sort(df_benchmark, :bmkmarg))
+
+
 # print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
 # Sectors = CSV.read(joinpath(@__DIR__,"Sectorsplus.csv"), DataFrame);
 
