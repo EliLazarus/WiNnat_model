@@ -59,13 +59,6 @@ yr = Symbol(2020)
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
 
-#####################################################
-### TODO Something is wrong, but I don't know what ####
-# It may/may not resolve when I figure out the aggregation data issue.
-# Need to figure out the implications of separating gas from oil
-# I THINK split CH4 emissions by production %, and then allocate a % ???! to pip...?
-#####################################################################
-
 # % split for pipelines and oil from MAC for 'GAS' by proportion of combined economic output
 gas_of_GAS = sum(ys_0[:gas,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))
 pip_of_GAS = sum(ys_0[:pip,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))# 0.3693442274100097 from just pip and oil b4
@@ -89,7 +82,7 @@ MAC_CH4_WiNDC_tot_MMt = DataFrame([MAC_CH4_totemiss[:,:cost_per_t],
  MAC_CH4_totemiss[:,:wst_land]+MAC_CH4_totemiss[:,:wst_water]],
  [:cost_per_t; CH4sectors])
  MAC_CH4_WiNDC_tot = copy(MAC_CH4_WiNDC_tot_MMt); MAC_CH4_WiNDC_tot[:, 2:end] = MAC_CH4_WiNDC_tot_MMt[:,2:end].*10^-3
- push!(MAC_CH4_WiNDC_tot, ["Total va_cost"; [sum(va_0[:,Symbol(sector)]) for sector in names(MAC_CH4_WiNDC[:,2:end])]])
+ push!(MAC_CH4_WiNDC_tot, ["Total va_cost"; [sum(va_0[VA,Symbol(sector)]) for sector in names(MAC_CH4_WiNDC[:,2:end])]])
 
 # Initialise df with 0s to fill with calculations, Million U$ = $/t x MMt
 CH4_cost_per_tier = copy(MAC_CH4_WiNDC[:,2:end]); CH4_cost_per_tier[:,:].=0
@@ -121,10 +114,10 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
     VASInt = DenseAxisArray(fill(0.,length(Jp)),Jp); for c in CH4sectors; VASInt[c] =  MAC_CH4_WiNDC_tot[1,c]/MAC_CH4_WiNDC_tot[2,c] end
 ## CH4 emission intensity (emissions/total va cost) for each sector at each abatement tier, subtracts cumulatively abated emissions and adds additional cost of abatement activities MMt/BillUS$
     VAM_CH4EmInt = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initializing DenseAxisArray
-    [VAM_CH4EmInt[v,c] = (MAC_CH4_WiNDC_tot[1,c]-CH4_EmMitigated[v,c])/(sum(va_0[:,c])+CH4_cumul_cost[v,c]) for v in VAMset for c in CH4sectors]
+    [VAM_CH4EmInt[v,c] = (MAC_CH4_WiNDC_tot[1,c]-CH4_EmMitigated[v,c])/(sum(va_0[VA,c])+CH4_cumul_cost[v,c]) for v in VAMset for c in CH4sectors]
 ## Relative cost of VA: (standard va cost + mitigation cost)/(standard cost) - used to multiply BOTH the va[:surplus] and va[:compen] equally in the blocks
     VAM_costover = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initialise DenseAxisArray
-    [VAM_costover[cost,c] = (sum(va_0[:,c])+CH4_cumul_cost[cost,c])/sum(va_0[:,c]) for cost in VAMset for c in CH4sectors]
+    [VAM_costover[cost,c] = (sum(va_0[VA,c])+CH4_cumul_cost[cost,c])/sum(va_0[VA,c]) for cost in VAMset for c in CH4sectors]
 
 
 CO2Int = DenseAxisArray(zeros(length(Jp)),Jp)
@@ -166,8 +159,8 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
+CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+# CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
@@ -282,6 +275,8 @@ for j∈Jp
     [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...  # CO2 tax out here bc it will go in lower nests
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
     @input(PVAM[j], sum(va_0[VA,j]), va)
+    # @input(PE[j], ,Quantity, e) #
+    # @input()
     [@input(PA[f], id_0[f,j], oilgascoa, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :coa, :gas]]...
 end)
 end
@@ -329,7 +324,7 @@ end
 elseif (Kmobile=="no")
     for j∈Jp
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
-        [@output(PVAM[j],sum(va_0[:,j]), t)]... 
+        [@output(PVAM[j],sum(va_0[VA,j]), t)]... 
         @input(PVAK[j], va_0[:surplus,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
         @input(PVAL, va_0[:compen,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])])
         end)
@@ -445,11 +440,12 @@ end
 @aux_constraint(MultiNat, CH4TotEm, CH4TotEm - (CH4em[:agr] + CH4em[:coa] + CH4em[:gas] + CH4em[:oil] + CH4em[:pip] + CH4em[:wst] ))
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
-# set_silent(MultiNat)
+set_silent(MultiNat)
 
 # Benchmark 
 # fix(PA[:oil],1)
 # fix(PA[:rec], 1)
+fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 # fix(RA, sum(fd_0[Ip,:pce])) # Numeraire, fixed at benchmark
 # fix(RA, 14972.3)
 ### Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. 
@@ -459,7 +455,7 @@ solve!(MultiNat)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
+print(sort(fullvrbnch, [:bmkmarg, :bnchmrk], by= abs))#, rev=true))
 # fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
@@ -757,6 +753,8 @@ set_upper_bound(MultiNat[:A][:pip], 10)
 # print("checkch4",checkch4[3])
 # print(check[1])
 # png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
+print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
+print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
 
 println("Emissions (remaining, i.e. not mitigated)")
 EmissUnits_mt = DataFrame();
