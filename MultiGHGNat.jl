@@ -6,8 +6,9 @@ using MPSGE.JuMP.Containers
 using CSV, Plots
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
-P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
-P = MultiNatdata
+# P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
+# P = MultiNatdata
+P = Wplusdata
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
@@ -29,22 +30,28 @@ FD = S[:fd] # Index for final demand categories (pce, and investment types)
 TS = S[:ts] #index for taxes/subsidies
 YR = S[:yr] # Index for years for potential multi year runs
 M = S[:m] # Index for margins (transport and trade)
+M = [:trans, :trade]
 a_0 = P[:a_0] #	    "Armington supply",
 id_0 = P[:id_0] #	"Intermediate demand",
-
 ys_0 = P[:ys_0]#	"Sectoral supply",
 va_0 = P[:va_0] #	"Value added",
 md_0 = P[:md_0] #	"Margin demand",
 fd_0 = P[:fd_0] #	"Final demand",
+pce_0 = deepcopy(P[:pce_0])
 m_0 = P[:m_0] #	    "Imports",
 ms_0 = P[:ms_0] #	"Margin supply",
 bopdef_0 = P[:bopdef_0] #	"Balance of payments deficit",
 x_0 = P[:x_0] #	    "Exports of goods and services",
 y_0 = P[:y_0]  #	"Gross output",
+y_0[:fbt,:value]=0; y_0[:mvt,:value]=0; ; y_0[:gmt,:value]=0
+
 ## Existing Taxes
 ty_0 = P[:ty_0] #	"Output tax rate"
 tm_0 = P[:tm_0] #	"Import tariff"; Initial, for price 
 ta_0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark data also for price level
+ty_0DAA = DenseAxisArray([ty_0[i,:value] for i in Ip], Ip)
+tm_0DAA = DenseAxisArray([tm_m0[i,:value] for i in Ip], Ip)
+ta_0DAA = DenseAxisArray([ta_m0[i,:value] for i in Ip], Ip)
 
 yr = Symbol(2020)
 
@@ -159,8 +166,8 @@ oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
 ## Set tax rates
 CO2_taxrate = 190 # SC CO2 EPA 2023 SCGHG report, 2020 year, 2020US$, central 2% discount rate
 CH4_taxrate = 190 # using SC CO2 because CH4 data is in MtCO2eq
-CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
-# CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
+# CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
+CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
@@ -180,9 +187,9 @@ Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(E
 MultiNat = MPSGEModel()
 
 @parameters(MultiNat, begin
-    ta[Jp], ta_0[Jp]
-    ty[Jp], ty_0[Jp]
-    tm[Jp], tm_0[Jp]
+    ta[Jp], ta_0DAA[Jp]#ta_0[Jp]
+    ty[Jp], ty_0DAA[Jp] #ty_0[Jp]
+    tm[Jp], tm_0DAA[Jp] #tm_0[Jp]
     CH4_tax, 0.
     CO2_tax, 0.
     t_elas_y, 0.
@@ -233,7 +240,7 @@ end
     PFX,     (description = "Foreign Exachange",)
 end)
 
-# Variables to track and report levels of CO2 emissions
+# # Variables to track and report levels of CO2 emissions
 @auxiliary(MultiNat, CO2em, index = [[:gas, :oil, :coa]])
 @auxiliary(MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
 # Variables to track and report levels of CH4 emissions
@@ -260,7 +267,7 @@ then split that data for elect, gas, and oil.
 # # println("ElasY=E3m")
 # for j∈Jp
 #         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
-#         [@output(PY[i],ys_0[j,i], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
+#         [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
 #         [@input(PA[i], id_0[i,j], sm, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈Ip]...
 #         @input(PVAM[j], sum(va_0[VA,j]), va)
 #         end)
@@ -272,8 +279,7 @@ for j∈Jp
     @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
     va=>vae=0, oilgascoa=> vae=1
     ],begin
-    [@output(PY[i],ys_0[j,i], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
-    # take tax out here bc it will go in lower nests
+    [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...  # CO2 tax out here bc it will go in lower nests
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
     @input(PVAM[j], sum(va_0[VA,j]), va)
     [@input(PA[f], id_0[f,j], oilgascoa, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :coa, :gas]]...
@@ -311,12 +317,12 @@ end
 # end
 
 
-# Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
-print("ElasVA = SAGEkl:: ")
+# # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
+# print("ElasVA = SAGEkl:: ")
 if (Kmobile=="yes")
 for j∈Jp
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
-        [@output(PVAM[j],sum(va_0[:,j]), t)]... 
+        [@output(PVAM[j],sum(va_0[VA,j]), t)]... 
         [@input(PVA[va], va_0[va,j], va, taxes = [Tax(RA,CH4_tax* VASInt[j])]) for va∈VA]...
         end)
 end
@@ -338,7 +344,7 @@ if CH4abatement=="yes"
                 if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
                     # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-                        [@output(PVAM[c],sum(va_0[:,c]), t)]... 
+                        [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         [@input(PVA[va], va_0[va,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])]) for va∈VA]...
                     end)
                 end
@@ -350,7 +356,7 @@ if CH4abatement=="yes"
                 if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
                     # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-                        [@output(PVAM[c],sum(va_0[:,c]), t)]... 
+                        [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         @input(PVAK[c],va_0[:surplus,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
                         @input(PVAL,    va_0[:compen,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])])
                     end)
@@ -367,28 +373,30 @@ for m∈M
     end)
 end
  
-for i∈Ip
-    @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
+# for i∈Ip
+    # @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
     # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
 # println("elasdm=SAGEnf")
-# for i∈Ip
-#     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_nf_Armington]], begin
-        [@output(PA[i], a_0[i], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i])]... 
-        [@output(PFX, x_0[i], t)]...
-        [@input(PM[m], md_0[m,i], s) for m∈M]...
-        @input(PY[i], y_0[i], dm)
+for i∈Ip
+    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_nf_Armington]], begin
+        [@output(PA[i], a_0[i,:value], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i,:value])]... 
+        [@output(PFX, x_0[i,:exports], t)]...
+        [@input(PM[m], md_0[i,m], s) for m∈M]...
+        @input(PY[i], y_0[i,:value], dm)
 ## Emissions tariff on CH4 goods because inputs
 #         @input(PFX, m_0[i], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CH4_tax* VASInt[i])],reference_price=1+tm_0[i])# No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO2_tax * CO2Int[i]),
 #     end)
 # end; # println("Yes CH4 tariff: ")  
 ## Alternative, no tariff on CH4 goods        
-@input(PFX, m_0[i], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[i]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
+@input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[i,:value]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
     end)
-end; println("No CH4 tariff:: ")
+end;
+println("No CH4 tariff:: ")
 
 if (Kmobile=="yes")
     @demand(MultiNat, RA, begin
-    [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
+    [@final_demand(PA[i], pce_0[i,:pce]) for i∈Ip]...
+    # [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
     @endowment(PFX, only(bopdef_0))
     [@endowment(PA[i], -sum(fd_0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVA[va], sum(va_0[va,j] for j∈Jp)) for va∈VA]...
@@ -396,7 +404,8 @@ if (Kmobile=="yes")
     # end, elasticity = d_elas_ra)
 elseif (Kmobile=="no")
     @demand(MultiNat, RA, begin
-    [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
+    [@final_demand(PA[i], pce_0[i,:pce]) for i∈Ip]...
+    # [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
     @endowment(PFX, only(bopdef_0))
     [@endowment(PA[i], -sum(fd_0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVAK[j], sum(va_0[:surplus,j])) for j∈Jp]...
@@ -405,7 +414,7 @@ elseif (Kmobile=="no")
     # end, elasticity = d_elas_ra)
 end
 
-## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
+# ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:coa],  CO2em[:coa] - Y[:coa]*TotalCO2EmGt_coal)
 @aux_constraint(MultiNat, CO2em[:oil],  CO2em[:oil] - Y[:oil]*TotalCO2EmGt_oil)
 @aux_constraint(MultiNat, CO2em[:gas],  CO2em[:gas] - Y[:gas]*TotalCO2EmGt_gas)
@@ -442,14 +451,16 @@ end
 # fix(PA[:oil],1)
 # fix(PA[:rec], 1)
 # fix(RA, sum(fd_0[Ip,:pce])) # Numeraire, fixed at benchmark
-fix(RA, 14972.3)
-## Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. Does balance with interactions or slack vars and production commented out.
+# fix(RA, 14972.3)
+### Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. 
+### Does balance with interactions or slack vars and production commented out.
 solve!(MultiNat , cumulative_iteration_limit = 0)
+solve!(MultiNat)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-# print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
-fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
+# fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
 #  Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"),
@@ -502,8 +513,8 @@ Rs[:,2][1:4]
 Rs[:,2][68:71]
 
 ## Re-set to benchmark taxes
-set_value!(ta,ta_0[Jp])
-set_value!(tm,tm_0[Jp])
+set_value!(ta,ta_0DAA[Jp])
+set_value!(tm,tm_0DAA[Jp])
 solve!(MultiNat , cumulative_iteration_limit = 0)# Temp measure to address residual price changes
 
 # tax are at $/t of CH4(CO2eq)
