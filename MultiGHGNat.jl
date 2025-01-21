@@ -8,7 +8,13 @@ using CSV, Plots
 # New data from Mitch Oct 11
 # P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 # P = MultiNatdata
-P = Wplusdata
+# P = Wplusdata
+# P = WplusCSpAgdata #Bad
+# P = WplusCAgSpdata # as above
+# P = WplusSpCAgdata # Still bad
+P = WplusSpAgCdata  # Bad, though better on other prices
+# P = WplusAgCSpdata # Still bad also
+# P = WplusAgSpCdata # Bad, though better on other prices
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
@@ -22,7 +28,7 @@ Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
 ### emissions and abatement for gas split btw 'gas' and 'pip'?
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
-Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas]]
+Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas, :rnw]]
 Jp = deepcopy(Ip) # Index for WiNDC BEA Sectors
 CH4sectors = [:agr,:coa,:gas,:pip,:oil,:wst] #:uti? # subset index for relevant CH4 mitigation sectors (VA slack in benchmark)
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
@@ -173,7 +179,7 @@ Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(E
 # Test to check significance of specific super high Armington elasticity for oil and gas by setting back to WiNDC 2 
 #TODO # Need to get a better reference to determine which end is appropriate (or in the middle) 
 # Elas[:oil,:SAGE_nf_Armington] = 2 ;println("ArmingtonOil=2")
-# Elas[:gas,:SAGE_nf_Armington] = 2 ; ;println("ArmingtonGas=2")
+# Elas[:gas,:SAGE_nf_Armington] = 2 ;println("ArmingtonGas=2")
 
 # function Multiloop(CO2_taxrate,CH4_taxrate) 
 
@@ -267,17 +273,24 @@ then split that data for elect, gas, and oil.
 # end
 
 # Test of re-nesting within Y block without disaggregation
-ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas] ] # Intermediate inputs EXCEPT oil and min
+ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
-    @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
-    va=>vae=0, oilgascoa=> vae=1
+    @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
+    va=>vae=0, En=>vae=1, PrimENRG=>En=Elas[j,:E3_e_E_El], Elec=>En=Elas[j,:E3_e_E_El],
+    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[j,:E3_e_E_El]
     ],begin
     [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...  # CO2 tax out here bc it will go in lower nests
+    
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
-    @input(PVAM[j], sum(va_0[VA,j]), va)
-    # @input(PE[j], ,Quantity, e) #
-    # @input()
-    [@input(PA[f], id_0[f,j], oilgascoa, taxes = [Tax(RA,CO2_tax * CO2Int[f])]) for f in [:oil, :coa, :gas]]...
+     @input(PVAM[j], sum(va_0[VA,j]), va)
+        @input(PA[:pet], id_0[:pet,j], PrimENRG) ##for f in [:oil, :gas]]...
+          @input(PA[:oil], id_0[:oil,j],   oilgas, taxes=[Tax(RA,CO2_tax * CO2Int[:oil])]) ##for f in [:oil, :gas]]...
+          @input(PA[:gas], id_0[:gas,j]/2, oilgas, taxes=[Tax(RA,CO2_tax * CO2Int[:gas])])## for f in [:oil, :gas]]...
+        @input(PA[:uel], id_0[:uel,j] , Elec) #j==:uel ? 1 : 
+    # @input(PArnw, id_0[:uel,:uel]-1,inElec) #*(id_0[:uel,j]/sum(id_0[:uel,:]))
+          @input(PA[:rnw], id_0[:rnw,j], inElec)
+          @input(PA[:gas], id_0[:gas,j]/2, inElec, taxes=[Tax(RA,CO2_tax * CO2Int[:gas])])
+          @input(PA[:coa], id_0[:coa,j],   inElec, taxes=[Tax(RA,CO2_tax * CO2Int[:coa])])
 end)
 end
 
@@ -338,7 +351,7 @@ if CH4abatement=="yes"
             for vam in VAMcommodSet
                 if VAM_costover[vam.name,c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
-                    # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
+                                                    # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
                         [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         [@input(PVA[va], va_0[va,c]*VAM_costover[vam.name,c], va, taxes = [Tax(RA, CH4_tax*VAM_CH4EmInt[vam.name,c])]) for va∈VA]...
                     end)
@@ -446,17 +459,20 @@ set_silent(MultiNat)
 # fix(PA[:oil],1)
 # fix(PA[:rec], 1)
 fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
-# fix(RA, sum(fd_0[Ip,:pce])) # Numeraire, fixed at benchmark
 # fix(RA, 14972.3)
 ### Note: Benchmark doesn't solve at 0 interation because of margins of slack activity. 
 ### Does balance with interactions or slack vars and production commented out.
-solve!(MultiNat , cumulative_iteration_limit = 0)
+# solve!(MultiNat , cumulative_iteration_limit = 0)
 solve!(MultiNat)
 
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-print(sort(fullvrbnch, [:bmkmarg, :bnchmrk], by= abs))#, rev=true))
-# fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+# Temp delete
+fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+print(filter(x->x.var in [Symbol("Y[oil]"),Symbol("Y[gas]"),Symbol("Y[pip]"),
+Symbol("PVAM[oil]"),Symbol("PVAM[gas]"),Symbol("PVAM[pip]"), Symbol("PVA[surplus]"), Symbol("PVA[compen]")
+],fullvrbnch))
+
 # fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
 #  Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"),
@@ -496,6 +512,7 @@ solve!(MultiNat)
 
 fullvrWiNcntfact = generate_report(MultiNat)
 rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
+fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:WiNcntfact] = value(demand(RA,PA[i]))
@@ -512,7 +529,7 @@ Rs[:,2][68:71]
 set_value!(ta,ta_0DAA[Jp])
 set_value!(tm,tm_0DAA[Jp])
 solve!(MultiNat , cumulative_iteration_limit = 0)# Temp measure to address residual price changes
-
+sort(generate_report(MultiNat),:value)
 # tax are at $/t of CH4(CO2eq)
 ## "EPA SC CH4 is $1600/t. 
 set_value!(CH4_tax, CH4_taxrate)
@@ -531,10 +548,13 @@ Rs[:,2][68:71]
 
 fullvrch4 = generate_report(MultiNat)
 rename!(fullvrch4, :value => :ch4tax, :margin => :ch4marg)
+fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 
 # print(sort(df, :margin, by= abs, rev=true))
 # print(df)
-solve!(MultiNat , cumulative_iteration_limit = 0) # Temp measure to address residual price changes 
+set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
+set_value!(CO2_tax, 0.0)
+solve!(MultiNat)# Temp measure to address residual price changes 
 set_value!(CO2_tax, CO2_taxrate)
 set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
@@ -550,6 +570,7 @@ end
 
 fullvrco2 = generate_report(MultiNat)
 rename!(fullvrco2, :value => :CO2tax, :margin => :CO2marg)
+fullvrco2[!,:var] = Symbol.(fullvrco2[:,:var])
 
 # # Counterfactual Fossil fuel extraction is ALSO taxed at emissions intensitiy of input x tax in $/ton
 set_value!(CO2_tax, CO2_taxrate)
@@ -565,6 +586,7 @@ end
 # Rs[:,2][68:71]
 fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
+fullvrboth[!,:var] = Symbol.(fullvrboth[:,:var])
 
 #Generate Dataframe with all results (including names expressions)
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
