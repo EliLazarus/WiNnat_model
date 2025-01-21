@@ -61,3 +61,8 @@ for i in I;
         [column storing column names],
         [column storing the values];
         combine=[function to apply to the values]) "
+
+              for (n,i) in enumerate(sectors(MultiNat))                                                                                                                      
+                     println(n,": ",i)                                                                                                                                              
+                     end
+              MultiNat.productions[sectors(MultiNat)[263]]
