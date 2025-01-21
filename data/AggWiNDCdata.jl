@@ -1,4 +1,4 @@
-using WiNDC, DataFrames, MPSGE, GamsStructure, CSV, JuMP.Containers
+using WiNDC, DataFrames, MPSGE, NamedArrays, CSV, JuMP.Containers
 
 ##cd to top level of the data files
 raw_data_directory = "./detailed_data/national"
@@ -89,8 +89,8 @@ NationalTable(
 # solve!(M3, cumulative_iteration_limit = 0)
 
 # WiNDC plus = Multiple GHG update from national summary map (uti->[:uel,:ugs,:uwt], min->[:coa,:min])
-summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
-# Aggregate (WiNDC function) to WiNDC plus before oil/gas split 
+# summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
+# # Aggregate (WiNDC function) to WiNDC plus before oil/gas split 
 # Wplus1 = aggregate(
 #     callibrated_det_national_data,
 #     :commodities => (summary_map, :detailed => :summary),
@@ -112,26 +112,63 @@ summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
 # # Check benchmark solve.
 # M4 = national_mpsge(Wplus1);
 # solve!(M4, cumulative_iteration_limit = 0)
+# callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
+
+###############################
+## Double split process: 
+# Run the first disag set, 
+# run all the disag table sets, 
+# generate new NationalTable, with new sets
+# run second set of disag codes,
+# run all the disag tables on the new NationalTable,
+# generate new NAtionalTable, ready for Agg and then Calibrate
+###############################
 
 Gas_oil_splits=Dict(:imgas=>0.4308, :exgas=>0.3961, :prodgas=>0.4003, :imoil=>0.5692,:exoil=>0.6039,:prodoil=>0.5997)
 disagprod = DataFrame(
     old = ["211000", "211000"], # oil, oil
     new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
 )
 disagexp = DataFrame(
     old = ["211000", "211000"], # oil, oil
     new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
     # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
 )
 disagimp = DataFrame(
     old = ["211000", "211000"], # oil, oil
     new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
     # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
 )
-# For split after aggregations
+
+## Secondary Split for uel to uel and rnw
+disagprod = DataFrame(
+    old = ["221100", "221100"], #uel,uel  
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+disagexp = DataFrame(
+    old = ["221100", "221100"], #uel,uel
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+disagimp = DataFrame(
+    old = ["221100", "221100"], #uel,uel
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+
+# # For split after aggregations
 # disagprod = DataFrame(
 #     old = ["oil", "oil"],
 #     new = ["oil", "gas"],
@@ -149,7 +186,6 @@ disagimp = DataFrame(
 #     shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
 #     # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
 # )
-# margin_supply has nothing to split, pce 0 for oil (but would need a different share if it wasn't)
 
 ########################################
 #!! TODO fuction to split individual combinations, and then add a not in the rest of the splits
@@ -166,7 +202,7 @@ disagimp = DataFrame(
 
 # Split commodies and sectors by proportions in different disag DataFrames
 # First the tables that split both ways, sector and commodity
-WplusIntprod = get_subtable(projected_det_national_data_yr, ["intermediate_supply","intermediate_demand"]) |>
+WplusIntprod = get_subtable(WplusSp1, ["intermediate_supply","intermediate_demand"]) |>
     x -> leftjoin(
             x,
             disagprod,
@@ -193,7 +229,7 @@ WplusIntprod = get_subtable(projected_det_national_data_yr, ["intermediate_suppl
     )
 
 # This is for value-added because it's only split by sector (l and k are the commods)
-WplusVAprod = get_subtable(projected_det_national_data_yr, ["value_added"]) |>
+WplusVAprod = get_subtable(WplusSp1, ["value_added"]) |>
     x -> leftjoin(
             x,
             disagprod,
@@ -211,7 +247,7 @@ WplusVAprod = get_subtable(projected_det_national_data_yr, ["value_added"]) |>
     )
 
 # This is for the other tables/domains things that split only by commodity.    
-Wplusprod = get_subtable(projected_det_national_data_yr, [
+Wplusprod = get_subtable(WplusSp1, [
     "exogenous_final_demand",
     "personal_consumption",
     "margin_demand",
@@ -235,7 +271,7 @@ Wplusprod = get_subtable(projected_det_national_data_yr, [
         [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value
     )
 # Split exports with export specific ratio
- WplusEx = get_subtable(projected_det_national_data_yr, [
+ WplusEx = get_subtable(WplusSp1, [
         "exports"
         ])|>
         x -> leftjoin(
@@ -253,7 +289,7 @@ Wplusprod = get_subtable(projected_det_national_data_yr, [
             [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value
         )
 # Split imports with import specific ratio
- WplusIm = get_subtable(projected_det_national_data_yr, [
+ WplusIm = get_subtable(WplusSp1, [
         "imports"
         ])|>
         x -> leftjoin(
@@ -273,9 +309,9 @@ Wplusprod = get_subtable(projected_det_national_data_yr, [
 
 ## This is to build the new sets with the additional sectors/commodities, then vcat with tables to generate a NationalTable
 new_sets = vcat(
-    get_set(projected_det_national_data_yr) |>
+    get_set(WplusSp1) |>
         x -> subset(x, :set => ByRow(!in(["sectors", "commodities"]))),
-    get_set(projected_det_national_data_yr, "sectors") |>    
+    get_set(WplusSp1, "sectors") |>    
         x -> leftjoin(
             x,
             disagprod,
@@ -285,7 +321,7 @@ new_sets = vcat(
         [:element, :new] => ByRow((a,b) -> ismissing(b) ? a : b) => :element
         ) |>
         x -> select(x, Not(:new, :shares)),
-    get_set(projected_det_national_data_yr, "commodities") |>    
+    get_set(WplusSp1, "commodities") |>    
         x -> leftjoin(
             x,
             disagprod,
@@ -297,18 +333,22 @@ new_sets = vcat(
         x -> select(x, Not(:new, :shares))
 )
 
-WplusSplit = NationalTable(
+# WplusSp1 = NationalTable(
+#     vcat(WplusIntprod,WplusVAprod, Wplusprod, WplusEx, WplusIm),
+#     new_sets
+# )
+
+WplusSp = NationalTable(
     vcat(WplusIntprod,WplusVAprod, Wplusprod, WplusEx, WplusIm),
     new_sets
 )
 
-callibrated_det_national_data_aftersplit,M = calibrate(WplusSplit)
 
 # WiNDC plus = Multiple GHG update from national summary map (uti->[:uel,:ugs,:uwt], min->[:coa,:min])
 summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
 # Aggregate (WiNDC function) to WiNDC plus before oil/gas split 
-Wplus = aggregate(
-    callibrated_det_national_data_aftersplit,
+WplusSpAg = aggregate(
+    WplusSp,
     :commodities => (summary_map, :detailed => :summary),
     :sectors => (summary_map, :detailed => :summary),
     :margin_demand => (summary_map, :detailed => :summary),
@@ -325,11 +365,20 @@ Wplus = aggregate(
     :personal_consumption => (summary_map, :detailed => :summary),
 )
 
+WplusSpAgC,M = calibrate(WplusSpAg)
 
-M5 = national_mpsge(Wplus) 
+M5 = national_mpsge(WplusSpAgC) 
 solve!(M5, cumulative_iteration_limit = 0)
 print(sort(generate_report(M5),:margin))
 
+
+# wp= [WplusCSpAg,WplusCAgSp,WplusSpCAg,WplusSpAgC,WplusAgCSp,WplusAgSpC]
+# # a=3
+# m = wp[a]
+# M5 = national_mpsge(m) 
+# solve!(M5, cumulative_iteration_limit = 0);a+=1
+# print(sort(generate_report(M5),:margin))
+# [4.9571e+00,4.9571e+00,6.9223e-12,5.1176e-12,4.9571e+00,6.4337e-12]
 #########################################
 # Functions to transform from dfs to NamedArrays, each has own dimensions and elements
 #########################################
@@ -338,7 +387,7 @@ function table_to_naCxS(
     subtable::String;
     columns_to_ignore = [:year]
 )
-    domain_columns = String.([a for a∈domain(X) if a∉columns_to_ignore])
+    domain_columns = String.([a for a∈WiNDC.domain(X) if a∉columns_to_ignore])
     sets = get_set.(Ref(X), domain_columns) |>
             x -> map(y -> Symbol.(y[!,:element]), x)     
             
@@ -400,11 +449,12 @@ end
 
 function table_to_naSecsxC(
     X::WiNDCtable,
-    subtable::String;
+    subtable::String,
+    CorS::String;
     columns_to_ignore = [:year]
 )
     domain_columns = String.([a for a∈domain(X) if a∉columns_to_ignore])
-    sets = [Symbol.(unique(get_subtable(X,subtable),:commodities)[:,:commodities]),Symbol.(filter(x->x ∉["use","oth"],get_set(Wplus,"sectors")[:,:element]))]
+    sets = [Symbol.(unique(get_subtable(X,subtable),:commodities)[:,:commodities]),Symbol.(filter(x->x ∉["use","oth"],get_set(X,CorS)[:,:element]))]
      
     out = NamedArray(
         zeros(length.(sets)...),
@@ -417,25 +467,27 @@ function table_to_naSecsxC(
     end
     return out
 end
+# a=1
+wp= [WplusCSpAg,WplusCAgSp,WplusSpCAg,WplusSpAgC,WplusAgCSp,WplusAgSpC]
+table_to_naCxS(wp[a], "intermediate_demand")
+# :($wp[a])
+id_m0 = table_to_naCxS(WplusSpAgC, "intermediate_demand");
+ys_m0 = table_to_naCxS(WplusSpAgC, "intermediate_supply");
+fd_m0 = table_to_naCxSecs(WplusSpAgC,"exogenous_final_demand","commodities");
+pce_m0 = table_to_naCxSecs(WplusSpAgC,"personal_consumption","commodities");
+m_m0 = table_to_naCxSecs(WplusSpAgC,"imports","commodities");
+x_m0 = table_to_naCxSecs(WplusSpAgC,"exports","commodities");
+md_m0 = table_to_naCxSecs(WplusSpAgC,"margin_demand","commodities");
+ms_m0 = table_to_naCxSecs(WplusSpAgC,"margin_supply","commodities");
+y_m0    = table_to_nafn(WplusSpAgC,WiNDC.gross_output(WplusSpAgC),"commodities");
+a_m0    = table_to_nafn(WplusSpAgC,WiNDC.armington_supply(WplusSpAgC),"commodities");
+ty_m0   = table_to_nafn(WplusSpAgC,WiNDC.other_tax_rate(WplusSpAgC),"sectors"); # sectors only
+ta_m0    = table_to_nafn(WplusSpAgC,WiNDC.absorption_tax_rate(WplusSpAgC),"commodities");
+tm_m0   = table_to_nafn(WplusSpAgC,WiNDC.import_tariff_rate(WplusSpAgC),"commodities");
+bopdef_m0  = NamedArray(WiNDC.balance_of_payments(WplusSpAgC)[:,:value],([:2020]),(:bop)) # not commodities or sectors
+va_m0 = table_to_naSecsxC(WplusSpAgC, "value_added","sectors");
 
-id_m0 = table_to_naCxS(Wplus, "intermediate_demand")
-ys_m0 = table_to_naCxS(Wplus, "intermediate_supply")
-fd_m0 = table_to_naCxSecs(Wplus,"exogenous_final_demand","commodities")
-pce_m0 = table_to_naCxSecs(Wplus,"personal_consumption","commodities")
-m_m0 = table_to_naCxSecs(Wplus,"imports","commodities")
-x_m0 = table_to_naCxSecs(Wplus,"exports","commodities")
-md_m0 = table_to_naCxSecs(Wplus,"margin_demand","commodities")
-ms_m0 = table_to_naCxSecs(Wplus,"margin_supply","commodities")
-y_m0    = table_to_nafn(Wplus,WiNDC.gross_output(Wplus),"commodities")
-a_m0    = table_to_nafn(Wplus,WiNDC.armington_supply(Wplus),"commodities")
-ty_m0   = table_to_nafn(Wplus,WiNDC.other_tax_rate(Wplus),"sectors") # sectors only
-ta_m0    = table_to_nafn(Wplus,WiNDC.absorption_tax_rate(Wplus),"commodities")
-tm_m0   = table_to_nafn(Wplus,WiNDC.import_tariff_rate(Wplus),"commodities")
-bopdef_m0  = NamedArray(WiNDC.balance_of_payments(Wplus)[:,:value],([:2020]),(:bop)) # not commodities or sectors
-va_m0 = table_to_naSecsxC(Wplus, "value_added")
-
-
-Wplusdata = Dict(
+WplusSpAgCdata = Dict(
   :a_0      => a_m0,
   :id_0     => id_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
   :ys_0     => ys_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
@@ -452,7 +504,6 @@ Wplusdata = Dict(
   :ta_0     => ta_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
   :y_0      => y_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
 )
-
 
 
 ### MPSGE DataFrame format ###
@@ -497,92 +548,92 @@ x -> coalesce.(x, 0)
 
 # See the entire table. Most of the columns should be self-explanatory. The really
 # important one is `subtable`, which is the human readable component of the table.
-get_table(callibrated_det_national_data)
+# get_table(callibrated_det_national_data)
 
-# You can extract a single subtable. Note the subtable column is dropped (should 
-# be fixed, I don't care for that).
-get_subtable(callibrated_det_national_data, "intermediate_demand")
-get_subtable(callibrated_det_national_data, "intermediate_demand")
+# # You can extract a single subtable. Note the subtable column is dropped (should 
+# # be fixed, I don't care for that).
+# get_subtable(callibrated_det_national_data, "intermediate_demand")
+# get_subtable(callibrated_det_national_data, "intermediate_demand")
 
-# Or multiple
-get_subtable(callibrated_det_national_data, ["intermediate_demand", "value_added"])
+# # Or multiple
+# get_subtable(callibrated_det_national_data, ["intermediate_demand", "value_added"])
 
-# Turns out, that's in a branch... quick hack, but it drops subtables... 
-vcat(get_subtable.(Ref(callibrated_det_national_data), ["intermediate_demand", "value_added"])...)
+# # Turns out, that's in a branch... quick hack, but it drops subtables... 
+# vcat(get_subtable.(Ref(callibrated_det_national_data), ["intermediate_demand", "value_added"])...)
 
-# You should notice there is no subtable for value added.
-get_table(callibrated_det_national_data) |>
-    x -> unique(x, :subtable)
-# This is because value added is a composite table, it consists of several smaller
-# subtables. To see which ones use get_set, the elements comprise value added.
-get_set(callibrated_det_national_data, "value_added")
-# If we look at labor_demand we will see two elements, labor demand and V00100. 
-# The V00100 is the NAICS code for labor compensation. 
-get_set(callibrated_det_national_data, "labor_demand")
+# # You should notice there is no subtable for value added.
+# get_table(callibrated_det_national_data) |>
+#     x -> unique(x, :subtable)
+# # This is because value added is a composite table, it consists of several smaller
+# # subtables. To see which ones use get_set, the elements comprise value added.
+# get_set(callibrated_det_national_data, "value_added")
+# # If we look at labor_demand we will see two elements, labor demand and V00100. 
+# # The V00100 is the NAICS code for labor compensation. 
+# get_set(callibrated_det_national_data, "labor_demand")
 
-# example correspondence table
-# Currently has WiNDC_plus and WiNDC summary (theoretically to replicate summary but doesn't), but can be any abitraray mapping been BEA_detail, and any aggregation set
-Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv"), DataFrame, header=1)
+# # example correspondence table
+# # Currently has WiNDC_plus and WiNDC summary (theoretically to replicate summary but doesn't), but can be any abitraray mapping been BEA_detail, and any aggregation set
+# Codes=CSV.read(joinpath(raw_data_directory,"./BEA_WiNDC_Detail-Summary_codes.csv"), DataFrame, header=1)
 
-#######################################################################################
-# X is the correspondence table between bea detail and whatever aggregation is set up #
-#######################################################################################
-# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
-X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
-aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
-# aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
+# #######################################################################################
+# # X is the correspondence table between bea detail and whatever aggregation is set up #
+# #######################################################################################
+# # X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC]], [:commodities, :name])
+# X = DataFrame([Codes[:,:BEA_detail], Codes[:,:WiNDC_plus]], [:commodities, :name])
+# aggcol = :WiNDC_plus # name of the columns just for a value comparison dataframe later
+# # aggcol = :WiNDC # name of the columns just for a value comparison dataframe later
 
-## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
-double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
-TMP = NationalTable( vcat(
-    get_table(callibrated_det_national_data) |>
-    x -> filter(:subtable => !(in(double_aggregate_subtables)), x) |> #ggregate the simple tables separately
-    x -> leftjoin(
-        x,
-        X,
-        on = :commodities,
-        renamecols = "" => "_com"
-    ) |>
-    x -> transform(x,
-        [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value),
-# Now aggregate the tables that also need to aggregate sectors, in 2 steps
-    get_table(callibrated_det_national_data) |>
-    x -> filter(:subtable => (in(double_aggregate_subtables)), x) |>
-    x -> leftjoin(
-        x,
-        X,
-        on = :commodities,
-        renamecols = "" => "_com"
-    ) |>
-    x -> transform(x,
-        [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value) |>
-    x -> leftjoin(
-    x,
-    X,
-    on = :sectors=>:commodities,
-    renamecols = "" => "_com") |>
-    x -> transform!(x,
-        [:sectors, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :sectors,
-    ) |>
-    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x, :value => sum => :value)
-    ),
-        callibrated_det_national_data.sets
-)
+# ## To callibrate first=> get_table(callibrated_det_national_data): or to aggregate and then callibrate -> get_table(projected_det_national_data_yr) and callibrate below
+# double_aggregate_subtables = ["intermediate_supply", "intermediate_demand","labor_demand","capital_demand","other_tax"]
+# TMP = NationalTable( vcat(
+#     get_table(callibrated_det_national_data) |>
+#     x -> filter(:subtable => !(in(double_aggregate_subtables)), x) |> #ggregate the simple tables separately
+#     x -> leftjoin(
+#         x,
+#         X,
+#         on = :commodities,
+#         renamecols = "" => "_com"
+#     ) |>
+#     x -> transform(x,
+#         [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value),
+# # Now aggregate the tables that also need to aggregate sectors, in 2 steps
+#     get_table(callibrated_det_national_data) |>
+#     x -> filter(:subtable => (in(double_aggregate_subtables)), x) |>
+#     x -> leftjoin(
+#         x,
+#         X,
+#         on = :commodities,
+#         renamecols = "" => "_com"
+#     ) |>
+#     x -> transform(x,
+#         [:commodities, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :commodities,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value) |>
+#     x -> leftjoin(
+#     x,
+#     X,
+#     on = :sectors=>:commodities,
+#     renamecols = "" => "_com") |>
+#     x -> transform!(x,
+#         [:sectors, :name_com] => ByRow((x,y) -> ismissing(y) ? x : y) => :sectors,
+#     ) |>
+#     x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x, :value => sum => :value)
+#     ),
+#         callibrated_det_national_data.sets
+# )
 
 
-subs_TMP = get_table(TMP) |>
-    x -> unique(x, :subtable)
-#print the numbers for raw and aggregated
-for i in subs_TMP[:,:subtable]
-    println(i,": ",length(unique(get_subtable(TMP,i)[!,:commodities])),": ",length(unique(get_subtable(projected_det_national_data_yr,i)[!,:commodities]))) # Compared to get_subtable(projected_det_national_data_yr,i)
-end
+# subs_TMP = get_table(TMP) |>
+#     x -> unique(x, :subtable)
+# #print the numbers for raw and aggregated
+# for i in subs_TMP[:,:subtable]
+#     println(i,": ",length(unique(get_subtable(TMP,i)[!,:commodities])),": ",length(unique(get_subtable(projected_det_national_data_yr,i)[!,:commodities]))) # Compared to get_subtable(projected_det_national_data_yr,i)
+# end
 
 #     ########################
 #     ### Original hacky and messy oil => gas & oil ###
