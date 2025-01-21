@@ -74,3 +74,4 @@ ugs,Gas_dist,Natural gas distribution (2212),19.28285641,19.48927271,50%,12.79%,
 uwt,Water_sewerage,"Water, sewage and other systems (2213)",4.757660766,4.535462771,51%,12.79%,32.54%,54.67%
 coa,coal_mining,Coal mining (2121),5.530708579,12.64370488,30%,3.62%,9.20%,87.18%
 gas,gas_extraction,Gas Extraction (split from 211),11.0430761,16.50211109,40%,1.50%,3.82%,94.68%
+rnw,renewable_gneration,"Renewable Electricity Generation, split from (2211)",34.7412,79.5901,30%,12.79%,32.54%,54.67%
