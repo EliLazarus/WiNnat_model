@@ -7,12 +7,18 @@ using MPSGE.JuMP.Containers
 # New data from Mitch Oct 11
 # P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 # P = MultiNatdata
-P = Wplusdata
+# P = Wplusdata
+# P = WplusCSpAgdata #resid fine but prices not good, esp PAoil and PYoil
+# P = WplusCAgSpdata # as above
+# P = WplusSpCAgdata # Good 1.
+P = WplusSpAgCdata  # almost as good 3.
+# P = WplusAgCSpdata # resid fine, but prices not good, esp PAoil and PYoil
+# P = WplusAgSpCdata # Actually also good. 2.
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
-Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas]]
+Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas, :rnw]]
 Jp = deepcopy(Ip) # Index for WiNDC BEA Sectors
 VA = [va for va∈S[:va] if va!=:othtax] # Index Value Added (compen = returns to labour/wage, 'surplus' = returns to Kapital)
 FD = S[:fd]
@@ -132,12 +138,12 @@ end, elasticity = d_elas_ra)
 # fix(RA, sum(fd_m0[i,:pce] for i∈Ip))
 
 solve!(WiNnat; cumulative_iteration_limit = 0)
-
+solve!(WiNnat)
 df_benchmark = generate_report(WiNnat);
 sort!(df_benchmark, [:margin])
-# rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
-# df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
-# print(sort(df_benchmark, :bmkmarg))
+rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
+df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
+sort(df_benchmark, :bmkmarg)
 
 
 # print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
