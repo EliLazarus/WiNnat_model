@@ -202,7 +202,7 @@ end)
 @sectors(MultiNat,begin
     Y[Jp],      (description = "Sectoral Production",)
     A[Ip],      (description = "Armington Supply",)
-    VAS[Jp],    (description = "Value Added, standard")
+    VAS[Jp],    (description = "Value Added, standard",)
     MS[M],     (description = "Margin Supply",)
 end)
 if (CH4abatement=="yes")
@@ -263,7 +263,10 @@ then split that data for elect, gas, and oil.
     then split elec for rnw, min (for now) and oil (for gas for now)
 """
 # Domestic production for all sectors
-# # println("ElasY=E3m")
+# Match uel while uel/rnw split is just a 50/50 split all over to aviod Y[issue
+Elas[:rnw,:E3_m_ID] = deepcopy(Elas[:uel,:E3_m_ID])
+Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
+
 # for j∈Jp
 #         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
 #         [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
@@ -276,55 +279,22 @@ then split that data for elect, gas, and oil.
 ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
     @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
-    va=>vae=0, En=>vae=1, PrimENRG=>En=Elas[j,:E3_e_E_El], Elec=>En=Elas[j,:E3_e_E_El],
-    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[j,:E3_e_E_El]
+    va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en], # Which of these matter?
+    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], 
+    inElec=>Elec=Elas[j,:SAGE_en]
     ],begin
     [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...  # CO2 tax out here bc it will go in lower nests
-    
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
      @input(PVAM[j], sum(va_0[VA,j]), va)
         @input(PA[:pet], id_0[:pet,j], PrimENRG) ##for f in [:oil, :gas]]...
           @input(PA[:oil], id_0[:oil,j],   oilgas, taxes=[Tax(RA,CO2_tax * CO2Int[:oil])]) ##for f in [:oil, :gas]]...
           @input(PA[:gas], id_0[:gas,j]/2, oilgas, taxes=[Tax(RA,CO2_tax * CO2Int[:gas])])## for f in [:oil, :gas]]...
         @input(PA[:uel], id_0[:uel,j] , Elec) #j==:uel ? 1 : 
-    # @input(PArnw, id_0[:uel,:uel]-1,inElec) #*(id_0[:uel,j]/sum(id_0[:uel,:]))
-          @input(PA[:rnw], id_0[:rnw,j], inElec)
+          @input(PA[:rnw], id_0[:rnw,j],   inElec, taxes=[Tax(RA,CO2_tax * CO2Int[:rnw])])
           @input(PA[:gas], id_0[:gas,j]/2, inElec, taxes=[Tax(RA,CO2_tax * CO2Int[:gas])])
           @input(PA[:coa], id_0[:coa,j],   inElec, taxes=[Tax(RA,CO2_tax * CO2Int[:coa])])
 end)
 end
-
-## Draft set up for full nesting after disaggregation
-# ID = [i for i ∈ Ip if i∉[:pet, :oil, :coa, :ele, :rnw, :gas, :col]
-# for j∈Jp
-#     # @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], vae=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID],
-#     # va=>vae=   , e=> vae = [j], el => e = [j, value irrelevant just linking nests], oilgas=> e=(btw oil and gas energy),f => e = (part gas & oil), fe=>el= (coal & gas)
-#     # ],begin
-#     [@output(PY[i],ys_0[j,i], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
-#     [@input(PA[i], id_0[i,j], sm, taxes = [Tax(RA,CO2_tax * CO2Int[i])]) for i∈Ip]...
-    
-#     # take tax out here bc it will go in lower nests
-#     # [@input(PA[i], id_0[i,j], sm) for i∈ID]... # elasticity btw inputs in vector 
-#     @input(PVAM[j], sum(va_0[VA,j]), va)
-#     # @input(PA[:uti], sum(electricity), el)
-#     # [@input(PA[f], sum(oil and part gas), oilgas) for f in [:oil, :gas]]...
-#     # @input(PA[:rnw], sum(benchmark renewables), rel)
-#     # [@input(PA[ff], sum(benchmark renewables), rel) for ff in [:gas, :col]]...
-# end)
-# end
-
-
-# # One price of electricity, based on how all firms get energy. Taking electricity out of id_o and ys_0. And gas, coal, and oil out. 
-# begin
-#     @output(PEL, electriticy for all firms (sum elect for all firms ))for i in Ip...
-#     @input(PY[r], renewable energy from Y) # somehow I need to get some kind of estimate of renewable generation separated out from uti->elec (it's under it in NAICS, but no data in BEA: 22111 Electric Power Generation -> 
-#     # {221111	Hydroelectric Power Generation, 221112	Fossil Fuel Electric Power Generation, 221113	Nuclear Electric Power Generation, 221114	Solar Electric Power Generation, 221115	Wind Electric Power Generation, 221116	Geothermal Electric Power Generation, 221117	Biomass Electric Power Generation, 221118	Other Electric Power Generation}
-#      @input(PY[gc], gas and coal input from Y, for electricity, with tax )
-#     @input(PVAM) # pull out uti from VA too.
-#     [@input(PA[i] id_0[el]) for i in Ip]... #material/services for electricity
-# end
-
-
 # # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
 # print("ElasVA = SAGEkl:: ")
 if (Kmobile=="yes")
@@ -386,7 +356,7 @@ end
     # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
 # println("elasdm=SAGEnf")
 for i∈Ip
-    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_nf_Armington]], begin
+    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_E3_Av_Armington]], begin
         [@output(PA[i], a_0[i,:value], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i,:value])]... 
         [@output(PFX, x_0[i,:exports], t)]...
         [@input(PM[m], md_0[i,m], s) for m∈M]...
@@ -419,7 +389,6 @@ elseif (Kmobile=="no")
     [@endowment(PVAK[j], sum(va_0[:surplus,j])) for j∈Jp]...
     [@endowment(PVAL, sum(va_0[:compen,j])) for j∈Jp]...
     end, elasticity = 1)
-    # end, elasticity = d_elas_ra)
 end
 
 # ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
@@ -464,23 +433,31 @@ fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 ### Does balance with interactions or slack vars and production commented out.
 # solve!(MultiNat , cumulative_iteration_limit = 0)
 solve!(MultiNat)
-
 fullvrbnch = generate_report(MultiNat);
 rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-# Temp delete
 fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
-print(filter(x->x.var in [Symbol("Y[oil]"),Symbol("Y[gas]"),Symbol("Y[pip]"),
-Symbol("PVAM[oil]"),Symbol("PVAM[gas]"),Symbol("PVAM[pip]"), Symbol("PVA[surplus]"), Symbol("PVA[compen]")
-],fullvrbnch))
+# print(sort(fullvrbnch, :bmkmarg))
 
-# fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
-# filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
-#  Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"),
-#  Symbol("PVAM[agr]"), Symbol("PVAM[oil]"), Symbol("PVAM[ppd]")], fullvrbnch)
+TaxRev = DataFrame(solve=Symbol[], Total_Revenue=Float64[], Change_in_Revenue=Float64[])
+EqVar  = DataFrame(solve=Symbol[], Equiv_Variarion=Float64[], Excess_Burden=Float64[])
 
-#  filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[pet]"), Symbol("Y[min]"), Symbol("Y[agr]"),
-#  Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"),
-#  Symbol("PVAM[agr]"), Symbol("PVAM[oil]"), Symbol("PVAM[ppd]")], fullvrch4)#fullvrbnch)
+totrevbnch = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
+push!(TaxRev, [:bnch totrevbnch totrevbnch-totrevbnch])
+
+# EVbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) 
+# EVbnch = prod([(1/(pce_0[i,:pce]/sum(pce_0[:,:pce])))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) 
+# EVbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) 
+# for i in Ip])*# if (pce_0[i,:pce]/sum(pce_0[:,:pce]))>0]) *
+# (only(filter(x->x.solve==:bnch,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+EVbnch = prod([((pce_0[i,:pce]/sum(pce_0[:,:pce]))*(1/value(PA[i]))*
+(only(filter(x->x.solve==:bnch,TaxRev)[!,:Change_in_Revenue])+value(RA)))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) 
+for i in Ip])# if (pce_0[i,:pce]/sum(pce_0[:,:pce]))>0]) *
+
+(only(filter(x->x.solve==:bnch,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+push!(EqVar, [:bnch EVbnch -EVbnch])
 
 # Initialize a Dataframe to save final demand results
 FDemand = DataFrame(index=Vector{Symbol}(undef, length(Ip)),
@@ -510,6 +487,16 @@ set_value!(tm,0)
 
 solve!(MultiNat)
 
+totrevWiNcntfac = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
+push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch])
+
+EVWiNcntfac = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])*
+(only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+push!(EqVar, [:WiNcntfac EVWiNcntfac -EVWiNcntfac])
+
 fullvrWiNcntfact = generate_report(MultiNat)
 rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
 fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
@@ -536,6 +523,16 @@ set_value!(CH4_tax, CH4_taxrate)
 set_value!(CO2_tax,0.) # Set CO2 tax to 0 for running separately.
 solve!(MultiNat)
 
+totrevch4 = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
+push!(TaxRev, [:ch4 totrevch4 totrevch4-totrevbnch])
+
+EVch4 = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip]) *
+(only(filter(x->x.solve==:ch4,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+push!(EqVar, [:ch4 EVch4 -EVch4])
+
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(demand(RA,PA[i]))
 end
@@ -554,10 +551,22 @@ fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # print(df)
 set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 set_value!(CO2_tax, 0.0)
+set_value!(ta,ta_0DAA[Jp]);
+set_value!(tm,tm_0DAA[Jp]);
 solve!(MultiNat)# Temp measure to address residual price changes 
-set_value!(CO2_tax, CO2_taxrate)
+set_value!(CO2_tax, 190)# CO2_taxrate)
 set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
+
+totrevco2 = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
+push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch])
+
+EVco2 = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip]) *
+(only(filter(x->x.solve==:co2,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+push!(EqVar, [:co2 EVco2 -EVco2])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:co2tax] = value(demand(RA,PA[i]))
@@ -572,10 +581,26 @@ fullvrco2 = generate_report(MultiNat)
 rename!(fullvrco2, :value => :CO2tax, :margin => :CO2marg)
 fullvrco2[!,:var] = Symbol.(fullvrco2[:,:var])
 
+## Re-set to benchmark taxes
+set_value!(CH4_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
+set_value!(CO2_tax, 0.0)
+set_value!(ta,ta_0DAA[Jp])
+set_value!(tm,tm_0DAA[Jp])
+solve!(MultiNat)# Temp measure to address residual price changes
 # # Counterfactual Fossil fuel extraction is ALSO taxed at emissions intensitiy of input x tax in $/ton
 set_value!(CO2_tax, CO2_taxrate)
 set_value!(CH4_tax, CH4_taxrate)
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
+
+totrevboth = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
+push!(TaxRev, [:both totrevboth totrevboth-totrevbnch])
+
+EVboth = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip]) *
+(only(filter(x->x.solve==:both,TaxRev)[!,:Change_in_Revenue])+value(RA)) - value(RA)
+push!(EqVar, [:both EVboth -EVboth])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:both] = value(demand(RA,PA[i]))
@@ -617,11 +642,49 @@ Compare[!,:var] = Symbol.(Compare[:,:var]);
 compCO2em = filter(:var => ==(:CO2TotEm), Compare);
 compCH4em = filter(:var => ==(:CH4TotEm), Compare);
 compTotem = filter(:var => ==(:TotEm), Compare);
-EmissionReductionResults = DataFrame(
-["CO2" "Gt" TotCO2bnchmk TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) TotCO2bnchmk - only(compCO2em[:,:bothtaxes])  TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) - (TotCO2bnchmk - only(compCO2em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"CH4" "GtCO2eq" TotCH4bnchmk TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
-"GHGs" "GtCO2eq" TotGHGbnchmk TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) TotGHGbnchmk - only(compTotem[:,:bothtaxes]) TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))], ["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_both_taxes", "taxes_combined" ,"Interactions"])
+Emissions = DataFrame(
+["CO2" "Gt" TotCO2bnchmk ;;
+only(compCO2em[:,:CO2tax]) ;;
+only(compCO2em[:,:ch4tax]) ;;
+only(compCO2em[:,:ch4tax]) + only(compCO2em[:,:CO2tax]) - TotCO2bnchmk;;
+only(compCO2em[:,:bothtaxes]) ;;
+only(compCO2em[:,:ch4tax]) + only(compCO2em[:,:CO2tax]) - only(compCO2em[:,:bothtaxes]); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"CH4" "GtCO2eq" TotCH4bnchmk ;;
+only(compCH4em[:,:CO2tax]) ;;
+only(compCH4em[:,:ch4tax]) ;;
+only(compCH4em[:,:ch4tax]) + only(compCH4em[:,:CO2tax]) - TotCH4bnchmk ;;
+only(compCH4em[:,:bothtaxes]) ;;
+only(compCH4em[:,:ch4tax]) + only(compCH4em[:,:CO2tax]) - only(compCH4em[:,:bothtaxes]); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"GHGs" "GtCO2eq" TotGHGbnchmk ;;
+ only(compTotem[:,:CO2tax]) ;;
+ only(compTotem[:,:ch4tax]) ;;
+ only(compTotem[:,:ch4tax]) + only(compTotem[:,:CO2tax]) - TotGHGbnchmk ;;
+ only(compTotem[:,:bothtaxes]) ;;
+ only(compTotem[:,:ch4tax]) + only(compTotem[:,:CO2tax]) - only(compTotem[:,:bothtaxes])],
+["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax", "CH4tax","sum_of_taxes", "taxes_combined" ,"Interactions"])
+Emissions_Mt = hcat(Emissions[:,1:2],Emissions[:,3:end].*10^3); Emissions_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 
+EmissionReductionResults = DataFrame(
+["CO2" "Gt" TotCO2bnchmk ;;
+TotCO2bnchmk - only(compCO2em[:,:CO2tax]) ;;
+TotCO2bnchmk - only(compCO2em[:,:ch4tax]) ;;
+TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) ;;
+TotCO2bnchmk - only(compCO2em[:,:bothtaxes]) ;;
+TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) - (TotCO2bnchmk - only(compCO2em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"CH4" "GtCO2eq" TotCH4bnchmk ;;
+TotCH4bnchmk - only(compCH4em[:,:CO2tax]) ;;
+TotCH4bnchmk - only(compCH4em[:,:ch4tax]) ;;
+TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) ;;
+TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) ;;
+TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+"GHGs" "GtCO2eq" TotGHGbnchmk ;;
+TotGHGbnchmk - only(compTotem[:,:CO2tax]) ;;
+TotGHGbnchmk - only(compTotem[:,:ch4tax]) ;;
+TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) ;;
+TotGHGbnchmk - only(compTotem[:,:bothtaxes]) ;;
+TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))],
+["Em_reductions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_each_tax", "both_taxes_combined" ,"Interactions"])
+EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReductionResults[:,3:end].*10^3); EmissionReductionResults_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 ## Generate subset DataFrame with just the Value-Added activity for the emitting sectors, show those results
 #filter(row -> row.var ∈ [Symbol("VAM[agr]"),Symbol("VAM[min]"),Symbol("VAM[pip]"),Symbol("VAS[oil]"),Symbol("VAM[oil]"),Symbol("VAS[min]"),Symbol("VAS[pip]"),Symbol("VAS[agr]"),Symbol("VAS[wst]"),Symbol("VAM[wst]"),], Compare)
 
@@ -779,26 +842,19 @@ print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
 
 println("Emissions (remaining, i.e. not mitigated)")
-EmissUnits_mt = DataFrame();
-EmissUnits_mt.Unit=["Mt"; "MtCO2eq"; "MtCO2eq"];
-EmissionReductionResults_Mt =[EmissionReductionResults[:,1:1] EmissUnits_mt EmissionReductionResults[:,3:end].*10^3] 
-Emissions_Mt = DataFrame(names(EmissionReductionResults_Mt)[1] => EmissionReductionResults_Mt[:,1],
-names(EmissionReductionResults_Mt)[2] => EmissionReductionResults_Mt[:,2],
-names(EmissionReductionResults_Mt)[3] => EmissionReductionResults_Mt[:,3],
-chop(names(EmissionReductionResults_Mt)[4], tail=6) => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,4],
-chop(names(EmissionReductionResults_Mt)[5], tail=6) => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,5],
-names(EmissionReductionResults_Mt)[6] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,6],
-names(EmissionReductionResults_Mt)[7] => EmissionReductionResults_Mt[:,3]-EmissionReductionResults_Mt[:,7])
-
 # return Emissions_Mt, 
-println(Emissions_Mt)
 println(
-filter(x -> x.var in [Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), Symbol("Y[uel]"), Symbol("Y[ugs]"), Symbol("Y[uwt]"), Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")], Compare)
+sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
+# Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), 
+Symbol("Y[uel]"), Symbol("Y[rnw]"), Symbol("Y[oil]"), Symbol("Y[gas]") 
+# Symbol("Y[uwt]"), Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")
+], Compare))
 ,
-);println("RA check, it's the 'both' bc that's the last simulation:",
-sum([value(demand(RA,PA[i]))*value(PA[i]) for i in Ip])
-
 )
+println(Emissions_Mt)
+println(EmissionReductionResults_Mt)# ;println("RA check, it's the 'both' bc that's the last simulation:",
+# sum([value(demand(RA,PA[i]))*value(PA[i]) for i in Ip]))
+println(outerjoin(TaxRev,EqVar, on=:solve))
 #Check Benchmark
 # fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
 # print(sort!(fullvrbnch, [:bmkmarg]))
