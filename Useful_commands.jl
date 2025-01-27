@@ -61,3 +61,14 @@ for i in I;
         [column storing column names],
         [column storing the values];
         combine=[function to apply to the values]) "
+
+              for (n,i) in enumerate(sectors(MultiNat))                                                                                                                      
+                     println(n,": ",i)                                                                                                                                              
+                     end
+              MultiNat.productions[sectors(MultiNat)[263]]
+
+              sum([value(MPSGE.tax_revenue(A[i],RA)) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])
+              sum([value(MPSGE.tax_revenue(Y[i],RA)) for i in [i for i in Ip]])
+              # More specific to the model
+              sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+              sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])

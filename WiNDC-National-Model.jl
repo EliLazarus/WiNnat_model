@@ -110,44 +110,44 @@ solve!(WiNnat; cumulative_iteration_limit = 0)
 
 df_benchmark = generate_report(WiNnat);
 # sort!(df_benchmark, [:value])
-rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
+# rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
 df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
 
-# print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
-Sectors = CSV.read("Sectors.csv", DataFrame);
+print(sort(df_benchmark, :margin, by= abs))#, rev=true))
+# Sectors = CSV.read(joinpath(@__DIR__,"Sectors.csv"), DataFrame);
 
-# Initialize a Dataframe to save final demand results
-FDemandWiNnat = DataFrame(index=Vector{Symbol}(undef, length(I)),
-desc=Vector{Symbol}(undef, length(I)), 
-bnch=Vector{Float64}(undef, length(I)), 
-bnchPr=Vector{Float64}(undef, length(I)), 
-cntr=Vector{Float64}(undef, length(I)),
-cntrPr=Vector{Float64}(undef, length(I)),
-cntrval=Vector{Float64}(undef, length(I)))
-for (n,i) in enumerate(I)
-    FDemandWiNnat[n,:index]= i
-    FDemandWiNnat[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
-    FDemandWiNnat[n,:bnch] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
-    FDemandWiNnat[n,:bnchPr] = filter(:var => ==(Symbol("PA[$i]")),df_benchmark)[1,2]
-end
-
-# Counterfactual
-# fix(RA,12453.896315446877)
-
-# 12453.896315446877/sum(fd_0[yr,i,:pce] for i∈I)
-# 13154.978277803244/sum(fd_0[yr,i,:pce] for i∈I)
-# for i in I; fdW+=sum(fd_0[yr,i,FD[2:18]])*-value(PA[i])+sum(va_0[yr,VA[1],i])*value(PVA[VA[1]])+sum(va_0[yr,VA[2],i])*value(PVA[VA[2]])
+# # Initialize a Dataframe to save final demand results
+# FDemandWiNnat = DataFrame(index=Vector{Symbol}(undef, length(I)),
+# desc=Vector{Symbol}(undef, length(I)), 
+# bnch=Vector{Float64}(undef, length(I)), 
+# bnchPr=Vector{Float64}(undef, length(I)), 
+# cntr=Vector{Float64}(undef, length(I)),
+# cntrPr=Vector{Float64}(undef, length(I)),
+# cntrval=Vector{Float64}(undef, length(I)))
+# for (n,i) in enumerate(I)
+#     FDemandWiNnat[n,:index]= i
+#     FDemandWiNnat[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
+#     FDemandWiNnat[n,:bnch] = value(demand(WiNnat[:RA],WiNnat[:PA][i]))
+#     FDemandWiNnat[n,:bnchPr] = filter(:var => ==(Symbol("PA[$i]")),df_benchmark)[1,2]
 # end
 
-# for i in I; fdW+=sum(fd_0[yr,i,:pce])*-value(PA[i])
-# end
+# # Counterfactual
+# # fix(RA,12453.896315446877)
 
-set_value!(ta,0)
-set_value!(tm,0)
+# # 12453.896315446877/sum(fd_0[yr,i,:pce] for i∈I)
+# # 13154.978277803244/sum(fd_0[yr,i,:pce] for i∈I)
+# # for i in I; fdW+=sum(fd_0[yr,i,FD[2:18]])*-value(PA[i])+sum(va_0[yr,VA[1],i])*value(PVA[VA[1]])+sum(va_0[yr,VA[2],i])*value(PVA[VA[2]])
+# # end
 
-solve!(WiNnat)
+# # for i in I; fdW+=sum(fd_0[yr,i,:pce])*-value(PA[i])
+# # end
 
-df = generate_report(WiNnat);
-df |>
-    x -> sort(x, :margin, rev=true)
-[Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
+# set_value!(ta,0)
+# set_value!(tm,0)
+
+# solve!(WiNnat)
+
+# df = generate_report(WiNnat);
+# df |>
+#     x -> sort(x, :margin, rev=true)
+# [Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
