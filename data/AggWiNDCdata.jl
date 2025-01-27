@@ -146,6 +146,28 @@ disagimp = DataFrame(
     # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
 )
 
+## Secondary Split for uel to uel and rnw
+disagprod2 = DataFrame(
+    old = ["221100", "221100"], #uel,uel  
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+disagexp2 = DataFrame(
+    old = ["221100", "221100"], #uel,uel
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+disagimp2 = DataFrame(
+    old = ["221100", "221100"], #uel,uel
+    new = ["221100", "221101"], #uel, rnw
+    shares = [.5,.5],
+    # shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
+    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+)
+
 # # For split after aggregations
 # disagprod = DataFrame(
 #     old = ["oil", "oil"],
@@ -316,28 +338,6 @@ WplusSp1 = NationalTable(
     new_sets1
 )
 
-
-## Secondary Split for uel to uel and rnw
-disagprod2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel  
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.5,.5],
-    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
-)
-disagexp2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.5,.5],
-    # shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
-    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
-)
-disagimp2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.5,.5],
-    # shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
-    # shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
-)
 
 WplusIntprod = get_subtable(WplusSp1, ["intermediate_supply","intermediate_demand"]) |>
     x -> leftjoin( x,disagprod2,on = :commodities => :old,renamecols = "" => "_com"
