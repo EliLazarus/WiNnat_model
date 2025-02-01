@@ -9,7 +9,8 @@ all_summary_national_data = WiNDC.national_tables(raw_data_directory; aggregatio
 # For the summary level data, no issue using all years. Several years are failing
 # calibration for the detailed data. 2022 works, as does 2017. Others do too, but
 # those are the "important" ones for me at the moment.
-year = 2020
+# year = 2020
+year = 2022
 projected_det_national_data_yr = 
     NationalTable(
         get_table(all_det_national_data)|>
@@ -547,10 +548,10 @@ a_m0    = table_to_nafn(WplusSpAgC,WiNDC.armington_supply(WplusSpAgC),"commoditi
 ty_m0   = table_to_nafn(WplusSpAgC,WiNDC.other_tax_rate(WplusSpAgC),"sectors"); # sectors only
 ta_m0    = table_to_nafn(WplusSpAgC,WiNDC.absorption_tax_rate(WplusSpAgC),"commodities");
 tm_m0   = table_to_nafn(WplusSpAgC,WiNDC.import_tariff_rate(WplusSpAgC),"commodities");
-bopdef_m0  = NamedArray(WiNDC.balance_of_payments(WplusSpAgC)[:,:value],([:2020]),(:bop)) # not commodities or sectors
+bopdef_m0  = NamedArray(WiNDC.balance_of_payments(WplusSpAgC)[:,:value],([Symbol(year)]),(:bop)) # not commodities or sectors
 va_m0 = table_to_naSecsxC(WplusSpAgC, "value_added","sectors");
 
-WplusSpAgCdata = Dict(
+WplusSpAgCdata2022 = Dict(
   :a_0      => a_m0,
   :id_0     => id_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
   :ys_0     => ys_m0, # 3-dimensional DenseAxisArray{Float64,3,...} 
@@ -825,7 +826,7 @@ x -> coalesce.(x, 0)
 # # ex = DataFrame([x_0[yr,:].axes[1] x_0[yr,:].data], [:Win, :value]); ex.Win = Symbol.(ex.Win)
 # # ex.subtable .= "exports"# add subtable column for aggregation with all subtables to match and join .table versions
 # # ex.variable .= "F04000"
-# # ex_bea = leftjoin(filter(x->x.year==2020,get_subtable(all_summary_national_data,"exports"))[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); 
+# # ex_bea = leftjoin(filter(x->x.year==year,get_subtable(all_summary_national_data,"exports"))[:,[1,4]], unique(Codes[:,[:WiNDC_summary,aggcol]]), on=:commodities=>:WiNDC_summary); 
 # # ex_bea[!,aggcol] = Symbol.(ex_bea[!,aggcol])
 
 # # comp_x_1 = outerjoin(ex_tmp,ex, on=:commodities=>:Win, renamecols = ""=>"_JLD2") 
@@ -987,7 +988,7 @@ x -> coalesce.(x, 0)
 # fd_m0df = coalesce.(outerjoin(fd_m0exog,rename(pce_tmp[:,[:commodities,:value]],:value=>:pce), on=:commodities),0)
 # othersectors_fddf_tmp = [x for x in Iplus1 if x∉fd_m0df.commodities]
 # fd_m0 = DenseAxisArray(vcat(Matrix(fd_m0df[:,2:end]),zeros(length(othersectors_fddf_tmp),size(fd_m0df,2)-1)), vcat(fd_m0df.commodities,othersectors_fddf_tmp), Symbol.(names(fd_m0df)[2:end]))
-# bop_m0 = DenseAxisArray(bop_tmp.value, [:2020])
+# bop_m0 = DenseAxisArray(bop_tmp.value, [Symbol(year)])
 # othersectors_a_tmp = [x for x in Iplus1 if x∉a_tmp.commodities]
 # a_m0 = DenseAxisArray(vcat(a_tmp.value,zeros(length(othersectors_a_tmp))), vcat(a_tmp.commodities,othersectors_a_tmp))
 # othersectors_y_tmp = [x for x in Iplus1 if x∉y_tmp.commodities]# Nice this has everything, but still works
