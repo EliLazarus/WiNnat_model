@@ -72,3 +72,8 @@ for i in I;
               # More specific to the model
               sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
               sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])
+
+# Emissionsresults = deepcopy(Emissions_Mt)
+# for z in [Emissionsresults, EmissionReductionResults_Mt, Incomeresults, TaxRevresults ]
+# delete!(z,[i for i in 1:nrow(z)])
+# end
