@@ -57,6 +57,8 @@ ta_0DAA = DenseAxisArray([ta_m0[i,:value] for i in Ip], Ip)
 # yr = Symbol(2020)
 yr = Symbol(2022)
 
+GWP20_multiplier = 81.2/27
+Undercount_ch4_multiplier = 1.6
 ## Base Marginal Abatement Cost EPA data (2022). $/t and MMtCO2eq
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, skipto=17)
@@ -162,8 +164,8 @@ TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 5.0315703880400005
 
 ## Set tax rates 
 # Paris Target reduction from 2022 = 1117.47074 t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-CO2_taxrate =  200 * 1.130480652# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$ # 45.361 re 1117 target                   64.046 (GHG for Paris, 2022)  2020->8.97 # 9.04 4.5# 68.9330(target just CO2)
-CH4_taxrate =  200 * 1.130480652# using SC CO2 because CH4 data is in MtCO2eq # 240.064 w abatement re gross and sink target #            493.535 (GHG for Paris,2022) 39.725 #  39.99 12.69#
+CO2_taxrate = 45.361#200 * 1.130480652# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$ # 45.361 re 1117 target                   64.046 (GHG for Paris, 2022)  2020->8.97 # 9.04 4.5# 68.9330(target just CO2)
+CH4_taxrate = 339.565#200 * 1.130480652# using SC CO2 because CH4 data is in MtCO2eq # 240.064 w abatement re gross and sink target #  339.565 re 1117 target    old->493.535 (GHG for Paris,2022) 39.725 #  39.99 12.69#
 CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
@@ -439,19 +441,23 @@ fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :bmkmarg))
 
 TaxRev = DataFrame(solve=Symbol[], Total_Revenue=Float64[], Change_in_Revenue=Float64[], Income=Float64[])
-EqVar  = DataFrame(solve=Symbol[], utility=[], Mev=[], Equiv_Variarion=Float64[], EV_pcnt= [], Excess_Burden=Float64[])
+EqVar  = DataFrame(solve=Symbol[], utility=[], utility2=[], Mev=[], Mev2=[], Equiv_Variarion=Float64[], Equiv_Variarion2=Float64[], EV_pcnt= [], EV_pcnt2= [], Excess_Burden=Float64[])
 
-totrevbnch  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
+totrevbnch  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+ # taxes are negative in production, but positive for revenue
 sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
 sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
 sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
 income      = totrevbnch + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:bnch totrevbnch totrevbnch-totrevbnch income])
 
+totdem = sum([value(demand(RA,PA[i])) for i in Ip if pce_0[i,:pce]>0])
+Mevbnch2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+EVbnch2  = Mevbnch - value(RA) 
 EVbnch  = Mevbnch - value(RA) 
+util2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip if pce_0[i,:pce]>0])
 util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-push!(EqVar, [:bnch util Mevbnch EVbnch EVbnch/value(RA)*100 -EVbnch])
+push!(EqVar, [:bnch util util2 Mevbnch Mevbnch2 EVbnch EVbnch2 EVbnch/value(RA)*100 EVbnch2/value(RA)*100 -EVbnch])
 
 # Initialize a Dataframe to save final demand results
 FDemand = DataFrame(index=Vector{Symbol}(undef, length(Ip)),
@@ -488,10 +494,14 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
-util            = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income])
-EVWiNcntfac     = MevWiNcntfac - value(RA)
-push!(EqVar, [:WiNcntfac util MevWiNcntfac EVWiNcntfac EVWiNcntfac/value(RA)*100 -EVWiNcntfac])
+totdemWiNcntfac = sum([value(demand(RA,PA[i])) for i in Ip])
+MevWiNcntfac2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
+MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+EVWiNcntfac2  = MevWiNcntfac2 - value(RA) 
+EVWiNcntfac  = MevWiNcntfac - value(RA) 
+utilWiNcntfac2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])
+utilWiNcntfac    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:WiNcntfac utilWiNcntfac utilWiNcntfac2 MevWiNcntfac MevWiNcntfac2 EVWiNcntfac EVWiNcntfac2 EVWiNcntfac/value(RA)*100 EVWiNcntfac2/value(RA)*100 -EVWiNcntfac])
 
 fullvrWiNcntfact = generate_report(MultiNat)
 rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
@@ -526,10 +536,19 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:ch4 totrevch4 totrevch4-totrevbnch income])
 
-util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-Mevch4  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* (only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]))
-EVch4   = Mevch4 - value(RA)
-push!(EqVar, [:ch4 util Mevch4 EVch4 EVch4/value(RA)*100 -EVch4])
+totdemch4 = sum([value(demand(RA,PA[i])) for i in Ip])
+Mevch42 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
+Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+EVch42  = Mevch42 - value(RA) 
+EVch4  = Mevch4 - value(RA) 
+utilch42    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemch4) for i in Ip])
+utilch4    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:ch4 utilch4 utilch42 Mevch4 Mevch42 EVch4 EVch42 EVch4/value(RA)*100 EVch42/value(RA)*100 -EVch4])
+
+# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
+# Mevch4  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* (only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]))
+# EVch4   = Mevch4 - value(RA)
+# push!(EqVar, [:ch4 util Mevch4 EVch4 EVch4/value(RA)*100 -EVch4])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(demand(RA,PA[i]))
@@ -563,10 +582,19 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
 
-util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-Mevco2  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:co2,TaxRev)[!,:Income]))
-EVco2   = Mevco2 - value(RA)
-push!(EqVar, [:co2 util Mevco2 EVco2 EVco2/value(RA)*100 -EVco2])
+totdemco2 = sum([value(demand(RA,PA[i])) for i in Ip])
+Mevco22 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
+Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+EVco22  = Mevco22 - value(RA) 
+EVco2  = Mevco2 - value(RA) 
+utilco22    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemco2) for i in Ip])
+utilco2    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:co2 utilco2 utilco22 Mevco2 Mevco22 EVco2 EVco22 EVco2/value(RA)*100 EVco22/value(RA)*100 -EVco2])
+
+# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
+# Mevco2  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:co2,TaxRev)[!,:Income]))
+# EVco2   = Mevco2 - value(RA)
+# push!(EqVar, [:co2 util Mevco2 EVco2 EVco2/value(RA)*100 -EVco2])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:co2tax] = value(demand(RA,PA[i]))
@@ -599,10 +627,19 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
 
-util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-Mevboth = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:both,TaxRev)[!,:Income]))
-EVboth  = Mevboth - value(RA)
-push!(EqVar, [:both util Mevboth EVboth EVboth/value(RA)*100 -EVboth])
+totdemboth = sum([value(demand(RA,PA[i])) for i in Ip])
+Mevboth2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
+Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+EVboth2  = Mevboth2 - value(RA) 
+EVboth  = Mevboth - value(RA) 
+utilboth2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemboth) for i in Ip])
+utilboth    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:both utilboth utilboth2 Mevboth Mevboth2 EVboth EVboth2 EVboth/value(RA)*100 EVboth2/value(RA)*100 -EVboth])
+
+# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
+# Mevboth = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:both,TaxRev)[!,:Income]))
+# EVboth  = Mevboth - value(RA)
+# push!(EqVar, [:both util Mevboth EVboth EVboth/value(RA)*100 -EVboth])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:both] = value(demand(RA,PA[i]))
@@ -689,11 +726,12 @@ TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2
 EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReductionResults[:,3:end].*10^3); EmissionReductionResults_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 EmissionReductionResults_Mt.pc_diff .= -EmissionReductionResults_Mt.Interactions ./ EmissionReductionResults_Mt.Sum_of_each_tax .* 100 
 
-function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, cnst=1)
+function plottaxemisscurve(tax1, tax2, start, interval, finish ,start2, interval2, finish2, RAval, isfixed, cnst=1)
     """# runs a loop increasing each tax by \$1/t and then plotting Total GHG (CO2 & CH4) **incorporated** emissions 
     # Arguments are: which tax to change, other tax to either change simultaneously OR keep at 0, st=initial \$ tax value, fin= final \$ tax value,
     # and final (optional) argument can be set to 0 to remove other tax, by default """
-    margemiss = DataFrame(tax=Float64[], tax2=Float64[], Emissions=Float64[], utility=[], Mev=[], Equiv_Variarion=Float64[], EV_pcnt=[], CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
+    margemiss = DataFrame(tax=Float64[], tax2=Float64[], Emissions=Float64[], utility=[],utility2=[], Mev=[], Mev2=[], Equiv_Variarion=Float64[], Equiv_Variarion2=Float64[], 
+        EV_pcnt=[], EV_pcnt2=[], CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
     Testvars = DataFrame(taxrt=Float64[], 
     # Yagr=Float64[],Ymin=Float64[],Ypip=Float64[],Yoil=Float64[],Apip=Float64[],Aoil=Float64[],Ywst=Float64[],
     # CompDYPApip=Float64[],CompDApipPApip=Float64[],DemRAPApip=Float64[],
@@ -705,7 +743,7 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
     )
     ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
     for i in start:interval:finish
-        for j in start:interval:finish
+        for j in start2:interval2:finish2
         print(i,", ",j,": ")
         set_value!(tax1, i)
         set_value!(tax2, cnst*j)
@@ -718,15 +756,17 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish, RAval, isfixed, 
         sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
         sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
         income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
-        # push!(TaxRev, [i j totrevboth totrevboth-totrevbnch income])
         
-        util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-        Mevboth = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*income#(only(filter(x->x.solve==:both,TaxRev)[!,:Income]))
-        EVboth  = Mevboth - value(RA)
-        push!(EqVar, [:both util Mevboth EVboth EVboth/value(RA)*100 -EVboth])
+        totdem = sum([value(demand(RA,PA[i])) for i in Ip])
+        util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
+        util2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])
+        Mev = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*income
+        Mev2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])*income
+        EV  = Mev - value(RA)
+        EV2  = Mev2 - value(RA)
 
         ResultsTroubleshoot =vcat(ResultsTroubleshoot, [Results fill(i,length(Results[:,1]))])
-        push!(margemiss, [i j only(filter(:var => ==(:TotEm), Results)[:, :value])*10^3 util Mevboth EVboth EVboth/value(RA)*100 only(filter(:var => ==(:CH4TotEm), Results)[:, :value]) only(filter(:var => ==(:CO2TotEm), Results)[:, :value])  100*(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))  100*(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))     ])
+        push!(margemiss, [i j only(filter(:var => ==(:TotEm), Results)[:, :value])*10^3 util util2 Mev Mev2 EV EV2 EV/value(RA)*100 EV2/value(RA)*100 only(filter(:var => ==(:CH4TotEm), Results)[:, :value]) only(filter(:var => ==(:CO2TotEm), Results)[:, :value])  100*(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))  100*(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))     ])
         push!(Testvars, [i,                
         # value(Y[:agr]),value(Y[:coa]),value(Y[:pip]),value(Y[:oil]),value(A[:pip]),value(A[:oil]),value(Y[:wst]),
         # value(compensated_demand(MultiNat[:Y][:pip],MultiNat[:PA][:pip])),value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:pip])),value(demand(MultiNat[:RA],MultiNat[:PA][:pip])),
@@ -781,21 +821,33 @@ end
     # plcdyp, plcdap, plfdrap, plAp, plAo
 end
 
+
+# set_upper_bound(MultiNat[:A][:pip], 8)
+# set_upper_bound(MultiNat[:A][:pet], 4) # 30 is fine past $1000/t
+# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(A[:pet]))
+# set_upper_bound(MultiNat[:Y][:sle], 12)
+# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(Y[:sle]))
+# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(A[:pip]))
 ##### set_silent(MultiNat)
-##### checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 1, 400, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
+checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 48, 1, 52, 30, .1, 30.5, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
+EVdf2 = checkch4CO2[1]
+EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074) && x.Emissions >(TotGHGbnchmk*10^3-1117.47074-1),EVdf2)# 4329.824705730001
+# ##### checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 10, 400, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
+checkch4CO2[7]
+# ##### png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
+# ##### checkch4CO2[2]
+# EVdf = checkch4CO2[1]
+# ##### print("checkch4CO2",checkch4CO2[3])
+# EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074) && x.Emissions >(TotGHGbnchmk*10^3-1117.47074-1),EVdf)# 4329.824705730001
+# EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074),EVdf)
 
-##### checkch4CO2 = plottaxemisscurve(CH4_tax, CO2_tax, 0, 10, 400, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
-##### checkch4CO2[7]
-##### png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
-##### checkch4CO2[2]
-##### EVdf = checkch4CO2[1]
-##### print("checkch4CO2",checkch4CO2[3])
-##### EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074) && x.Emissions >(TotGHGbnchmk*10^3-1117.47074-100),EVdf)
-##### EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074),EVdf)
+# filter(:EV_pcnt2 => ==(minimum(EVdf_slice.EV_pcnt2)),EVdf_slice)
+# print(sort(EVdf,:EV_pcnt2)[1:80,:])
+# print(sort(EVdf_cap,:EV_pcnt2)[1:40,:])
 
-##### filter(:EV_pcnt => ==(minimum(EVdf_slice.EV_pcnt)),EVdf_slice)
-##### print(sort(EVdf,:EV_pcnt)[1:120,:])
-##### print(sort(EVdf_cap,:EV_pcnt)[1:40,:])
+# filter(:EV_pcnt => ==(minimum(EVdf_slice.EV_pcnt)),EVdf_slice)
+# print(sort(EVdf,:EV_pcnt)[1:120,:])
+# print(sort(EVdf_cap,:EV_pcnt)[1:40,:])
 
 ##### checkch4CO2[7]
 ###### Add Quant diff and % of consumption columns for Final Demand report dataframe
@@ -808,12 +860,7 @@ end
 # FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 # fix(RA, sum(fd_0[Ip,:pce]))
-# set_upper_bound(MultiNat[:A][:pip], 8)
-# set_upper_bound(MultiNat[:A][:pet], 4) # 30 is fine past $1000/t
-# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(A[:pet]))
-# set_upper_bound(MultiNat[:Y][:sle], 12)
-# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(Y[:sle]))
-# MPSGE.JuMP.delete_upper_bound(MPSGE.get_variable(A[:pip]))
+
 
 # checkCO2 = plottaxemisscurve(CO2_tax, CH4_tax, 0, 1, 400, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
 # checkCO2[7]
