@@ -9,7 +9,7 @@ using CSV, Plots
 # P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
 # P = MultiNatdata
 # P = WplusSpAgCdata2020  
-P = WplusSpAgCdata2022
+P = WplusSpAgCdata2022 # Re-aggregated/disaggregated from BEA detailed via WiNDC.jl, and my AggWiNDCdata.jl script
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
@@ -54,37 +54,62 @@ ty_0DAA = DenseAxisArray([ty_0[i,:value] for i in Ip], Ip)
 tm_0DAA = DenseAxisArray([tm_m0[i,:value] for i in Ip], Ip)
 ta_0DAA = DenseAxisArray([ta_m0[i,:value] for i in Ip], Ip)
 
+## Base Marginal Abatement Cost EPA data (2022). $/t and MMtCO2eq
+MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, limit=14)
+MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, skipto=17)
+# # MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
+# MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
+
 #####################
 # SET SCENARIO
 #####################
 yr = Symbol(2022)
+
+ReductTargetbase = 1117.47074039339 # 2022 imputed from Paris (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
+CH4toGHG2005 = .113943621 #fraction of CH4 to gross GHG in 2005, GHG Inv CO2eq=28
+CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation to adjust for different CH4 emissions scenarios
+
 ## Set tax rates 
-# Paris Target reduction from 2022 = 1117.47074 t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-CO2_taxrate = 45.361#200 * 1.130480652# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$ # 45.361 re 1117 target                   64.046 (GHG for Paris, 2022)  2020->8.97 # 9.04 4.5# 68.9330(target just CO2)
-CH4_taxrate = 339.565 #<=target for all CH4 # 491.4 #<= target for CH$ oil/gas/pip# 200 * 1.130480652 <= using SC CO2 because CH4 data is in MtCO2eq # 240.064 w abatement re gross and sink target #  339.565 re 1117 target    old->493.535 (GHG for Paris,2022) 39.725 #  39.99 12.69#
+# Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
+# CO2_taxrate = 45.271#<=re target w oilgas multi
+# CH4_taxrate = 60.765#<=re target w oilgas multi
+# CO2_taxrate = 52.1865#<=updated target w 20-yr GWP
+# CH4_taxrate = 73.21#<=updated target w 20-yr GWP 
+# CO2_taxrate = 49.9033#<=updated target w 20-yr GWP & oil/gas x 5 & oil gas only, Reduction targ=1845.07
+# CH4_taxrate = 13.4084#<=updated target w 20-yr GWP & oil/gas x 5 & oil gas only, Reduction targ=1845.07 
+CO2_taxrate = 45.361#<=target for all CH4
+CH4_taxrate = 339.565#<=target for all CH4
+# CH4_taxrate = 491.4 #<= target for CH$ oil/gas/pip
+# CH4_taxrate = 339.55#<=re target w oilgas multi w/o abatement 
+# CO2_taxrate = 200 * 1.130480652# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$ # 45.361 re 1117 target                   64.046 (GHG for Paris, 2022)  2020->8.97 # 9.04 4.5# 68.9330(target just CO2)
+# CH4_taxrate = 200 * 1.130480652 <= using SC CO2 because CH4 data is in MtCO2eq # 240.064 w abatement re gross and sink target #  339.565 re 1117 target    old->493.535 (GHG for Paris,2022) 39.725 #  39.99 12.69#
+
 CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" # Until there's also CO2 abatemment, no CH4 abatement by default
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
-print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
+print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
 
 CH4_tax_switch_on_sectors = DenseAxisArray([0 for i in Ip], Ip)
-CH4_tax_switch_on_sectors[CH4sectors] .=1
+CH4_tax_switch_on_sectors[CH4sectors] .=1 # Neutral: all sectors have tax (but only CH4sectors have non-zero CH4Intensity)
 ### Turn OFF Methane tax for coal, agriculture, and waste => Tax ONLY for oil, gas, and pip
-CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("CH4 gas/oil/pip ONLY")# sectors here will have NO CH4 tax
+# CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("CH4 gas/oil/pip ONLY✓, ")# sectors here will have NO CH4 tax
 
 CO2eqNonCO2_to_GHGInv_multiplier = 28/25 # Only FYI, not used: The non-CO2 MAC data (emissions and abatement) uses 25, the GHG Inv uses 28
-GWP20_multiplier = 81.2/25
-Undercount_ch4_multiplier = 1.6
-ch4multi = GWP20_multiplier * Undercount_ch4_multiplier ; print("CH4 multi x GWP x 1.6: ")
-ch4multi = 1 ; print("NO CH4 multiplier")#Default is CH4 with GWP = 25, and CH4 emissions as reported
+GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
+    GWPmulti = GWP20_multiplier / CO2eqNonCO2_to_GHGInv_multiplier; print("GWPmulti yes?->")
+GWPmulti = 1; print("NO")# Comment out for 20-year GWP simulation 
+    Undercount_oilgasch4_multiplier = 5; print(" undercount yes?->")#(Plant et al 2022   #Alvarez 2018 said 1.6)
+Undercount_oilgasch4_multiplier = 1; print("NO ")# default (comment out for oilgas multi)
+    multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
+ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;print(": Reduction targ=",ReductTarget,", ")
+# GWPmulti = 1 ; ReductTarget=copy(ReductTargetbase); print("NO GWP multiplier, Reduction targ = ", ReductTarget)#Default is CH4 with GWP = 25, and CH4 emissions as reported
 
-## Base Marginal Abatement Cost EPA data (2022). $/t and MMtCO2eq
-MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, limit=14)
-MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, skipto=17)
-# MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
-# MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
+
+# MAC_CH4_totemiss[:,:GAS]/sum(only(MAC_CH4_totemiss[:,2:end]))
+# Undercount_oilgasch4_multiplier*MAC_CH4_totemiss[:,:GAS]/(sum(only(MAC_CH4_totemiss[:,2:end]))-only(MAC_CH4_totemiss[:,:GAS])+only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)
+
 
 # % split for pipelines and oil from MAC for 'GAS' by proportion of combined economic output
 gas_of_GAS = sum(ys_0[:gas,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))
@@ -92,21 +117,21 @@ pip_of_GAS = sum(ys_0[:pip,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:ga
 oil_of_GAS = sum(ys_0[:oil,:])/(sum(ys_0[:pip,:])+sum(ys_0[:oil,:])+sum(ys_0[:gas,:]))# 0.6306557725899902 from just pip and oil b4
 # Aggregate/disaggregate for WiNDC sectors, $/t and MMtCO2eq 
 MAC_CH4_WiNDC=DataFrame([MAC_CH4_data[:,:cost_per_t], 
- (MAC_CH4_data[:,:agr_livestock]+MAC_CH4_data[:,:agr_rice]) * ch4multi,
- MAC_CH4_data[:,:COL] * ch4multi, 
- MAC_CH4_data[:,:GAS]*gas_of_GAS * ch4multi,
- MAC_CH4_data[:,:GAS]*pip_of_GAS * ch4multi,
- MAC_CH4_data[:,:GAS]*oil_of_GAS * ch4multi,
- (MAC_CH4_data[:,:wst_land]+MAC_CH4_data[:,:wst_water]) * ch4multi ],
+ (MAC_CH4_data[:,:agr_livestock]+MAC_CH4_data[:,:agr_rice]) * GWPmulti,
+ MAC_CH4_data[:,:COL] * GWPmulti, 
+ MAC_CH4_data[:,:GAS]*gas_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ MAC_CH4_data[:,:GAS]*pip_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ MAC_CH4_data[:,:GAS]*oil_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ (MAC_CH4_data[:,:wst_land]+MAC_CH4_data[:,:wst_water]) * GWPmulti ],
  [:cost_per_t; CH4sectors])
 # Aggregate/disaggregate Total CH4 Emissions for WiNDC sectors, and include total VA for convenience, MMt and BillUS$
 MAC_CH4_WiNDC_tot_MMt = DataFrame([MAC_CH4_totemiss[:,:cost_per_t],
- (MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice]) * ch4multi,
- MAC_CH4_totemiss[:,:COL] * ch4multi, 
- MAC_CH4_totemiss[:,:GAS]*gas_of_GAS * ch4multi,
- MAC_CH4_totemiss[:,:GAS]*pip_of_GAS * ch4multi,
- MAC_CH4_totemiss[:,:GAS]*oil_of_GAS * ch4multi,
- (MAC_CH4_totemiss[:,:wst_land]+MAC_CH4_totemiss[:,:wst_water]) * ch4multi],
+ (MAC_CH4_totemiss[:,:agr_livestock]+MAC_CH4_totemiss[:,:agr_rice]) * GWPmulti,
+ MAC_CH4_totemiss[:,:COL] * GWPmulti, 
+ MAC_CH4_totemiss[:,:GAS]*gas_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ MAC_CH4_totemiss[:,:GAS]*pip_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ MAC_CH4_totemiss[:,:GAS]*oil_of_GAS * GWPmulti * Undercount_oilgasch4_multiplier,
+ (MAC_CH4_totemiss[:,:wst_land]+MAC_CH4_totemiss[:,:wst_water]) * GWPmulti],
  [:cost_per_t; CH4sectors])
  MAC_CH4_WiNDC_tot = copy(MAC_CH4_WiNDC_tot_MMt); MAC_CH4_WiNDC_tot[:, 2:end] = MAC_CH4_WiNDC_tot_MMt[:,2:end].*10^-3
  push!(MAC_CH4_WiNDC_tot, ["Total va_cost"; [sum(va_0[VA,Symbol(sector)]) for sector in names(MAC_CH4_WiNDC[:,2:end])]])
@@ -183,13 +208,16 @@ TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 5.0315703880400005
 ## End data preparations
 ###
 
-## Upload table of elasticity parameter values drawn from SAGE 2.1.1 documentation and E3 book, with manual concordence
+# ## Upload table of elasticity parameter values drawn from SAGE 2.1.1 documentation and E3 book, with manual concordence
 Elasdf=CSV.read(joinpath(@__DIR__,"./data/Elasticities_SAGE_E3.csv"), DataFrame, header=1)
 Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(Elasdf)[2:end]))
 # Test to check significance of specific super high Armington elasticity for oil and gas by setting back to WiNDC 2 
 #TODO # Need to get a better reference to determine which end is appropriate (or in the middle) 
 # Elas[:oil,:SAGE_nf_Armington] = 2 ;println("ArmingtonOil=2")
 # Elas[:gas,:SAGE_nf_Armington] = 2 ;println("ArmingtonGas=2")
+# Match uel while uel/rnw split is just a 50/50 split all over to aviod Y[issue
+Elas[:rnw,:E3_m_ID] = deepcopy(Elas[:uel,:E3_m_ID])
+Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
 
 
 # function Multiloop(CO2_taxrate,CH4_taxrate) 
@@ -275,9 +303,6 @@ then split that data for elect, gas, and oil.
     then split elec for rnw, min (for now) and oil (for gas for now)
 """
 # Domestic production for all sectors
-# Match uel while uel/rnw split is just a 50/50 split all over to aviod Y[issue
-Elas[:rnw,:E3_m_ID] = deepcopy(Elas[:uel,:E3_m_ID])
-Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
 
 # for j∈Jp
 #         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
@@ -381,7 +406,7 @@ for i∈Ip
 @input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[i,:value]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
     end)
 end;
-println("No CH4 tariff:: ")
+println(" No CH4 tariff:: ")
 
 if (Kmobile=="yes")
     @demand(MultiNat, RA, begin
@@ -465,6 +490,8 @@ Mevbnch2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip i
 Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 EVbnch2  = Mevbnch2 - value(RA) 
 EVbnch  = Mevbnch - value(RA) 
+elasRA = MPSGE.elasticity(demand(RA))
+utilCES = (sum([pce_0[i,:pce]/sum(pce_0)^(1/elasRA)*value(demand(RA,PA[i]))^((elasRA-1)/(elasRA)) for i in Ip]))^(elasRA/(elasRA-1)) # if pce_0[i,:pce]>0
 util2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip if pce_0[i,:pce]>0])
 util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
 push!(EqVar, [:bnch util util2 Mevbnch Mevbnch2 EVbnch EVbnch2 EVbnch/value(RA)*100 EVbnch2/value(RA)*100 -EVbnch])
@@ -532,7 +559,7 @@ Rs[:,2][68:71]
 set_value!(ta,ta_0DAA[Jp])
 set_value!(tm,tm_0DAA[Jp])
 solve!(MultiNat , cumulative_iteration_limit = 0)# Temp measure to address residual price changes
-sort(generate_report(MultiNat),:value)
+# sort(generate_report(MultiNat),:value)
 # tax are at $/t of CH4(CO2eq)
 ## "EPA SC CH4 is $1600/t. 
 set_value!(CH₄_tax, CH4_taxrate)
@@ -793,8 +820,8 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
     else
         tax2in = " & $tax2"
     end
-    # plt = plot(margemiss[!,tax1.name], margemiss[!,:Emissions].*10^3, title= "RA:\$$RAval fxd:$isfixed", label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t", xlims=(0,finish))
-    # plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
+    plt = plot(margemiss[!,tax1.name], margemiss[!,:Emissions].*10^3, title= "RA:\$$RAval fxd:$isfixed", label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t", xlims=(0,finish))
+    plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
     # plch4 = plot(margemiss[!,tax1.name], margemiss[!,:CH4Emissions].*10^3, label=false, title="CH4 Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t", xlims=(0,finish))
     # plch4 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCH4bnchmk*10^3)) 
     # plco2 = plot(margemiss[!,tax1.name], margemiss[!,:CO2Emissions].*10^3, label=false, title="CO2 Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$tax1 $tax2in \$/t", xlims=(0,finish))
@@ -804,7 +831,7 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
     # plt3 = plot!(margemiss[!,tax1.name], margemiss[!,:CH4Emissions].*10^3, label="CH4 Emissions", color=:green, linestyle=:dot)
     # plt3 = plot!(margemiss[!,tax1.name], margemiss[!,:CO2Emissions].*10^3, label="CO2 Emissions", color=:blue, linestyle=:dash)
     # # plt3 = plot!([CO2_taxrate], seriestype=:vline, label="SCCO2", ylim=(0,TotGHGbnchmk*10^3), color=:red, linewidth=0.4)
-    # plt3 = plot!(margemiss[!,tax1.name],repeat([TotGHGbnchmk*10^3-1117.47074],length(margemiss[:,tax1.name])), color=:yellow, label="target",linewidth=1.5)
+    # plt3 = plot!(margemiss[!,tax1.name],repeat([TotGHGbnchmk*10^3-ReductTarget],length(margemiss[:,tax1.name])), color=:yellow, label="target",linewidth=1.5)
     # plt3 = plot!(twinx(),margemiss[!,tax1.name],margemiss[!,:EV_pcnt], label="EV%", linewidth=2., xlim=(0,finish), ylim=(0,1),legend=:right)
 
     ### Next line for CH4 spillovers, only valid for CO2-only policy
@@ -841,11 +868,13 @@ end
                                 # Nothing co2vec = [45.361; 41.325; 40.8; collect(40.4:-((40.4-30.1)/50):30.1) ; collect(30:-((30-23.5)/50):23.5); collect(23:-((23-14.5)/76):14.5) ;collect(14.1:-((14.1-7.4)/76):7.4) ; collect(7:-((7-.36)/76):.36);.26;.175;.1;.03]  # Smoother, for all CH4
 # # #4329.824705730001
 # co2vec = [45.361; 42.01; 41.8; collect(41.5:-((41.5-26)/150):26) ; collect(26:-((26-11.55)/170):11.55) ; collect(11.5:-((11.5-.2)/163):.2);.18;.15;.1;.01]  # For oil, gas, pip only (up to 491) #491.43 with 0, but not a step
-# checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1, 492, 
+# GWP 81.2, oil gas x 5, oil/gas CH4 tax only
+# co2vec = [52.1865; 51; 50; collect(49:-((49-26)/23):26) ; collect(26:-((26-11.55)/23):11.55) ; collect(11.5:-((11.5-.2)/23):.2);0;0;0;.0]  # For oil, gas, pip only (up to 491) #491.43 with 0, but not a step
+# checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1, 74, 
 # co2vec
 # , round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
 # # # # # EVdf2 = checkch4CO2[1]
-# # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074) && x.Emissions >(TotGHGbnchmk*10^3-1117.47074-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
+# # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
 # # # # # print(EVdf_slice2)
 # # # # # # ##### checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 10, 400, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
 # # # checkch4CO2[7]
@@ -855,24 +884,24 @@ end
 # # ##### checkch4CO2[2]
 # # # EVdf = checkch4CO2[1]
 # # # ##### print("checkch4CO2",checkch4CO2[3])
-# # # EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074) && x.Emissions >(TotGHGbnchmk*10^3-1117.47074-1),EVdf)# 4329.824705730001
-# # # EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-1117.47074),EVdf)
+# # # EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf)# 4329.824705730001
+# # # EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget),EVdf)
 
 # resultdf = copy(checkch4CO2[1])
 # tax1 = names(resultdf)[1]; tax2 = names(resultdf)[2]
 
-# # # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
-# # # plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
-# # # plch4 = plot(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label=false, title="CH₄ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2]) \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
-# # # plch4 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCH4bnchmk*10^3)) 
-# # # plco2 = plot(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label=false, title="CO₂ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2])  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
-# # # plco2 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCO2bnchmk*10^3))
+# # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
+# # plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
+# # plch4 = plot(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label=false, title="CH₄ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2]) \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
+# # plch4 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCH4bnchmk*10^3)) 
+# # plco2 = plot(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label=false, title="CO₂ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2])  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
+# # plco2 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCO2bnchmk*10^3))
 # pltEV = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
 # xlims=(0,resultdf[end,:CH₄_tax]), color=:black, linewidth=2, ylab="MMt CO₂eq",legend=:left, linestyle=:dashdot,yguidefontsize=9, legendfont=font(9,"Palatino Roman"),guidefont=font(10,"Palatino Roman"))
 # pltEV = plot!(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label="CH₄ Emissions", color=:green, linestyle=:dot)
 # pltEV = plot!(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linestyle=:dash)
 # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3), color=:red, linewidth=0.4)
-# pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-1117.47074],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
+# pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-ReductTarget],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
 # pltEV = plot!(twinx(),resultdf[!,tax1],resultdf[!,:EV_pcnt2], label="Equivalent Variation:\nRight axis", ylabel= "Percentage change", guidefont=font(9,"Palatino Roman"), linewidth=2., xlim=(0,resultdf[end,tax1]), ylim=(0,1),legend=:right, yticks=([0.0,0.2,0.4,0.6,0.8,1.0],["0.0%","0.2%","0.4%","0.6%","0.8%","1.0%"]))
 # pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3,  xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xlabel="$(replace(tax2,"_"=>" ")) \$/t", linewidth=0, legend=false, guidefont=font(10,"Palatino Roman"))#, ylim=(0,1))
 # 1
@@ -933,23 +962,22 @@ end
 # checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 20, 1200, round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]))
 # checkch4CO2[7]
 
-# fix(RA,fix(RA,16030.7) # RA value at $190/t
-# checkch4 = plottaxemisscurve(CH₄_tax,CO₂_tax, 0, 1, 491, zeros(492),round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
+# checkch4 = plottaxemisscurve(CH₄_tax,CO₂_tax, 0, 1, 500, zeros(501),round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
 # resultdfSpill = copy(checkch4[1])
-# # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
-# # resultdfSpill = copy(checkCO2[1])
-
+# # # # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), round(value(MultiNat[:RA]),digits=2), is_fixed(MultiNat[:RA]), 0)
+# # # # resultdfSpill = copy(checkCO2[1])
+1
 # tax1 = names(resultdfSpill)[1]; tax2 = names(resultdfSpill)[2]
-# pltSpill = plot(resultdfSpill[1:401,tax1], resultdfSpill[1:401,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdfSpill)[1]) $(names(resultdfSpill)[2])",
-# xlims=(0,resultdfSpill[401,tax1]), color=:black, linewidth=2, ylab="MMt CO₂eq",legend=:bottom, yguidefontsize=9, guidefont=font(10,"Palatino Roman"), legendfont=font(9,"Palatino Roman"))
+# pltSpill = plot(resultdfSpill[1:end,tax1], resultdfSpill[1:end,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdfSpill)[1]) $(names(resultdfSpill)[2])",
+# xlims=(0,resultdfSpill[end,tax1]), color=:black, linewidth=2, ylab="MMt CO₂eq",legend=:bottom, yguidefontsize=9, guidefont=font(10,"Palatino Roman"), legendfont=font(9,"Palatino Roman"))
 # pltSpill = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3), color=:red, linewidth=0.4)
-# pltSpill = plot!(resultdfSpill[1:401,tax1], resultdfSpill[1:401,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue)
-# pltSpill = plot!(resultdfSpill[1:401,tax1], resultdfSpill[1:401,:CH4Emissions].*10^3, label="CH₄ Emissions", color=:green)
+# pltSpill = plot!(resultdfSpill[1:end,tax1], resultdfSpill[1:end,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue)
+# pltSpill = plot!(resultdfSpill[1:end,tax1], resultdfSpill[1:end,:CH4Emissions].*10^3, label="CH₄ Emissions", color=:green)
 # ### Next line for CH4 spillovers, only valid for CO2-only policy
 # # pltSpill = plot!(twinx(),resultdfSpill[:,tax1],resultdfSpill[:,:CH4perc_red], ylim = (4.96,5.04),label="Ch4 spillover %\nright axis", color=:orange, xlims=(0,resultdfSpill[end,tax1]),legend=:right,guidefont=font(10,"Palatino Roman"),yticks=([4.96,4.98,5,5.02,5.04,],["4.96%","4.98%","5%","5.02%","5.04%"]))
 # ### Next line for CO2 spillovers, only valid for CH4-only policy
-# pltSpill = plot!(twinx(),resultdfSpill[:,tax1],resultdfSpill[:,:CO2perc_red], label="CO2 spillover %\nright axis", legendfont=font(9,"Palatino Roman"),color=:orange, xlims=(0,resultdfSpill[end,:CH₄_tax]),ylim=(0,100),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]), legend=:right,guidefont=font(10,"Palatino Roman"))
-
+# pltSpill = plot!(twinx(),resultdfSpill[2:end,tax1],resultdfSpill[2:end,:CO2perc_red], label="CO2 spillover %\nright axis", legendfont=font(9,"Palatino Roman"),color=:orange, xlims=(0,resultdfSpill[end,:CH₄_tax]),ylim=(0,100),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]), legend=:right,guidefont=font(10,"Palatino Roman"))
+# 1
 # savefig(pltSpill, joinpath(@__DIR__,"./Results/CH4-oilgas-Spillovers.svg"))
 
 # checkch4[2]
@@ -979,10 +1007,6 @@ end
 # print("checkch4",checkch4[3])
 # print(check[1])
 # png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
-print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
-print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital:: ")
-
-println("Emissions (remaining, i.e. not mitigated)")
 # return Emissions_Mt, 
 println(
 sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
