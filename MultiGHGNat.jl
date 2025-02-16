@@ -244,6 +244,7 @@ end)
     A[Ip],      (description = "Armington Supply",)
     VAS[Jp],    (description = "Value Added, standard",)
     MS[M],     (description = "Margin Supply",)
+    FDem,      (description = "Consumption goods final demand elasticities",)
 end)
 if (CH4abatement=="yes")
     @sectors(MultiNat,begin
@@ -277,6 +278,7 @@ end
     PVAM[Jp], (description = "Value-added output - Input to Y",)
     PM[M],   (description = "Margin Price",)
     PFX,     (description = "Foreign Exachange",)
+    PC,      (description = "Final Consumption price of demand goods",)
 end)
 
 # # Variables to track and report levels of CO2 emissions
@@ -408,10 +410,18 @@ for i∈Ip
 end;
 println(" No CH4 tariff:: ")
 
+### Final Consumption with elasticity of Demand
+    @production(MultiNat, FDem, [t=0, s= 1, p=>s=1], begin
+        @output(PC, sum(pce_0),t) #for i∈Ip]    
+        [@input(PA[i], pce_0[i,:pce],s) for i in Ip if i∉[:hos, :pet]]...
+        @input(PA[:pet], pce_0[:pet,:pce],s)
+        @input(PA[:hos], pce_0[:hos,:pce],s)
+    end)
+
 if (Kmobile=="yes")
     @demand(MultiNat, RA, begin
-    [@final_demand(PA[i], pce_0[i,:pce]) for i∈Ip]...
-    # [@final_demand(PA[i], fd_0[i,:pce]) for i∈Ip]...
+    # [@final_demand(PA[i], pce_0[i,:pce]) for i∈Ip]...
+    @final_demand(PC, sum(pce_0))
     @endowment(PFX, only(bopdef_0))
     [@endowment(PA[i], -sum(fd_0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVA[va], sum(va_0[va,j] for j∈Jp)) for va∈VA]...
@@ -485,15 +495,15 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevbnch + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:bnch totrevbnch totrevbnch-totrevbnch income])
 
-totdem = sum([value(demand(RA,PA[i])) for i in Ip if pce_0[i,:pce]>0])
-Mevbnch2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
-Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+totdem = -value(FDem)*value(compensated_demand(FDem,PC))
+Mevbnch2 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 EVbnch2  = Mevbnch2 - value(RA) 
 EVbnch  = Mevbnch - value(RA) 
-elasRA = MPSGE.elasticity(demand(RA))
-utilCES = (sum([pce_0[i,:pce]/sum(pce_0)^(1/elasRA)*value(demand(RA,PA[i]))^((elasRA-1)/(elasRA)) for i in Ip]))^(elasRA/(elasRA-1)) # if pce_0[i,:pce]>0
-util2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip if pce_0[i,:pce]>0])
-util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
+elasRA = MPSGE.elasticity(MultiNat.productions[FDem].input)
+utilCES = (sum([pce_0[i,:pce]/sum(pce_0)^(1/elasRA)*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/(elasRA)) for i in Ip]))^(elasRA/(elasRA-1)) #
+util2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])
+util    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
 push!(EqVar, [:bnch util util2 Mevbnch Mevbnch2 EVbnch EVbnch2 EVbnch/value(RA)*100 EVbnch2/value(RA)*100 -EVbnch])
 
 # Initialize a Dataframe to save final demand results
@@ -515,7 +525,7 @@ bothQpc=Vector{Float64}(undef, length(Ip))
 for (n,i) in enumerate(Ip)
     FDemand[n,:index]= i
     FDemand[n,:desc] = Symbol(Sectors[Sectors.index.==string(i),2][1])
-    FDemand[n,:bnch] = value(demand(RA,PA[i]))
+    FDemand[n,:bnch] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
 # unfix(RA)
 ## Check against WiNDC standard counterfactual
@@ -531,13 +541,13 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
-totdemWiNcntfac = sum([value(demand(RA,PA[i])) for i in Ip])
-MevWiNcntfac2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
-MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+MevWiNcntfac2 = prod([(1/value(PA[i]))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #])
+MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
 EVWiNcntfac2  = MevWiNcntfac2 - value(RA) 
 EVWiNcntfac  = MevWiNcntfac - value(RA) 
-utilWiNcntfac2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])
-utilWiNcntfac    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+utilWiNcntfac2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])
+utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:WiNcntfac utilWiNcntfac utilWiNcntfac2 MevWiNcntfac MevWiNcntfac2 EVWiNcntfac EVWiNcntfac2 EVWiNcntfac/value(RA)*100 EVWiNcntfac2/value(RA)*100 -EVWiNcntfac])
 
 fullvrWiNcntfact = generate_report(MultiNat)
@@ -545,7 +555,7 @@ rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
 fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
 
 for (n,i) in enumerate(Ip)
-    FDemand[n,:WiNcntfact] = value(demand(RA,PA[i]))
+    FDemand[n,:WiNcntfact] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
 
 ## DataFrame to hold the industry indices with descriptions
@@ -573,22 +583,17 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:ch4 totrevch4 totrevch4-totrevbnch income])
 
-totdemch4 = sum([value(demand(RA,PA[i])) for i in Ip])
-Mevch42 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
-Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+totdemch4 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+Mevch42 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #])
+Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #]
 EVch42  = Mevch42 - value(RA) 
 EVch4  = Mevch4 - value(RA) 
-utilch42    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemch4) for i in Ip])
-utilch4    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+utilch42    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemch4) for i in Ip])
+utilch4    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:ch4 utilch4 utilch42 Mevch4 Mevch42 EVch4 EVch42 EVch4/value(RA)*100 EVch42/value(RA)*100 -EVch4])
 
-# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-# Mevch4  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])* (only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]))
-# EVch4   = Mevch4 - value(RA)
-# push!(EqVar, [:ch4 util Mevch4 EVch4 EVch4/value(RA)*100 -EVch4])
-
 for (n,i) in enumerate(Ip)
-    FDemand[n,:ch4tax] = value(demand(RA,PA[i]))
+    FDemand[n,:ch4tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
 
 Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
@@ -619,22 +624,18 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
 
-totdemco2 = sum([value(demand(RA,PA[i])) for i in Ip])
-Mevco22 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
-Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+totdemco2 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+Mevco22 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #])
+Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #]
 EVco22  = Mevco22 - value(RA) 
 EVco2  = Mevco2 - value(RA) 
-utilco22    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemco2) for i in Ip])
-utilco2    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+utilco22    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemco2) for i in Ip])
+utilco2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:co2 utilco2 utilco22 Mevco2 Mevco22 EVco2 EVco22 EVco2/value(RA)*100 EVco22/value(RA)*100 -EVco2])
 
-# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-# Mevco2  = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:co2,TaxRev)[!,:Income]))
-# EVco2   = Mevco2 - value(RA)
-# push!(EqVar, [:co2 util Mevco2 EVco2 EVco2/value(RA)*100 -EVco2])
 
 for (n,i) in enumerate(Ip)
-    FDemand[n,:co2tax] = value(demand(RA,PA[i]))
+    FDemand[n,:co2tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
 
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
@@ -664,22 +665,18 @@ sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if 
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
 
-totdemboth = sum([value(demand(RA,PA[i])) for i in Ip])
-Mevboth2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0])
-Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) # if pce_0[i,:pce]>0]
+totdemboth = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+Mevboth2 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #])
+Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #]
 EVboth2  = Mevboth2 - value(RA) 
 EVboth  = Mevboth - value(RA) 
-utilboth2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdemboth) for i in Ip])
-utilboth    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+utilboth2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemboth) for i in Ip])
+utilboth    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:both utilboth utilboth2 Mevboth Mevboth2 EVboth EVboth2 EVboth/value(RA)*100 EVboth2/value(RA)*100 -EVboth])
 
-# util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if pce_0[i,:pce]>0])
-# Mevboth = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*(only(filter(x->x.solve==:both,TaxRev)[!,:Income]))
-# EVboth  = Mevboth - value(RA)
-# push!(EqVar, [:both util Mevboth EVboth EVboth/value(RA)*100 -EVboth])
 
 for (n,i) in enumerate(Ip)
-    FDemand[n,:both] = value(demand(RA,PA[i]))
+    FDemand[n,:both] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
 # Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
@@ -794,11 +791,11 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
         sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[vam.name,c]>1]) for vam in VAMcommodSet]))
         income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
         
-        totdem = sum([value(demand(RA,PA[i])) for i in Ip])
-        util    = prod([value(demand(RA,PA[i]))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
-        util2    = prod([value(demand(RA,PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])
-        Mev = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip if pce_0[i,:pce]>0])*income
-        Mev2 = prod([(1/value(PA[i]))^(value(demand(RA,PA[i]))/totdem) for i in Ip])*income
+        totdem = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+        util    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
+        util2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])
+        Mev = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])*income
+        Mev2 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])*income
         EV  = Mev - value(RA)
         EV2  = Mev2 - value(RA)
 
@@ -1018,7 +1015,7 @@ Symbol("Y[uel]"), Symbol("Y[rnw]"), Symbol("Y[oil]"), Symbol("Y[gas]")
 )
 println(Emissions_Mt)
 println(EmissionReductionResults_Mt)# ;println("RA check, it's the 'both' bc that's the last simulation:",
-# sum([value(demand(RA,PA[i]))*value(PA[i]) for i in Ip]))
+# sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip]))
 println(outerjoin(TaxRev,EqVar, on=:solve))
 #Check Benchmark
 # fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
