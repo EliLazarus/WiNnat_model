@@ -11,7 +11,7 @@ using MPSGE.JuMP.Containers
 # P = WplusCSpAgdata #resid fine but prices not good, esp PAoil and PYoil
 # P = WplusCAgSpdata # as above
 # P = WplusSpCAgdata # Good 1.
-P = WplusSpAgCdata  # almost as good 3.
+P = WplusSpAgCdata2022  # almost as good 3.
 # P = WplusAgCSpdata # resid fine, but prices not good, esp PAoil and PYoil
 # P = WplusAgSpCdata # Actually also good. 2.
 
@@ -53,7 +53,7 @@ ta_m0 = deepcopy(P[:ta_0]) #	"Tax net subsidy rate on intermediate demand", benc
 # [x -> P[:ta_0][x,:value] for x in names(P[:ta_0])[1]]
 # ), names(P[:ta_0])
 
-yr = Symbol(2020)
+yr = Symbol(2022)
 
 WiNnat = MPSGEModel()
 
@@ -138,12 +138,12 @@ end, elasticity = d_elas_ra)
 # fix(RA, sum(fd_m0[i,:pce] for i∈Ip))
 
 solve!(WiNnat; cumulative_iteration_limit = 0)
-solve!(WiNnat)
+# solve!(WiNnat)
 df_benchmark = generate_report(WiNnat);
 sort!(df_benchmark, [:margin])
 rename!(df_benchmark, :value => :bnchmrk, :margin => :bmkmarg)
 df_benchmark[!,:var] = Symbol.(df_benchmark[:,:var]);
-sort(df_benchmark, :bmkmarg)
+print(sort(df_benchmark, :bnchmrk))#:bmkmarg)
 
 
 # print(sort(fullvrbnch, :bmkmarg, by= abs))#, rev=true))
