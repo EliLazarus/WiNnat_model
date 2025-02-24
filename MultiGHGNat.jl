@@ -813,13 +813,22 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
         CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
     rename!(margemiss,:tax1=>tax1.name) , rename!(margemiss,:tax2=>tax2.name)
     Testvars = DataFrame(taxrt=Float64[], 
-    # Yagr=Float64[],Ymin=Float64[],Ypip=Float64[],Yoil=Float64[],Apip=Float64[],Aoil=Float64[],Ywst=Float64[],
-    # CompDYPApip=Float64[],CompDApipPApip=Float64[],DemRAPApip=Float64[],
-    # PAagr=Float64[],PAmin=Float64[],PApip=Float64[],PAoil=Float64[],PAwst=Float64[],PAuti=Float64[],compDApipPAoil=Float64[],compdDAoilPAoil=Float64[],
-    # VASagr=Float64[],VAMagr=Float64[],VASmin=Float64[],VAMmin=Float64[],VASpip=Float64[],VAMpip=Float64[],VASoil=Float64[],VAMoil=Float64[],VASwst=Float64[],VAMwst=Float64[],
-    VASagr=Float64[],VAM10agr=Float64[],VAM100agr=Float64[],VAM500agr=Float64[],VAMkagr=Float64[],Apip=[],VASmin=Float64[],VAM10min=Float64[],VAM100min=Float64[],VAM500min=Float64[],VAMkmin=Float64[],VASpip=Float64[],VAM10pip=Float64[],VAM100pip=Float64[],VAM500pip=Float64[],VAMkpip=Float64[],VASoil=Float64[],VAM10oil=Float64[],VAM100oil=Float64[],VAM500oil=Float64[],VAMkoil=Float64[],VASwst=Float64[],VAM10wst=Float64[],VAM100wst=Float64[],VAM500wst=Float64[],VAMkwst=Float64[],
+    # Yagr=Float64[],Ycoa=Float64[], 
+    Ypip=Float64[], Yoil=Float64[],Ygas=Float64[],
+    # Ypet=Float64[], Apip=Float64[],Aoil=Float64[],Ywst=Float64[], CompDYPApip=Float64[],CompDApipPApip=Float64[],DemRAPApip=Float64[],
+    # PAagr=Float64[],PAcoa=Float64[],PApip=Float64[],PAoil=Float64[],PAwst=Float64[],PAuel=Float64[],
+    # compDApipPAoil=Float64[],compdDAoilPAoil=Float64[],
+    # VAMagr=Float64[],VAScoa=Float64[],VAMcoa=Float64[],VASpip=Float64[],VAMpip=Float64[], VASwst=Float64[],VAMwst=Float64[],
+    # VASagr=Float64[],VAM10agr=Float64[],VAM100agr=Float64[],VAM500agr=Float64[],VAMkagr=Float64[],Apip=[],
+    # VAScoa=Float64[],VAM10coa=Float64[],VAM100coa=Float64[],VAM500coa=Float64[],VAMkcoa=Float64[],
+    # VASpip=Float64[],VAM10pip=Float64[],
+    VAM100pip=Float64[],VAM500pip=Float64[],
+    # VAMkpip=Float64[],
+    VASoil=Float64[],VAM10oil=Float64[],VAM20oil=Float64[],VAM50oil=Float64[],VAM100oil=Float64[],VAM500oil=Float64[],VAMkoil=Float64[],
+    VASgas=Float64[],VAM10gas=Float64[],VAM20gas=Float64[],VAM50gas=Float64[],VAM100gas=Float64[],VAM500gas=Float64[],VAMkgas=Float64[],
+    # VASwst=Float64[],VAM10wst=Float64[],VAM100wst=Float64[],VAM500wst=Float64[],VAMkwst=Float64[],
     TotEm=Float64[],CH4TotEm=Float64[],CO2TotEm=Float64[]
-    # CH4emoil=Float64[],CH4empip=Float64[],CO2emin=Float64[],CO2emoil=Float64[]
+    # CH4emoil=Float64[],CH4empip=Float64[],CO2ecoa=Float64[],CO2emoil=Float64[]
     )
     ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
     for (i,j) in zip(start:interval:finish,vec)
@@ -830,6 +839,23 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
         Results = generate_report(MultiNat)
         Results[!,:var] = Symbol.(Results[:,:var]);
        
+        push!(Testvars, [i,                
+        # value(Y[:agr]), value(Y[:coa]),
+        value(Y[:pip]),value(Y[:oil]),value(Y[:gas]),
+        # value(Y[:pet]), value(A[:pip]),value(A[:oil]), value(Y[:wst]), value(compensated_demand(MultiNat[:Y][:pip],MultiNat[:PA][:pip])),value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:pip])),value(demand(MultiNat[:RA],MultiNat[:PA][:pip])),
+        # value(PA[:agr]),value(PA[:coa]),value(PA[:pip]),value(PA[:oil]),value(PA[:wst]),value(PA[:uel]),
+        # value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:oil])),value(compensated_demand(MultiNat[:A][:oil],MultiNat[:PA][:oil])),
+        # value(VAM[:agr]),value(VAS[:coa]),value(VAM[:coa]),value(VAS[:pip]),value(VAM[:pip]),
+        # value(VAS[:wst]),value(VAM[:wst]), value(VAS[:agr]),value(VAM10[:agr]),value(VAM100[:agr]),value(VAM500[:agr]),value(VAM1000[:agr]),value(A[:pip]),
+        # value(VAS[:coa]),value(VAM10[:coa]),value(VAM100[:coa]),value(VAM500[:coa]),value(VAM1000[:coa]),
+        # value(VAS[:pip]),value(VAM10[:pip]),
+        value(VAM100[:pip]),value(VAM500[:pip]),
+        # value(VAM1000[:pip]),
+        value(VAS[:oil]),value(VAM10[:oil]),value(VAM20[:oil]),value(VAM50[:oil]),value(VAM100[:oil]),value(VAM500[:oil]),value(VAM1000[:oil]),
+        value(VAS[:gas]),value(VAM10[:gas]),value(VAM20[:gas]),value(VAM50[:gas]),value(VAM100[:gas]),value(VAM500[:gas]),value(VAM1000[:gas]),# value(VAS[:wst]),value(VAM10[:wst]),value(VAM100[:wst]),value(VAM500[:wst]),value(VAM1000[:wst]),
+        value(TotEm),value(CH4TotEm),value(CO2TotEm)
+        # value(CH4em[:oil]),value(CH4em[:pip]),value(CO2em[:coa]),value(CO2em[:oil])
+        ]  )
         totrevboth  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
         sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
         sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
