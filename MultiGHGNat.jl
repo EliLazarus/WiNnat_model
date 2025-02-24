@@ -808,8 +808,9 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, RAval, isfi
     """# runs a loop increasing each tax by \$1/t and then plotting Total GHG (CO2 & CH4) **incorporated** emissions 
     # Arguments are: which tax to change, other tax to either change simultaneously OR keep at 0, st=initial \$ tax value, fin= final \$ tax value,
     # and final (optional) argument can be set to 0 to remove other tax, by default """
-    margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utility=[],utility2=[], Mev=[], Mev2=[], Equiv_Variarion=Float64[], Equiv_Variarion2=Float64[], 
-        EV_pcnt=[], EV_pcnt2=[], CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
+    margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], MevCES=[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
+    # margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utilityCES=[], Mev=[], MevCES=[], Equiv_Variarion=Float64[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
+        CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
     rename!(margemiss,:tax1=>tax1.name) , rename!(margemiss,:tax2=>tax2.name)
     Testvars = DataFrame(taxrt=Float64[], 
     # Yagr=Float64[],Ymin=Float64[],Ypip=Float64[],Yoil=Float64[],Apip=Float64[],Aoil=Float64[],Ywst=Float64[],
