@@ -1,10 +1,14 @@
 n=0
-for i in keys(WiNnat.productions);n+=1;
+for i in keys(MultiNat.productions);n+=1;
        println(n,"; ",i)
        end
 
 for (a,b) in enumerate(array/Dict)
        print("Numerical index $a, value $b")
+end
+
+for (a,b) in enumerate(MPSGE.production_sectors(MultiNat))
+       println("$a, $b")
 end
 
 WiNnat.productions[collect(keys(WiNnat.productions))[11]]  #or
@@ -25,6 +29,8 @@ only(filter(:var => ==(:TotEm), fullvrboth)[:value])
 print(filter(row -> row.var ∈ [Symbol("Y[alt]"),Symbol("Y[cep]"),Symbol("Y[ote]"),Symbol("Y[mmf]"),Symbol("Y[rec]"),Symbol("Y[min]"),Symbol("Y[pmt]"),Symbol("Y[sle]"),Symbol("Y[pet]"),Symbol("Y[oil]"),Symbol("Y[wst]"),Symbol("Y[agr]")], Compare))
 
 print(filter(row -> row.var ∈ [Symbol("Y[alt]"),Symbol("Y[cep]"),Symbol("Y[ote]"),Symbol("Y[mmf]"),Symbol("Y[rec]"),Symbol("Y[min]"),Symbol("Y[pmt]"),Symbol("Y[sle]"),Symbol("Y[pet]"),Symbol("Y[oil]"),Symbol("Y[wst]"),Symbol("Y[agr]")], Compare))
+
+subset(fullvrbnch, :var => ByRow(x -> occursin(r"PVAM",string(x)) ))
 
 set_silent(MultiNat)
 unset_silent(MultiNat)
@@ -77,3 +83,4 @@ for i in I;
 # for z in [Emissionsresults, EmissionReductionResults_Mt, Incomeresults, TaxRevresults ]
 # delete!(z,[i for i in 1:nrow(z)])
 # end
+println(filter(x->x.var in [Symbol("Y[$i]") for i in Ip],fullvrbnch))
