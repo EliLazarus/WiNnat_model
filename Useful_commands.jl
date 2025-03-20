@@ -12,7 +12,9 @@ for (a,b) in enumerate(MPSGE.production_sectors(MultiNat))
 end
 
 WiNnat.productions[collect(keys(WiNnat.productions))[11]]  #or
+WiNnat.productions[A[:hos]]  # This one!! with production name.
 MPSGE.production_sectors(MultiNat)[1]
+
 
 compensated_demand(Y[:ppd], PY[:air])
 value(compensated_demand(Y[:ppd], PY[:air]))
