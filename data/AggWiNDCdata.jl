@@ -124,46 +124,51 @@ summary_map = CSV.read(joinpath(@__DIR__,"summarywindcplus_detail.csv"), DataFra
 # generate new NAtionalTable, ready for Agg and then Calibrate
 ###############################
 
-Gas_oil_splits=Dict(:prodgas=>0.4003, :prodoil=>0.5997,
-:imgas=>0.4308,:imoil=>0.5692,:exgas=>0.3961,:exoil=>0.6039)
+Gas_oil_splits= Dict(:prodgas=>0.4003, :prodoil=>0.5997, :exgas=>0.3961,:exoil=>0.6039,:imgas=>0.4308,:imoil=>0.5692)
+Elec_rnw_splits=Dict(:produel=>0.5768, :prodrnw=>0.4232, :exuel=>0.5768,:exrnw=>0.4232,:imuel=>0.1879,:imrnw=>0.8121)	
+
 ## Split before Ag
 # disag50_50 = DataFrame( #for testing
 #     old = ["211000", "211000"], # oil, oil
 #     new = ["211000", "211001"], # oil, gas
 #     shares = [.5,.5],)
 disagprod = DataFrame(
-    old = ["211000", "211000"], # oil, oil
-    new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas]],
+    old = ["211000", "211000","221100","221100","S00101","S00101","S00202","S00202"], # oil, oil, #uel,uel, #fen, fen, #sle, sle  
+    new = ["211000", "211001","221100","221101","221100","221101","221100","221101"], # oil, gas, #uel, rnw, #uel, rnw, #uel, rnw
+    shares = [Gas_oil_splits[:prodoil], Gas_oil_splits[:prodgas],
+    Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw]],
 )
 disagexp = DataFrame(
-    old = ["211000", "211000"], # oil, oil
-    new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas]],
+    old = ["211000", "211000","221100","221100","S00101","S00101","S00202","S00202"], # oil, oil, #uel,uel, #fen, fen, #sle, sle  
+    new = ["211000", "211001","221100","221101","221100","221101","221100","221101"], # oil, gas, #uel, rnw, #uel, rnw, #uel, rnw
+    shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas],
+    Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw]],
 )
 disagimp = DataFrame(
-    old = ["211000", "211000"], # oil, oil
-    new = ["211000", "211001"], # oil, gas
-    shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas]],
+    old = ["211000", "211000","221100","221100","S00101","S00101","S00202","S00202"], # oil, oil, #uel,uel, #fen, fen, #sle, sle  
+    new = ["211000", "211001","221100","221101","221100","221101","221100","221101"], # oil, gas, #uel, rnw, #uel, rnw, #uel, rnw
+    shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas],
+    Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw]],
 )
 
-## Secondary Split for uel to uel and rnw
-disagprod2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel  
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.2,.8], # just nominal so far
-)
-disagexp2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.4,.6], # just nominal so far
+### Doh! Don't need 2 splits, can be all at once.
+# ## Secondary Split for uel to uel and rnw
+# disagprod2 = DataFrame(
+#     old = ["221100", "221100","SOO101","SOO101"], #uel,uel  
+#     new = ["221100", "221101","221100", "221101"], #uel, rnw
+#     shares = [.2,.8, .2, .8], # just nominal so far
+# )
+# disagexp2 = DataFrame(
+#     old = ["221100", "221100"], #uel,uel
+#     new = ["221100", "221101"], #uel, rnw
+#     shares = [.4,.6], # just nominal so far
  
-)
-disagimp2 = DataFrame(
-    old = ["221100", "221100"], #uel,uel
-    new = ["221100", "221101"], #uel, rnw
-    shares = [.6,.4], # just nominal so far
-)
+# )
+# disagimp2 = DataFrame(
+#     old = ["221100", "221100"], #uel,uel
+#     new = ["221100", "221101"], #uel, rnw
+#     shares = [.19,.81], # From IEA data, calculated in Excel
+# )
 
 # ### For split after aggregations
 # disagprod = DataFrame(
@@ -357,79 +362,79 @@ WplusSp1 = NationalTable(
     new_sets1
 )
 
-############################
-### This is the secondary split, for uel into uel and rnw
-############################
-WplusIntprod2 = get_subtable(WplusSp1, ["intermediate_supply","intermediate_demand"]) |>
-    x -> leftjoin( x,disagprod2,on = :commodities => :old,renamecols = "" => "_com"
-    ) |>    x -> transform(x,        [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
-    ) |>    x -> leftjoin(x,disagprod2,on = :sectors => :old,renamecols = "" => "_sec"
-    ) |>    x -> transform(x,        [:sectors, :new_sec] => ByRow((a,b) -> ismissing(b) ? a : b) => :sectors
-    ) |>    x -> select(x, Not(:new_com, :new_sec)) |>
-    x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x,         [:value, :shares_com, :shares_sec] => ((a,b,c) -> sum(a.*b.*c))=> :value
-    )
-# This is for value-added because it's only split by sector (l and k are the commods)
-WplusVAprod2 = get_subtable(WplusSp1, ["value_added"]) |>
-    x -> leftjoin(x,disagprod2,on = :sectors => :old,renamecols = "" => "_sec"
-    ) |>    x -> transform(x,        [:sectors, :new_sec] => ByRow((a,b) -> ismissing(b) ? a : b) => :sectors
-    ) |>    x -> select(x, Not(:new_sec)) |>    x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x,         [:value, :shares_sec] => ((a,b) -> sum(a.*b))=> :value
-    )
-# This is for the other tables/domains things that split only by commodity.    
-Wplusprod2 = get_subtable(WplusSp1, ["exogenous_final_demand","personal_consumption","margin_demand","margin_supply","tax","subsidies"    ])|>
-    x -> leftjoin(x,disagprod2,on = :commodities => :old,renamecols = "" => "_com"
-    ) |>    x -> transform(x,        [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
-    ) |>    x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-    x -> combine(x,         [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value    )
-# Split exports with export specific ratio
- WplusEx2 = get_subtable(WplusSp1, ["exports"])|>
-        x -> leftjoin(    x,    disagexp2,    on = :commodities => :old,    renamecols = "" => "_com"        ) |>
-        x -> transform(x,[:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
-        ) |>        x -> coalesce.(x, 1) |>        x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-        x -> combine(x, [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value        )
-# Split imports with import specific ratio
- WplusIm2 = get_subtable(WplusSp1, [ "imports","duty" ])|>
-        x -> leftjoin(    x,    disagimp2,    on = :commodities => :old,    renamecols = "" => "_com"    ) |>
-        x -> transform(x,   [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
-        ) |>        x -> coalesce.(x, 1) |>        x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
-        x -> combine(x,             [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value        )
-## This is to build the new sets with the additional sectors/commodities, then vcat with tables to generate a NationalTable
-new_sets2 = vcat(
-    get_set(WplusSp1) |>
-        x -> subset(x, :set => ByRow(!in(["sectors", "commodities"]))),
-    get_set(WplusSp1, "sectors") |>    
-        x -> leftjoin(
-            x,
-            disagprod2,
-            on = :element => :old,
-        ) |>
-        x -> transform(x,
-        [:element, :new] => ByRow((a,b) -> ismissing(b) ? a : b) => :element
-        ) |>
-        x -> select(x, Not(:new, :shares)),
-    get_set(WplusSp1, "commodities") |>    
-        x -> leftjoin(
-            x,
-            disagprod2,
-            on = :element => :old,
-        ) |>
-        x -> transform(x,
-        [:element, :new] => ByRow((a,b) -> ismissing(b) ? a : b) => :element
-        ) |>
-        x -> select(x, Not(:new, :shares))
-)
+# ############################
+# ### This is the secondary split, for uel into uel and rnw
+# ############################
+# WplusIntprod2 = get_subtable(WplusSp1, ["intermediate_supply","intermediate_demand"]) |>
+#     x -> leftjoin( x,disagprod2,on = :commodities => :old,renamecols = "" => "_com"
+#     )[1:810,:] |>    x -> transform(x,        [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
+#     ) |>    x -> leftjoin(x,disagprod2,on = :sectors => :old,renamecols = "" => "_sec"
+#     ) |>    x -> transform(x,        [:sectors, :new_sec] => ByRow((a,b) -> ismissing(b) ? a : b) => :sectors
+#     ) |>    x -> select(x, Not(:new_com, :new_sec)) |>
+#     x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x,         [:value, :shares_com, :shares_sec] => ((a,b,c) -> sum(a.*b.*c))=> :value
+#     )
+# # This is for value-added because it's only split by sector (l and k are the commods)
+# WplusVAprod2 = get_subtable(WplusSp1, ["value_added"]) |>
+#     x -> leftjoin(x,disagprod2,on = :sectors => :old,renamecols = "" => "_sec"
+#     ) |>    x -> transform(x,        [:sectors, :new_sec] => ByRow((a,b) -> ismissing(b) ? a : b) => :sectors
+#     ) |>    x -> select(x, Not(:new_sec)) |>    x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x,         [:value, :shares_sec] => ((a,b) -> sum(a.*b))=> :value
+#     )
+# # This is for the other tables/domains things that split only by commodity.    
+# Wplusprod2 = get_subtable(WplusSp1, ["exogenous_final_demand","personal_consumption","margin_demand","margin_supply","tax","subsidies"    ])|>
+#     x -> leftjoin(x,disagprod2,on = :commodities => :old,renamecols = "" => "_com"
+#     ) |>    x -> transform(x,        [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
+#     ) |>    x -> coalesce.(x, 1) |>    x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#     x -> combine(x,         [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value    )
+# # Split exports with export specific ratio
+#  WplusEx2 = get_subtable(WplusSp1, ["exports"])|>
+#         x -> leftjoin(    x,    disagexp2,    on = :commodities => :old,    renamecols = "" => "_com"        ) |>
+#         x -> transform(x,[:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
+#         ) |>        x -> coalesce.(x, 1) |>        x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#         x -> combine(x, [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value        )
+# # Split imports with import specific ratio
+#  WplusIm2 = get_subtable(WplusSp1, [ "imports","duty" ])|>
+#         x -> leftjoin(    x,    disagimp2,    on = :commodities => :old,    renamecols = "" => "_com"    ) |>
+#         x -> transform(x,   [:commodities, :new_com] => ByRow((a,b) -> ismissing(b) ? a : b) => :commodities
+#         ) |>        x -> coalesce.(x, 1) |>        x -> groupby(x, [:commodities, :sectors, :year, :subtable]) |>
+#         x -> combine(x,             [:value, :shares_com] => ((a,b) -> sum(a.*b))=> :value        )
+# ## This is to build the new sets with the additional sectors/commodities, then vcat with tables to generate a NationalTable
+# new_sets2 = vcat(
+#     get_set(WplusSp1) |>
+#         x -> subset(x, :set => ByRow(!in(["sectors", "commodities"]))),
+#     get_set(WplusSp1, "sectors") |>    
+#         x -> leftjoin(
+#             x,
+#             disagprod2,
+#             on = :element => :old,
+#         ) |>
+#         x -> transform(x,
+#         [:element, :new] => ByRow((a,b) -> ismissing(b) ? a : b) => :element
+#         ) |>
+#         x -> select(x, Not(:new, :shares)),
+#     get_set(WplusSp1, "commodities") |>    
+#         x -> leftjoin(
+#             x,
+#             disagprod2,
+#             on = :element => :old,
+#         ) |>
+#         x -> transform(x,
+#         [:element, :new] => ByRow((a,b) -> ismissing(b) ? a : b) => :element
+#         ) |>
+#         x -> select(x, Not(:new, :shares))
+# )
 
-WplusSp2 = NationalTable(
-    vcat(WplusIntprod2,WplusVAprod2, Wplusprod2, WplusEx2, WplusIm2),
-    new_sets2
-)
+# WplusSp2 = NationalTable(
+#     vcat(WplusIntprod2,WplusVAprod2, Wplusprod2, WplusEx2, WplusIm2),
+#     new_sets2
+# )
 
 # WiNDC plus = Multiple GHG update from national summary map (uti->[:uel,:ugs,:uwt], min->[:coa,:min])
 # summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
 # # Aggregate (WiNDC function) to WiNDC plus before oil/gas split 
 WplusSpAg = aggregate(
-    WplusSp2,
+    WplusSp1,
     :commodities => (summary_map, :detailed => :summary),
     :sectors => (summary_map, :detailed => :summary),
     :margin_demand => (summary_map, :detailed => :summary),
