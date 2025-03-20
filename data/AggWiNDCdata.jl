@@ -1,7 +1,7 @@
 using WiNDC, DataFrames, MPSGE, NamedArrays, CSV, JuMP.Containers
 
 ##cd to top level of the data files
-raw_data_directory = "./detailed_data/national"
+raw_data_directory = joinpath(@__DIR__,"./detailed_data/national")
 # all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :raw_detailed); # only for  2007, 2012, 2017
 # Data is PROJECTED from summary => detailed bc detailed only 2007, 2012, 2017 
 all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :detailed);
@@ -90,7 +90,7 @@ NationalTable(
 # solve!(M3, cumulative_iteration_limit = 0)
 
 # WiNDC plus = Multiple GHG update from national summary map (uti->[:uel,:ugs,:uwt], min->[:coa,:min])
-summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
+summary_map = CSV.read(joinpath(@__DIR__,"summarywindcplus_detail.csv"), DataFrame)
 # # Aggregate (WiNDC function) to WiNDC plus before oil/gas split 
 # WplusAg = aggregate(
 #     projected_det_national_data_yr,
