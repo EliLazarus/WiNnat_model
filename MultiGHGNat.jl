@@ -334,7 +334,7 @@ then split that data for elect, gas, and oil.
 # Test of re-nesting within Y block without disaggregation
 ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
-    @production(MultiNat, Y[j], [t= 0.4, 
+    @production(MultiNat, Y[j], [t= 0.05, # Can't be zero with slack activities. Need values from lit, but in absence, 0.05 is lowest that solves ~1 for Y[gas]&Y[oil] in the benchmark
     s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
     va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en],
     oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[j,:SAGE_en]
