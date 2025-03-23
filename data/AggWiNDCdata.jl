@@ -139,13 +139,13 @@ disagexp = DataFrame(
     old = ["211000", "211000","221100","221100","S00101","S00101","S00202","S00202"], # oil, oil, #uel,uel, #fen, fen, #sle, sle  
     new = ["211000", "211001","221100","221101","221100","221101","221100","221101"], # oil, gas, #uel, rnw, #uel, rnw, #uel, rnw
     shares = [Gas_oil_splits[:exoil], Gas_oil_splits[:exgas],
-    Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw]],
+    Elec_rnw_splits[:exuel], Elec_rnw_splits[:exrnw],Elec_rnw_splits[:exuel], Elec_rnw_splits[:exrnw],Elec_rnw_splits[:exuel], Elec_rnw_splits[:exrnw]],
 )
 disagimp = DataFrame(
     old = ["211000", "211000","221100","221100","S00101","S00101","S00202","S00202"], # oil, oil, #uel,uel, #fen, fen, #sle, sle  
     new = ["211000", "211001","221100","221101","221100","221101","221100","221101"], # oil, gas, #uel, rnw, #uel, rnw, #uel, rnw
     shares = [Gas_oil_splits[:imoil], Gas_oil_splits[:imgas],
-    Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw],Elec_rnw_splits[:produel], Elec_rnw_splits[:prodrnw]],
+    Elec_rnw_splits[:imuel], Elec_rnw_splits[:imrnw],Elec_rnw_splits[:imuel], Elec_rnw_splits[:imrnw],Elec_rnw_splits[:imuel], Elec_rnw_splits[:imrnw]],
 )
 
 
@@ -301,41 +301,95 @@ new_sets1 = vcat(
         x -> select(x, Not(:new, :shares))
 )
 
-# Set up uel/rnw pairs to attribute all intermediate commodity demands to EITHER for fossil=>uel (and uranium=>rnw)
-codes =
-DataFrame(
-     elec = repeat(["221100","221101"],outer=[10]), #uel,rnw etc  
-     sect = ["211000","211000", #oil
-            "211001", "211001", #gas
-            "212100", "212100", #coa
-            "213111", "213111", #smn
-            "221200", "221200", #ugs
-            "324110", "324110", #pet 
-            "325120", "325120", #che 
-            "447000", "447000", #ott 
-            "486000", "486000", #pip 
-            "2122A0", "2122A0"], #min
-     fullorzero = [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,
-     0,1], 
-     group=[:oil,:oil,:gas,:gas,:coa,:coa,:smn,:smn,:ugs,:ugs,:pet,:pet,:che,:che,:ott,:ott,:pip,:pip,:min,:min])
+"""
+### Process to link fossil inputs with fossil electricity only (uel), in production ###
+Step1: int_dem. commods pet, coa, pip, ugs, oil, gas => uel (0=>rnw)
+Step2: sum difference for all (need that value to be adjusted in value added to balance)
+Step3: int_sup. commod rnw and uel to sector rnw, => commod rnw, rnw and uel to sector uel => commod uel
+Step4: int_sup. commod ugs to sector rnw + ugs to sector uel => commod ugs to sector uel (0=>rnw)
+Step5: v_a rnw (surplus and compen) up by sum difference - old ugs commod=>sector rnw
+Step6: v_a uel (surplus and compen) down by (sum difference - old ugs commod) =>sector uel"""
 
+## Step1: int_dem. commods pet, coa, pip, ugs, oil, gas => uel (0=>rnw)
+# Set up the codes and shares for the join
+codes = DataFrame( sects = repeat(["221100","221101"],outer=[5]), #uel, rnw
+     commods = ["211000","211000", #oil 1
+            "211001", "211001", #gas 2
+            "212100", "212100", #coa 3
+            "221200", "221200", #ugs 4
+            "324110", "324110", #pet 5 # "2122A0", "2122A0"]; #min 10 # For specific oil/gas splits for sectors # repeat(["211000","211001"], outer=[4])
+],
+     shares = [1,0,1,0,1,0,1,0,1,0,   #  0,1,  #  .93,.07, 0,1,0,1,0,1
+    ], 
+     group=[:oiluelrnw,:oiluelrnw,:gasuelrnw,:gasuelrnw,:coauelrnw,:coauelrnw,:ugsuelrnw,:ugsuelrnw,:petuelrnw,:petuelrnw
+     #,:minuelrnw,:minuelrnw,
+    #  :petoilgas,:petoilgas,:ugsoilgas,:ugsoilgas,:pipoilgas,:pipoilgas,:ueloilgas,:ueloilgas
+     ])
+# Join to set up for summing etc
 setup = filter(x->x.subtable=="intermediate_demand",WplusIntprod1) |> 
-    x -> leftjoin(x, codes, on = [:commodities => :elec , :sectors => :sect]) |>
+    x -> leftjoin(x, codes, on = [:commodities => :commods , :sectors => :sects]) |>
     x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
         
-grouped =   coalesce.(setup,1)|>
+## Step 2: sum of values for commods moving to uel (to distribute to the VA for rnw, and subtract from uel)
+diff_forVA = only(combine(groupby(setup, [:shares])[1], :value=>sum)[!,:value_sum])
+# Sums of each commodity for both sectors, set to pass to uel, and 0 for rnw
+groupeddem2 =   coalesce.(setup,1)|>
     x -> groupby(x, :group) |>
     x -> combine(x, :value => y->sum(y))     
-        
-WplusIntdem2 = leftjoin(setup, grouped, on=[:group])|>
-    x -> transform(x, [:value,:fullorzero,:group, :value_function] => ByRow((a,b,c,d) -> c=="unchanged" ? a : b.*d) => :fvalue)  |>
+# if else to get all the right values, then back as orignal df structure        
+WplusIntdem2 = leftjoin(setup, groupeddem2, on=[:group])|>
+    x -> transform(x, [:value,:shares,:group, :value_function] => ByRow((a,b,c,d) -> c=="unchanged" ? a : b.*d) => :fvalue)  |>
     x -> transform(x, [:fvalue] => ByRow((a) -> a) => :value) |>
     x -> select!(x,[:commodities, :sectors, :year, :subtable, :value]) 
 
+# Step3: int_sup. commod rnw and uel to sector rnw, => commod rnw, rnw and uel to sector eul => commod uel
+# Step4: int_sup. commod ugs to sector rnw + ugs to sector uel => commod ugs to sector uel (0=>rnw)
+comstosecs = DataFrame(sects = repeat(["221100","221101"],outer=[3]), #; #uel, rnw x 3
+    commods = [repeat(["221100","221101"],inner=[2]);["221200","221200"]], #; #uel, rnw x 2, ugs
+    shares = [1,0,0,1,1,0], # Order super important. 1st 4 for 2 sec/com matches, then uel, rnw for ugs commod
+    group=[:uel, :rnw,:uel, :rnw, :ugs, :ugs])
+
+WplusIntsup2setup =  filter(x->x.subtable=="intermediate_supply",WplusIntprod1) |>
+    x-> leftjoin(x, comstosecs, on=[:sectors=>:sects, :commodities=>:commods]) |>
+    x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
+
+ diff_forVA += 
+  only(filter(x->(x.sectors=="221101" && x.commodities=="221200"), WplusIntsup2setup)[!,:value])
+ 
+ groupedsup2 =   coalesce.(WplusIntsup2setup,1)|>
+    x -> groupby(x, :group) |>
+    x -> combine(x, :value => y->sum(y)) 
+ 
+WplusIntsup2  = leftjoin(WplusIntsup2setup, groupedsup2, on=[:group])|>
+    x -> transform(x, [:value,:shares,:group, :value_function] => ByRow((a,b,c,d) -> c=="unchanged" ? a : b.*d) => :fvalue)  |>
+    x -> transform(x, [:fvalue] => ByRow((a) -> a) => :value) |>
+    x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
+    
+vaset = DataFrame(sects = repeat(["221100", "221101"], outer=[2]),
+commods = repeat(["V00100","V00300"], inner=[2]), 
+update = [-1,1,-1,-1],
+group = repeat(["221100", "221101"], outer=[2]))
+
+vasetup = WplusVAprod1|>
+x-> leftjoin(x, vaset, on=[:sectors=>:sects, :commodities=>:commods]) |>
+x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
+
+
+groupedVA2 =   coalesce.(vasetup,1)|>
+    x -> groupby(x, :group) |>
+    x -> combine(x, :value => y->sum(y)) 
+    
+    WplusVAprod2 =  vasetup |> 
+    x -> leftjoin(x, groupedVA2, on =[:sectors =>:group]) |>
+x-> transform(x,[:value,:update, :value_function, :group]=> ByRow((a,b,c,d) -> d=="unchanged" ? a : a + a*b/c * diff_forVA) =>:fvalue)|>
+x -> transform(x, [:fvalue] => ByRow((a) -> a) => :value) |>
+x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
+
+# WplusIntdem2= filter(x->x.subtable=="intermediate_demand",WplusIntprod1)
 
 WplusSp1 = NationalTable(
-    vcat(filter(x->x.subtable=="intermediate_supply",WplusIntprod1),WplusIntdem2,
-    WplusVAprod1, Wplusprod1, WplusEx1, WplusIm1),
+    vcat(WplusIntsup2,WplusIntdem2,
+    WplusVAprod2, Wplusprod1, WplusEx1, WplusIm1),
     new_sets1)
 
       
