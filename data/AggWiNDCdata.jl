@@ -150,17 +150,6 @@ disagimp = DataFrame(
 
 
 ########################################
-#!! TODO fuction to split individual combinations, and then add a not in the rest of the splits
-# oil and gas
-## And other splits: "intermediate_demand": pet [.93,.07]
-# "intermediate_demand": pip [.0,1 ]
-# "intermediate_demand": ugs [.0,1 ]
-# "intermediate_demand": uel [.0,1 ]
-# "intermediate_demand" (all the rest prodoil and prodgas)
-
-# intermediate_supply" : pet [.93,.07]
-# "intermediate_supply" (all the rest prodoil and prodgas)
-########################################
 # projected_det_national_data_yr (split first), or WplusAgC (split last) 
 # Split commodies and sectors by proportions in different disag DataFrames
 # First the tables that split both ways, sector and commodity
@@ -348,52 +337,106 @@ comstosecs = DataFrame(sects = repeat(["221100","221101"],outer=[3]), #; #uel, r
     commods = [repeat(["221100","221101"],inner=[2]);["221200","221200"]], #; #uel, rnw x 2, ugs
     shares = [1,0,0,1,1,0], # Order super important. 1st 4 for 2 sec/com matches, then uel, rnw for ugs commod
     group=[:uel, :rnw,:uel, :rnw, :ugs, :ugs])
-
-WplusIntsup2setup =  filter(x->x.subtable=="intermediate_supply",WplusIntprod1) |>
+# Set up joined df with 'unchanged' for all other sector/commods
+WplusIntsup2setup =  filter(x->x.subtable=="intermediate_supply",WplusIntprod1) |># just filtering from the first split intermediate tables
     x-> leftjoin(x, comstosecs, on=[:sectors=>:sects, :commodities=>:commods]) |>
     x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
 
- diff_forVA += 
+## Step 2: sum of values for commods moving to uel (to distribute to the VA for rnw, and subtract from uel)
+diff_forVA += 
   only(filter(x->(x.sectors=="221101" && x.commodities=="221200"), WplusIntsup2setup)[!,:value])
- 
- groupedsup2 =   coalesce.(WplusIntsup2setup,1)|>
+
+# Sums of each commodity for both sectors, set to pass to uel, and 0 for rnw
+groupedsup2 =   coalesce.(WplusIntsup2setup,1)|>
     x -> groupby(x, :group) |>
     x -> combine(x, :value => y->sum(y)) 
- 
+# Multi step to link values with shares and groups, then re-assign and select back to value column    
 WplusIntsup2  = leftjoin(WplusIntsup2setup, groupedsup2, on=[:group])|>
     x -> transform(x, [:value,:shares,:group, :value_function] => ByRow((a,b,c,d) -> c=="unchanged" ? a : b.*d) => :fvalue)  |>
     x -> transform(x, [:fvalue] => ByRow((a) -> a) => :value) |>
     x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
-    
+
+## Step5: v_a rnw (surplus and compen) up by sum difference - old ugs commod=>sector rnw
+## Step6: v_a uel (surplus and compen) down by (sum difference - old ugs commod) =>sector uel
+# Set up the codes and shares (for the join to update va to counterbalance the other inputs)
 vaset = DataFrame(sects = repeat(["221100", "221101"], outer=[2]),
 commods = repeat(["V00100","V00300"], inner=[2]), 
 update = [-1,1,-1,-1],
 group = repeat(["221100", "221101"], outer=[2]))
-
+# Set up the joined df with 'unchanged' as the group for everything else
 vasetup = WplusVAprod1|>
 x-> leftjoin(x, vaset, on=[:sectors=>:sects, :commodities=>:commods]) |>
 x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
-
-
+# Sums of each sector for both commodities (labour and kapital), to use as the denominator for proportionally increasing/decreasing each commod to equal the diff
 groupedVA2 =   coalesce.(vasetup,1)|>
     x -> groupby(x, :group) |>
     x -> combine(x, :value => y->sum(y)) 
-    
-    WplusVAprod2 =  vasetup |> 
+# Multi step to link values with shares and groups, then re-assign and select back to value column    
+WplusVAprod2 =  vasetup |> 
     x -> leftjoin(x, groupedVA2, on =[:sectors =>:group]) |>
-x-> transform(x,[:value,:update, :value_function, :group]=> ByRow((a,b,c,d) -> d=="unchanged" ? a : a + a*b/c * diff_forVA) =>:fvalue)|>
-x -> transform(x, [:fvalue] => ByRow((a) -> a) => :value) |>
+    x-> transform(x,[:value,:update, :value_function, :group]=> ByRow((a,b,c,d) -> d=="unchanged" ? a : a + a*b/c * diff_forVA) =>:value)|>
+    x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
+# Just initial look - delete next commit
+# filter(x->(x.sectors in ["211000","211001","221200","221100","324110","324121","324122","324190"] && x.commodities in ["211000", "211001"]),WplusIntdem2) # oil, gas,  
+# filter(x->(x.sectors in ["211000","211001"] && x.commodities in ["211000", "211001"]),WplusIntsup2)
+
+## Re-allocate oil and gas demanded by relevant sectors
+# Set up groups and shares
+commshiftcodesintdem3 = DataFrame(
+sects = repeat(["211000","211001","221200","221100","324110","324121","324122","324190"], inner=[2]), #oil, gas, ugs, uel, pet,pet,pet,pet
+commods = repeat(["211000", "211001"], outer=[8]), # oil, gas
+shares = [1,0,0,1,0,1,0,1,.93,.07,.93,.07,.93,.07,.93,.07],
+group = repeat([:oilgasoil, :oilgasgas, :oilgasugs, :oilgasuel, :oilgaspet1, :oilgaspet2, :oilgaspet3, :oilgaspet4], inner=[2]) )
+# Set up the joined df with 'unchanged' as the group for everything else
+WplusIntdem3setup = leftjoin(WplusIntdem2, commshiftcodesintdem3, on = [:sectors=>:sects, :commodities=>:commods] ) |>
+    x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
+# Sums of each commodity for both sectors, as basis for shares
+groupedIntdem3 =   coalesce.(WplusIntdem3setup,1)|>
+    x -> groupby(x, :group) |>
+    x -> combine(x, :value => y->sum(y)) 
+# Multi step to link values with shares and groups, then re-assign and select back to value column    
+WplusIntdem3 =  WplusIntdem3setup |> 
+    x -> leftjoin(x, groupedIntdem3, on =[:group =>:group]) |>
+x-> transform(x,[:value,:shares, :value_function, :group]=> ByRow((a,b,c,d) -> d=="unchanged" ? a : b * c) =>:value)|>
 x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
 
-# WplusIntdem2= filter(x->x.subtable=="intermediate_demand",WplusIntprod1)
+# Update Intermediate Supply, so only oil commodity is produced by oil sector and only gas commodity is produced by gas sector
+# Set up groups and shares
+commshiftcodesIntsup3 = DataFrame(
+sects = repeat(["211000","211001"], inner=[2]), #oil, gas
+commods = repeat(["211000", "211001"], outer=[2]), # oil, gas
+shares = [1,0,0,1],
+group = repeat([:oilgasoil, :oilgasgas], inner=[2]) )
+# Set up the joined df with 'unchanged' as the group for everything else
+WplusIntsup3setup = leftjoin(WplusIntsup2, commshiftcodesIntsup3, on = [:sectors=>:sects, :commodities=>:commods] ) |>
+    x -> transform(x, :group => ByRow(x -> coalesce(x, "unchanged")); renamecols=false)
+# Sums of each commodity for both sectors, as basis for shares
+groupedIntsup3 =   coalesce.(WplusIntsup3setup,1)|>
+    x -> groupby(x, :group) |>
+    x -> combine(x, :value => y->sum(y)) 
+# Multi step to link values with shares and groups, then re-assign and select back to value column       
+WplusIntsup3 =  WplusIntsup3setup |> 
+    x -> leftjoin(x, groupedIntsup3, on =[:group =>:group]) |>
+x-> transform(x,[:value,:shares, :value_function, :group]=> ByRow((a,b,c,d) -> d=="unchanged" ? a : b * c) =>:value)|>
+x -> select!(x,[:commodities, :sectors, :year, :subtable, :value])  
 
+########################################
+# TODONE!! fuction to split individual combinations, and then add a not in the rest of the splits
+# oil and gas
+## And other splits: "intermediate_demand": pet [.93,.07]
+# "intermediate_demand": pip [.0,1 ]
+# "intermediate_demand": ugs [.0,1 ]
+# "intermediate_demand": uel [.0,1 ]
+
+# "intermediate_supply": oil [.0,1]
+# "intermediate_supply": gas [.0,1]
+########################################
+
+## All splits done, put it all back together
 WplusSp1 = NationalTable(
-    vcat(WplusIntsup2,WplusIntdem2,
+    vcat(WplusIntsup3,WplusIntdem3,
     WplusVAprod2, Wplusprod1, WplusEx1, WplusIm1),
     new_sets1)
-
-      
-
 
 # WiNDC plus = Multiple GHG update from national summary map (uti->[:uel,:ugs,:uwt], min->[:coa,:min])
 # summary_map = CSV.read("summarywindcplus_detail.csv", DataFrame)
