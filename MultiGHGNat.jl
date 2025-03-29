@@ -334,10 +334,10 @@ then split that data for elect, gas, and oil.
 # Test of re-nesting within Y block without disaggregation
 ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
-    @production(MultiNat, Y[j], [t= 0.05, # Can't be zero with slack activities. Need values from lit, but in absence, 0.05 is lowest that solves ~1 for Y[gas]&Y[oil] in the benchmark
+    @production(MultiNat, Y[j], [t= 0, # Data re-allocation of oil and gas fixed this! re .05, # Can't be zero with slack activities. Need values from lit, but in absence, 0.05 is lowest that solves ~1 for Y[gas]&Y[oil] in the benchmark
     s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
     va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en],
-    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[j,:SAGE_en]
+    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[:uel,:SAGE_en]### Elec SHOULDN'T CHANGE WITH J!!!! 
     ],begin
     [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... 
@@ -583,6 +583,7 @@ push!(EqVar, [:WiNcntfac utilWiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac
 fullvrWiNcntfact = generate_report(MultiNat)
 rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
 fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
+# print(sort(fullvrWiNcntfact, :var))#:bmkmarg))#:bnchmrk))#
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:WiNcntfact] = value(FDem)*value(compensated_demand(FDem,PA[i]))
@@ -643,9 +644,8 @@ Rs[:,2][68:71]
 fullvrch4 = generate_report(MultiNat)
 rename!(fullvrch4, :value => :ch4tax, :margin => :ch4marg)
 fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
+# print(sort(fullvrch4, :ch4tax, by= abs, rev=true))#:ch4tax))#:var):ch4marg
 
-# print(sort(df, :margin, by= abs, rev=true))
-# print(df)
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 set_value!(CO₂_tax, 0.0)
 set_value!(ta,ta_0DAA[Jp]);
@@ -934,6 +934,10 @@ set_silent(MultiNat)
 # zeros(1601)) 
 # # # collect(0:1:400))
 # co2vec)
+
+# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 10, 480, zeros(51), 0)
+# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 600, 1, 800, ze ros(201), 0)
+
 # # # # # # # # EVdf2 = checkch4CO2[1]
 # # # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
 # # # # # # print(EVdf_slice2)
@@ -948,8 +952,8 @@ set_silent(MultiNat)
 # # # # EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf)# 4329.824705730001
 # # # # EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget),EVdf)
 
-# resultdf = copy(checkCO2[1][1:1300,:])
-# resultdf = copy(checkch4CO2[1])
+# resultdf = copy(checkCO2[1])#[1:1300,:]
+# # resultdf = copy(checkch4CO2[1])
 # tax1 = names(resultdf)[1]; tax2 = names(resultdf)[2]
 
 # # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
@@ -972,7 +976,7 @@ set_silent(MultiNat)
 
 # # # # ### Next line for CH4 spillovers, only valid for CO2-only policy
 # pltEV = plot!(twinx(),resultdf[2:end,tax1],resultdf[2:end,:CH4perc_red],legend=:right, label="CH₄ spillover %\nright axis", color=:orange, linewidth=2,legendfont=font(9,"Palatino Roman"), 
-# ylim=(minimum(resultdf[2:end,:CH4perc_red])-.1,maximum(resultdf[2:end,:CH4perc_red])+.1), yticks=([4.9,5,5.1,5.2,5.3, 5.4, 5.5],["4.9%","5%","5.1%","5.2%","5.3%","5.4%"]))
+# ylim=(minimum(resultdf[2:end,:CH4perc_red])-.1,maximum(resultdf[2:end,:CH4perc_red])+.1), yticks=([4.5,4.6,4.7,4.8,4.9],["4.5%","4.6%","4.7%","4.8%","4.9%"]))
 # pltEV = plot!(twinx(),resultdf[2:end,tax1],(resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions]), label="CO2 spillover %\nright axis", color=:orange, legend=:left)#, ylim=(0,1),xticks=([0,.10,.20,.30,.40,.50,.60,.70],["0%","10%","20%","30%","40%","50%","60%","70%"])
 # ## Next line for CO2 spillovers, only valid for CH4-only policy
 # pltEV = plot!(twinx(),resultdf[2:end,tax1],(resultdf[1,:CO2Emissions] .-resultdf[2:end,:CO2Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions]), legend=:topright,label="CO2 spillover %\nright axis", color=:orange, ylim=(0,1),xticks=([0,.10,.20,.30,.40,.50,.60,.70],["0%","10%","20%","30%","40%","50%","60%","70%"]))
@@ -1005,11 +1009,7 @@ set_silent(MultiNat)
 
 # fix(RA, sum(fd_0[Ip,:pce]))
 
-
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0)
-
 # checkCO2[7]
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 1600, zeros(1600), 0)
 1
 # checkCO2[2] # Total emissions
 # # # println("PApip up lim =", upper_bound(MultiNat[:A][:pip]))
