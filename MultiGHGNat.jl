@@ -428,97 +428,9 @@ end;
 println(" No CH4 tariff:: ")
 
 ## Final Consumption with elasticity of Demand
-@production(MultiNat, FDem, [t=0, s= .9999999, 
-agr=>s=Elas[:agr,:SAGE_Exp],fof=>s=Elas[:fof,:SAGE_Exp],oil=>s=Elas[:oil,:SAGE_Exp],gas=>s=Elas[:gas,:SAGE_Exp],coa=>s=Elas[:coa,:SAGE_Exp],min=>s=Elas[:min,:SAGE_Exp],
-smn=>s=Elas[:smn,:SAGE_Exp],uel=>s=Elas[:uel,:SAGE_Exp],rnw=>s=Elas[:rnw,:SAGE_Exp],ugs=>s=Elas[:ugs,:SAGE_Exp],uwt=>s=Elas[:uwt,:SAGE_Exp],con=>s=Elas[:con,:SAGE_Exp],
-fbp=>s=Elas[:fbp,:SAGE_Exp],tex=>s=Elas[:tex,:SAGE_Exp],alt=>s=Elas[:alt,:SAGE_Exp],wpd=>s=Elas[:wpd,:SAGE_Exp],ppd=>s=Elas[:ppd,:SAGE_Exp],pri=>s=Elas[:pri,:SAGE_Exp],
-pet=>s=Elas[:pet,:SAGE_Exp],che=>s=Elas[:che,:SAGE_Exp],pla=>s=Elas[:pla,:SAGE_Exp],nmp=>s=Elas[:nmp,:SAGE_Exp],pmt=>s=Elas[:pmt,:SAGE_Exp],fmt=>s=Elas[:fmt,:SAGE_Exp],
-mch=>s=Elas[:mch,:SAGE_Exp],cep=>s=Elas[:cep,:SAGE_Exp],eec=>s=Elas[:eec,:SAGE_Exp],fpd=>s=Elas[:fpd,:SAGE_Exp],mmf=>s=Elas[:mmf,:SAGE_Exp],mot=>s=Elas[:mot,:SAGE_Exp],
-ote=>s=Elas[:ote,:SAGE_Exp],leg=>s=Elas[:leg,:SAGE_Exp],com=>s=Elas[:com,:SAGE_Exp],tsv=>s=Elas[:tsv,:SAGE_Exp],wht=>s=Elas[:wht,:SAGE_Exp],mvt=>s=Elas[:mvt,:SAGE_Exp],
-fbt=>s=Elas[:fbt,:SAGE_Exp],gmt=>s=Elas[:gmt,:SAGE_Exp],ott=>s=Elas[:ott,:SAGE_Exp],air=>s=Elas[:air,:SAGE_Exp],trn=>s=Elas[:trn,:SAGE_Exp],wtt=>s=Elas[:wtt,:SAGE_Exp],
-trk=>s=Elas[:trk,:SAGE_Exp],grd=>s=Elas[:grd,:SAGE_Exp],pip=>s=Elas[:pip,:SAGE_Exp],otr=>s=Elas[:otr,:SAGE_Exp],wrh=>s=Elas[:wrh,:SAGE_Exp],pub=>s=Elas[:pub,:SAGE_Exp],
-mov=>s=Elas[:mov,:SAGE_Exp],brd=>s=Elas[:brd,:SAGE_Exp],dat=>s=Elas[:dat,:SAGE_Exp],bnk=>s=Elas[:bnk,:SAGE_Exp],sec=>s=Elas[:sec,:SAGE_Exp],ins=>s=Elas[:ins,:SAGE_Exp],
-fin=>s=Elas[:fin,:SAGE_Exp],rnt=>s=Elas[:rnt,:SAGE_Exp],man=>s=Elas[:man,:SAGE_Exp],adm=>s=Elas[:adm,:SAGE_Exp],wst=>s=Elas[:wst,:SAGE_Exp],edu=>s=Elas[:edu,:SAGE_Exp],
-amb=>s=Elas[:amb,:SAGE_Exp],hos=>s=Elas[:hos,:SAGE_Exp],nrs=>s=Elas[:nrs,:SAGE_Exp],soc=>s=Elas[:soc,:SAGE_Exp],art=>s=Elas[:art,:SAGE_Exp],rec=>s=Elas[:rec,:SAGE_Exp],
-amd=>s=Elas[:amd,:SAGE_Exp],res=>s=Elas[:res,:SAGE_Exp],osv=>s=Elas[:osv,:SAGE_Exp],fdd=>s=Elas[:fdd,:SAGE_Exp],fnd=>s=Elas[:fnd,:SAGE_Exp],fen=>s=Elas[:fen,:SAGE_Exp],
-hou=>s=Elas[:hou,:SAGE_Exp],ore=>s=Elas[:ore,:SAGE_Exp],sle=>s=Elas[:sle,:SAGE_Exp],slg=>s=Elas[:slg,:SAGE_Exp]], begin
+@production(MultiNat, FDem, [t=0, s=.999999], begin #.9999999], begin #
     @output(PC, sum(pce_0),t) #for i∈Ip]    
-    @input(PA[:agr],pce_0[:agr,:pce],agr)
-    @input(PA[:fof],pce_0[:fof,:pce],fof)
-    @input(PA[:oil],pce_0[:oil,:pce],oil)
-    @input(PA[:gas],pce_0[:gas,:pce],gas)
-    @input(PA[:coa],pce_0[:coa,:pce],coa)
-    @input(PA[:min],pce_0[:min,:pce],min)
-    @input(PA[:smn],pce_0[:smn,:pce],smn)
-    @input(PA[:uel],pce_0[:uel,:pce],uel)
-    @input(PA[:rnw],pce_0[:rnw,:pce],rnw)
-    @input(PA[:ugs],pce_0[:ugs,:pce],ugs)
-    @input(PA[:uwt],pce_0[:uwt,:pce],uwt)
-    @input(PA[:con],pce_0[:con,:pce],con)
-    @input(PA[:fbp],pce_0[:fbp,:pce],fbp)
-    @input(PA[:tex],pce_0[:tex,:pce],tex)
-    @input(PA[:alt],pce_0[:alt,:pce],alt)
-    @input(PA[:wpd],pce_0[:wpd,:pce],wpd)
-    @input(PA[:ppd],pce_0[:ppd,:pce],ppd)
-    @input(PA[:pri],pce_0[:pri,:pce],pri)
-    @input(PA[:pet],pce_0[:pet,:pce],pet)
-    @input(PA[:che],pce_0[:che,:pce],che)
-    @input(PA[:pla],pce_0[:pla,:pce],pla)
-    @input(PA[:nmp],pce_0[:nmp,:pce],nmp)
-    @input(PA[:pmt],pce_0[:pmt,:pce],pmt)
-    @input(PA[:fmt],pce_0[:fmt,:pce],fmt)
-    @input(PA[:mch],pce_0[:mch,:pce],mch)
-    @input(PA[:cep],pce_0[:cep,:pce],cep)
-    @input(PA[:eec],pce_0[:eec,:pce],eec)
-    @input(PA[:fpd],pce_0[:fpd,:pce],fpd)
-    @input(PA[:mmf],pce_0[:mmf,:pce],mmf)
-    @input(PA[:mot],pce_0[:mot,:pce],mot)
-    @input(PA[:ote],pce_0[:ote,:pce],ote)
-    @input(PA[:leg],pce_0[:leg,:pce],leg)
-    @input(PA[:com],pce_0[:com,:pce],com)
-    @input(PA[:tsv],pce_0[:tsv,:pce],tsv)
-    @input(PA[:wht],pce_0[:wht,:pce],wht)
-    @input(PA[:mvt],pce_0[:mvt,:pce],mvt)
-    @input(PA[:fbt],pce_0[:fbt,:pce],fbt)
-    @input(PA[:gmt],pce_0[:gmt,:pce],gmt)
-    @input(PA[:ott],pce_0[:ott,:pce],ott)
-    @input(PA[:air],pce_0[:air,:pce],air)
-    @input(PA[:trn],pce_0[:trn,:pce],trn)
-    @input(PA[:wtt],pce_0[:wtt,:pce],wtt)
-    @input(PA[:trk],pce_0[:trk,:pce],trk)
-    @input(PA[:grd],pce_0[:grd,:pce],grd)
-    @input(PA[:pip],pce_0[:pip,:pce],pip)
-    @input(PA[:otr],pce_0[:otr,:pce],otr)
-    @input(PA[:wrh],pce_0[:wrh,:pce],wrh)
-    @input(PA[:pub],pce_0[:pub,:pce],pub)
-    @input(PA[:mov],pce_0[:mov,:pce],mov)
-    @input(PA[:brd],pce_0[:brd,:pce],brd)
-    @input(PA[:dat],pce_0[:dat,:pce],dat)
-    @input(PA[:bnk],pce_0[:bnk,:pce],bnk)
-    @input(PA[:sec],pce_0[:sec,:pce],sec)
-    @input(PA[:ins],pce_0[:ins,:pce],ins)
-    @input(PA[:fin],pce_0[:fin,:pce],fin)
-    @input(PA[:rnt],pce_0[:rnt,:pce],rnt)
-    @input(PA[:man],pce_0[:man,:pce],man)
-    @input(PA[:adm],pce_0[:adm,:pce],adm)
-    @input(PA[:wst],pce_0[:wst,:pce],wst)
-    @input(PA[:edu],pce_0[:edu,:pce],edu)
-    @input(PA[:amb],pce_0[:amb,:pce],amb)
-    @input(PA[:hos],pce_0[:hos,:pce],hos)
-    @input(PA[:nrs],pce_0[:nrs,:pce],nrs)
-    @input(PA[:soc],pce_0[:soc,:pce],soc)
-    @input(PA[:art],pce_0[:art,:pce],art)
-    @input(PA[:rec],pce_0[:rec,:pce],rec)
-    @input(PA[:amd],pce_0[:amd,:pce],amd)
-    @input(PA[:res],pce_0[:res,:pce],res)
-    @input(PA[:osv],pce_0[:osv,:pce],osv)
-    @input(PA[:fdd],pce_0[:fdd,:pce],fdd)
-    @input(PA[:fnd],pce_0[:fnd,:pce],fnd)
-    @input(PA[:fen],pce_0[:fen,:pce],fen)
-    @input(PA[:hou],pce_0[:hou,:pce],hou)
-    @input(PA[:ore],pce_0[:ore,:pce],ore)
-    @input(PA[:sle],pce_0[:sle,:pce],sle)
-    @input(PA[:slg],pce_0[:slg,:pce],slg)    
+    [@input(PA[i], pce_0[i,:pce],s) for i in Ip]...
 end)
 
 if (Kmobile=="yes")
