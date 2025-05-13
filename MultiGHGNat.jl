@@ -4,6 +4,12 @@ using DataFrames, JLD2
 using JuMP
 using MPSGE.JuMP.Containers
 using CSV, Plots
+
+### Run the economic data aggregation/disaggregation script if it hasn't been
+if !@isdefined(WplusSpAgCdata2022)
+    include("./data/AggWiNDCdata.jl")
+end
+
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
 # P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
