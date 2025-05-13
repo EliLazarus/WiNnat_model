@@ -960,8 +960,48 @@ set_silent(MultiNat)
 # co2vec)
 
 # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 600, 1, 800, ze ros(201), 0)
+# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, Int(ceil(200 * 1.130480652)), ch4vec)
+n=100
+##### overcountdf = DataFrame()
+#### for t in 0:n
+# loop = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, n, fill(t,n+1))
+# append!(overcountdf, loop[1])
+# end
+# 1
+# # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
+#### CSV.write("overcount_CO2.csv", overcountdf, missingstring="missing", bom=true)
 
+CListB = reshape( range(colorant"darkblue", stop=colorant"lightblue",length=n), 1, n );
+# Marginal Reductions of CO₂ with simulateous CH₄ taxes at increasing levels
+### Plot Reductions with 0 tax on CH₄
+plot(overcountdf[1:100,:CO₂_tax],(TotCO2bnchmk .- overcountdf[1:100,:CO2Emissions] .- (TotCO2bnchmk .-overcountdf[1,:CO2Emissions]))*10^3, color=:darkblue, linewidth=3, 
+legend=false, colorbar=true, ylabel="marginal CO₂ reductions (MMt)", guidefont="Palatino Roman", xlabel="CO₂ tax level")
+for l in 101:100:10001 # TODO This has to change after the larger run, AND the +99 etc below
+    plot!(overcountdf[l:l+99,:CO₂_tax],(TotCO2bnchmk .- overcountdf[l:l+99,:CO2Emissions].- (TotCO2bnchmk .-overcountdf[l,:CO2Emissions]))*10^3, color=CListB[Int(round(l/100,digits=0))])
+end
+plot!(overcountdf[10001:10100,:CO₂_tax],(TotCO2bnchmk .- overcountdf[10001:10100,:CO2Emissions].- (TotCO2bnchmk .-overcountdf[10001,:CO2Emissions]))*10^3, color=:lightblue)
+Plots.plot!(collect(0:.10),collect(0:.10),line_z=range(1.0, stop=100.0, length=100),  c=cgrad(:Blues, rev=true), legend=false,
+ colorbartitle="pre-exisiting CH₄ tax level",colorbartickvals=[100:-1:0], colorbarlabelalias= [0:1:100], colorbar_titlefontfamily="Palatino Roman")
+# png(joinpath(@__DIR__,"./Results/CO2reductions_0CH4tax"))
+
+###############################################################################
+#### Marginal Reductions of CH₄ with simulateous CO₂ taxes at increasing levels
+###############################################################################
+### Copy combined results sorted for the marginal CH₄ tax reductions
+# overcountdfCH4 = sort(deepcopy(overcountdf),[:CO₂_tax,:CH₄_tax])
+### Set up color gradient
+CListG = reshape( range(colorant"darkgreen", stop=colorant"white",length=n), 1, n );
+### Plot Reductions with 0 tax on CO₂ 
+plot(overcountdfCH4[1:100,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[1:100,:CH4Emissions] .- (TotCH4bnchmk .-overcountdfCH4[1,:CH4Emissions]))*10^3, color=:darkgreen, linewidth=3, 
+legend=false, colorbar=true, ylabel="marginal CH₄ reductions (MMt CO₂eq)", guidefont="Palatino Roman", xlabel="CH₄ tax level")
+### Loop to generate lines for each marginal reduction (additional reduction of CH₄ beyond what we already get from a CO₂ tax at each level)
+for l in 102:101:10000 # TODO This has to change after the larger run, AND the +99 etc below
+    plot!(overcountdfCH4[l:l+99,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[l:l+99,:CH4Emissions].- (TotCH4bnchmk .-overcountdfCH4[l,:CH4Emissions]))*10^3, color=CListG[Int(round(l/100,digits=0))])
+end
+plot!(overcountdfCH4[10000:10100,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[10000:10100,:CH4Emissions].- (TotCH4bnchmk .-overcountdfCH4[10000,:CH4Emissions]))*10^3, color=:honeydew)
+Plots.plot!(collect(0:.10),collect(0:.10),line_z=range(1.0, stop=100.0, length=100),  c=cgrad(:Greens, rev=true), legend=false, 
+ colorbartitle="pre-exisiting CO₂ tax level",colorbartickvals=[100:-1:0], colorbarlabelalias= [0:1:100], colorbar_titlefontfamily="Palatino Roman")
+png(joinpath(@__DIR__,"./Results/CH4reductions_w_CO2tax"))
 # # # # # # # # EVdf2 = checkch4CO2[1]
 # # # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
 # # # # # # print(EVdf_slice2)
