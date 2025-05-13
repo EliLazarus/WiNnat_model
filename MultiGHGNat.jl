@@ -251,8 +251,12 @@ MultiNat = MPSGEModel()
     ta[Jp], ta_0DAA[Jp]#ta_0[Jp]
     ty[Jp], ty_0DAA[Jp] #ty_0[Jp]
     tm[Jp], tm_0DAA[Jp] #tm_0[Jp]
+    # ta[j=Jp], ta_0DAA[j]#ta_0[Jp]
+    # ty[j=Jp], ty_0DAA[j] #ty_0[Jp]
+    # tm[j=Jp], tm_0DAA[j] #tm_0[Jp]
     CH₄_tax, 0.
     CH4_secs[Jp], CH4_tax_switch_on_sectors[Jp]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
+    # CH4_secs[j=Jp], CH4_tax_switch_on_sectors[j]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
     CO₂_tax, 0.     
     # t_elas_y, 0.
     # elas_y, 0.05
@@ -306,9 +310,11 @@ end)
 
 # # Variables to track and report levels of CO2 emissions
 @auxiliary(MultiNat, CO2em, index = [[:gas, :oil, :coa]])
+# @auxiliary(MultiNat, CO2em[[:gas, :oil, :coa]])
 @auxiliary(MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
 # Variables to track and report levels of CH4 emissions
 @auxiliary(MultiNat, CH4em, index = [[:agr,:coa,:gas,:pip,:oil,:wst]])
+# @auxiliary(MultiNat, CH4em[[:agr,:coa,:gas,:pip,:oil,:wst]])
 @auxiliary(MultiNat, CH4TotEm, description = "Total CH4 emissions")
 @auxiliary(MultiNat, TotEm, description = "Total both emissions")
 
