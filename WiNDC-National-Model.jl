@@ -41,6 +41,9 @@ WiNnat = MPSGEModel()
     ta[J], ta_0[yr,J]
     ty[J], ty_0[yr,J]
     tm[J], tm_0[yr,J]
+    # ta[j=J], ta_0[yr,j]
+    # ty[j=J], ty_0[yr,j]
+    # tm[j=J], tm_0[yr,j]
     t_elas_y, 0            
     elas_y,   0            
     elas_va,  1          
