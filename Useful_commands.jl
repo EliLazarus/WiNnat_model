@@ -86,3 +86,6 @@ for i in I;
 # delete!(z,[i for i in 1:nrow(z)])
 # end
 println(filter(x->x.var in [Symbol("Y[$i]") for i in Ip],fullvrbnch))
+filter(x->x.EVCES2==minimum(resultdf[:,:EVCES2]),resultdf)
+
+subset(bnchM1, :var => ByRow(x -> occursin(r"RA", x))) # need vars as strings for regex
