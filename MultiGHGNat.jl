@@ -594,7 +594,7 @@ for (n,i) in enumerate(Ip)
 end
 
 ## DataFrame to hold the industry indices with descriptions
-Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),5),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
@@ -638,8 +638,7 @@ push!(EqVar, [:ch4 utilch4 utilCESch4 Mevch4 EVch4 EVch4/value(RA)*100 (utilCESc
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
-
-Rs = DataFrame([Y value.(Y) last.(first.(string.(Y),6),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),5),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
