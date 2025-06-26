@@ -12,12 +12,12 @@ for (a,b) in enumerate(MPSGE.production_sectors(MultiNat))
 end
 
 WiNnat.productions[collect(keys(WiNnat.productions))[11]]  #or
-WiNnat.productions[A[:hos]]  # This one!! with production name.
+WiNnat.productions[Symbol("A[hos]")]  # This one!! with production name.
 MPSGE.production_sectors(MultiNat)[1]
 
 
-compensated_demand(Y[:ppd], PY[:air])
-value(compensated_demand(Y[:ppd], PY[:air]))
+compensated_demand(MultiNat[:Y][:ppd], MultiNat[:PY][:air])
+value(compensated_demand(WiNnat[:Y][:ppd], WiNnat[:PY][:air]))
 demand(RA,PA[:agr])
 value(demand(RA,PA[:agr]))
 sum([value(demand(RA,PA[i])) for i in I])
@@ -31,8 +31,11 @@ only(filter(:var => ==(:TotEm), fullvrboth)[:value])
 print(filter(row -> row.var ∈ [Symbol("Y[alt]"),Symbol("Y[cep]"),Symbol("Y[ote]"),Symbol("Y[mmf]"),Symbol("Y[rec]"),Symbol("Y[min]"),Symbol("Y[pmt]"),Symbol("Y[sle]"),Symbol("Y[pet]"),Symbol("Y[oil]"),Symbol("Y[wst]"),Symbol("Y[agr]")], Compare))
 
 print(filter(row -> row.var ∈ [Symbol("Y[alt]"),Symbol("Y[cep]"),Symbol("Y[ote]"),Symbol("Y[mmf]"),Symbol("Y[rec]"),Symbol("Y[min]"),Symbol("Y[pmt]"),Symbol("Y[sle]"),Symbol("Y[pet]"),Symbol("Y[oil]"),Symbol("Y[wst]"),Symbol("Y[agr]")], Compare))
+print(sort(filter(row -> row.var ∈ Symbol.(MultiNat[:Y][CH4sectors]), fullvrch4),:ch4tax))
 
 subset(fullvrbnch, :var => ByRow(x -> occursin(r"PVAM",string(x)) ))
+
+subset(Compare, :var => ByRow(x -> occursin(r"PA",string(x)) ))
 
 set_silent(MultiNat)
 unset_silent(MultiNat)
@@ -41,12 +44,12 @@ collect(1:.2:10) #turn iterator into vector
 
 # collects rows (filtered on index) of df into a new df
 PAall=DataFrame([[],[],[],[],[],[],[],[]],[:var,      :bnchmrk,  :ch4,      :co2,      :both,     :cntr,      :sum,       :diff])
-for i in I;                                                                                                                       
-       push!(PAall,Vector{Any}(filter(:var => ==(Symbol("PA[$i]")),Compare)[1,:]))                                                       
+for i in Ip                                                                                                                       
+       push!(PAall,Vector{Any}(filter(:var => ==(Symbol(MultiNat[:PA][i])),Compare)[1,:]))                                                       
        end
 ## get final demand, and benchmark fd etc (with the short description)
        for i in I
-              println(PA[i],": ",filter(:index => ==(string(i)), Sectors)[:,:Short_description], "\t: ",value(PA[i]),"\t->",value(demand(RA,PA[i])),"\t;",fd_0[yr,i,:pce],"\t=>",demand(RA,PA[i]))
+              println(WiNnat[:PA][i],": ",filter(:index => ==(string(i)), Sectors)[:,:Short_description], "\t: ",value(WiNnat[:PA][i]),"\t->",value(demand(WiNnat[:RA],WiNnat[:PA][i])),"\t;",fd_0[yr,i,:pce],"\t=>",value(demand(WiNnat[:RA],WiNnat[:PA][i])))
        end
 
        for i in I
