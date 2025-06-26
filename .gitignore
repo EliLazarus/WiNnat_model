@@ -184,3 +184,6 @@ SensitivityTest_Outputs/MultiNat_Both_ExpectedVal.csv
 SensitivityTest_Outputs/Sens_elas_y.csv
 SensitivityTest_Outputs/Sens_t_elas_y.csv
 WiNDC_National.gsp
+CompareHHjlandGAMSoutput.csv
+overcount_CO2.csv
+overcount226.csv
