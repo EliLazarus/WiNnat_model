@@ -38,12 +38,12 @@ yr = Symbol(2017)
 WiNnat = MPSGEModel()
 
 @parameters(WiNnat, begin
-    ta[J], ta_0[yr,J]
-    ty[J], ty_0[yr,J]
-    tm[J], tm_0[yr,J]
-    # ta[j=J], ta_0[yr,j]
-    # ty[j=J], ty_0[yr,j]
-    # tm[j=J], tm_0[yr,j]
+    # ta[J], ta_0[yr,J]
+    # ty[J], ty_0[yr,J]
+    # tm[J], tm_0[yr,J]
+    ta[j=J], ta_0[yr,j]
+    ty[j=J], ty_0[yr,j]
+    tm[j=J], tm_0[yr,j]
     t_elas_y, 0            
     elas_y,   0            
     elas_va,  1          
@@ -72,7 +72,7 @@ end)
 @consumer(WiNnat, RA, description = "Representative Agent")
 
 for j∈J
-    @production(WiNnat, Y[j], [t= t_elas_y, s = elas_y, va => s = elas_va], begin # 0, 0, 1
+    @production(WiNnat, Y[j], [t= t_elas_y, s = elas_y, va => s = elas_va], begin#[t= t_elas_y, s = elas_y, va => s = elas_va], begin # 0, 0, 1
         [@output(PY[i],ys_0[yr,j,i], t, taxes = [Tax(RA,ty[j])]) for i∈I]... 
         [@input(PA[i], id_0[yr,i,j], s) for i∈I]...
         [@input(PVA[va], va_0[yr,va,j], va) for va∈VA]...
