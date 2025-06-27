@@ -835,10 +835,11 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
     )
     ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
     for (i,j) in zip(start:interval:finish,vec)
-        print(i,", ",j,": ")
+        print(i,":",j,", ")
         if i>530 # this should really only happen for CO2 tax, but ...
-        set_value!(tax1, .0)
-        solve!(MultiNat, output="no");
+        # set_value!(tax1, .0)
+        # set_value!(tax2, .0)
+        # solve!(MultiNat, output="no"); # Solving back to benchmark to help with numerical computational issues. Necessary?
         end
         set_value!(tax1, i)
         set_value!(tax2, cnst*j)
@@ -954,107 +955,222 @@ set_silent(MultiNat)
 #     1356.16,	1340.699,	1327.198,	1313.877,	1300.736,	1287.755,	1274.924,	1262.244,	1249.783,	1237.423,	1225.232,	1213.231,	1201.449,	1193.022,	1181.692,	1170.472,	1159.372,	1148.392,	1137.502,	1126.752,	1116.083,	1105.513,	1095.073,	1084.684,	1074.434,	1064.245,	1054.185,	1044.205,	1034.305,	1024.466,	1014.727,	1005.077,	995.485,	985.983,	976.554,	967.296,	958.107,	948.993,	939.945,	930.964,	922.05,	913.202,	904.418,	895.692,	887.037,	878.436,	869.895,	861.453,	853.063,	844.733,	836.455,	828.236,	820.066,	811.952,	803.891,	795.876,	787.917,	779.999,	772.142,	764.321,	756.553,	748.838,	741.154,	733.528,	725.945,	718.393,	710.905,	703.442,	696.031,	688.659,	681.325,	674.034,	666.784,	659.576,	652.398,	645.268,	638.174,	631.109,	624.091,	617.108,	610.158,	603.243,	596.946,	596.878,	592.082,	585.594,	579.11,	572.616,	566.154,	559.711,	553.298,	546.912,	540.552,	534.226,	527.923,	521.651,	515.409,	509.193,	503.007,	496.85,	490.722,	484.626,	478.558,	472.513,	466.497,	460.509,	454.548,	448.614,	442.706,	436.826,	430.973,	425.145,	419.341,	413.566,	407.815,	402.089,	396.385,	390.71,	385.058,	379.434,	373.83,	368.252,	362.698,	357.167,	351.66,	346.178,	340.718,	335.281,	329.868,	324.477,	319.109,	313.765,	308.443,	303.144,	297.865,	292.611,	287.376,	282.164,	276.976,	271.81,	266.666,	261.542,	256.438,	251.355,	246.296,	241.256,	236.238,	231.241,	226.266,	221.31,	216.376,	211.464,	206.57,	201.698,	196.847,	192.013,	187.202,	182.411,	177.641,	172.889,	168.158,	163.449,	158.758,	154.085,	149.436,	144.805,	140.195,	135.6,	131.03,	126.48,	121.948,	119.351,	119.345,	119.348,	119.222,	115.72,	111.558,	107.438,	103.238,	99.093,	94.899,	90.775,	86.615,	82.522,	78.398,	74.334,	70.264,	66.212,	62.174,	59.689,	57.477,	53.641,	49.741,	47.749,	47.744,	44.901,	41.206,	37.506,	35.822,	35.806,	35.717,	32.526,	29.041,	25.558,	23.942,	23.868,	21.533,	18.19,	16.774,	13.527,	11.937,	10.712,	7.53,	4.354,	3.833,	3.734,	1.519,	0.564,	0.537,	0.517,	0.518,	0.499,	0.497,	0.495,	0.492,	0.355,	0.159,	0
 #     ] # Standard, for reductions to SCC for CO2, reductions=3053.83
 
-# checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1, 283,#Int(ceil(200 * 1.130480652)),
-# # zeros(400) 
-# # # # collect(0:1:491))
+# checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1, 400,#284,#Int(ceil(200 * 1.130480652)),#283,
+# zeros(401)) 
+# # # # # # # # collect(0:1:491))
+# # # # reverse(co2vec))
 # co2vec)
+# # EVboth = checkch4CO2[4]
+# # print(EVboth)
+# # CH4margemiss=checkch4CO2[1]
+# # print(CH4margemiss)
+# # EVCH4 = checkch4CO2[4]
+# # print(EVCH4)
+# # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 284, reverse(co2vec), 0) #Breaks at $540
+# # CO2margemiss=checkCO2[1]
+# # # print(CO2margemiss)
+# # EVCO2 = checkCO2[4]
+# # print(EVCO2)
+# # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, Int(ceil(200 * 1.130480652)), ch4vec)
+# # ###checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
 
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, Int(ceil(200 * 1.130480652)), ch4vec)
-n=100
-##### overcountdf = DataFrame()
-#### for t in 0:n
-# loop = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, n, fill(t,n+1))
-# append!(overcountdf, loop[1])
-# end
-# 1
-# # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
-#### CSV.write("overcount_CO2.csv", overcountdf, missingstring="missing", bom=true)
+# ### Loop to generate full set of combination tax reductions
+# # n=226
+# # # overcountdf = DataFrame()
+# # # for t in 0:n
+# # # loop = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, n+1, fill(t,n+1)) #n+1
+# # # append!(overcountdf, loop[1])
+# # # end
+# # #### CSV.write("overcount226.csv", overcountdf, missingstring="missing", bom=true)
 
-CListB = reshape( range(colorant"darkblue", stop=colorant"lightblue",length=n), 1, n );
-# Marginal Reductions of CO₂ with simulateous CH₄ taxes at increasing levels
-### Plot Reductions with 0 tax on CH₄
-plot(overcountdf[1:100,:CO₂_tax],(TotCO2bnchmk .- overcountdf[1:100,:CO2Emissions] .- (TotCO2bnchmk .-overcountdf[1,:CO2Emissions]))*10^3, color=:darkblue, linewidth=3, 
-legend=false, colorbar=true, ylabel="marginal CO₂ reductions (MMt)", guidefont="Palatino Roman", xlabel="CO₂ tax level")
-for l in 101:100:10001 # TODO This has to change after the larger run, AND the +99 etc below
-    plot!(overcountdf[l:l+99,:CO₂_tax],(TotCO2bnchmk .- overcountdf[l:l+99,:CO2Emissions].- (TotCO2bnchmk .-overcountdf[l,:CO2Emissions]))*10^3, color=CListB[Int(round(l/100,digits=0))])
-end
-plot!(overcountdf[10001:10100,:CO₂_tax],(TotCO2bnchmk .- overcountdf[10001:10100,:CO2Emissions].- (TotCO2bnchmk .-overcountdf[10001,:CO2Emissions]))*10^3, color=:lightblue)
-Plots.plot!(collect(0:.10),collect(0:.10),line_z=range(1.0, stop=100.0, length=100),  c=cgrad(:Blues, rev=true), legend=false,
- colorbartitle="pre-exisiting CH₄ tax level",colorbartickvals=[100:-1:0], colorbarlabelalias= [0:1:100], colorbar_titlefontfamily="Palatino Roman")
-# png(joinpath(@__DIR__,"./Results/CO2reductions_0CH4tax"))
+# # overcountdf = CSV.read("overcount226.csv", DataFrame)
+# # CListB = reshape( range(colorant"darkblue", stop=colorant"lightblue",length=n), 1, n );
+# # # Marginal Reductions of CO₂ with simulateous CH₄ taxes at increasing levels
+# # ### Plot Reductions with 0 tax on CH₄
+# # p13 = (9,"Palatino Roman")
+# # plot(overcountdf[1:n,:CO₂_tax],(TotGHGbnchmk .- overcountdf[1:n,:Emissions] .- (TotGHGbnchmk .-overcountdf[1,:Emissions]))*10^3, color=:darkblue, linewidth=3, 
+# # legend=false, colorbar=true, yaxis=("marginal GHG reductions\n(MMt CO₂eq)", font(p13)), guidefont=(15,"Palatino Roman"), xtickfont=p13, ytickfont=p13, xlabel="CO₂ tax level", left_margin=2mm, bottom_margin=3mm)
+# # for l in n+1:n:length(overcountdf[:,1])-n # TODO This has to change after the larger run, AND the +99 etc below
+# #     plot!(overcountdf[l:l+n-1,:CO₂_tax],(TotGHGbnchmk .- overcountdf[l:l+n-1,:Emissions].- (TotGHGbnchmk .-overcountdf[l,:Emissions]))*10^3, color=CListB[Int(round(l/n,digits=0))])
+# # end
+# # plot!(overcountdf[length(overcountdf[:,1])-n+1:length(overcountdf[:,1]),:CO₂_tax],(TotGHGbnchmk .- overcountdf[length(overcountdf[:,1])-n+1:length(overcountdf[:,1]),:Emissions].- (TotGHGbnchmk .-overcountdf[length(overcountdf[:,1])-n+1,:Emissions]))*10^3, color=:lightblue)
+# # Plots.plot!([NaN], [NaN],line_z=range(1.0, stop=n, length=n),  c=cgrad([:dargreen,:light]), legend=false, colorbarxpad=10,
+# # # colorbartitle="pre-exisiting CH₄ tax level",colorbar_titlefontsize=13,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], colorbar_titlefontfamily="Palatino Roman", colorbartitle_leftmargin=20mm)
+# # colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], colorbar_titlefontfamily="Palatino Roman",rightmargin=12mm)
+# # annotate!(290,1500,Plots.text("pre-exisiting CH₄ tax level", 18,"Palatino Roman", rotation=90))
+# # 1
+# # png(joinpath(@__DIR__,"./Results/GHGreductionsCO2_w_CH4taxbigtext"))
+# ### % overcounted (difference with CO2 taxes to reductions from CH4 taxes with 0 CO2 taxes [over reductions from CH4 taxes with 0 CO2 taxes])
+# # (overcountdfCH4[24971:25197,:Emissions] .-overcountdfCH4[1:227,:Emissions]) ./overcountdfCH4[1:227,:Emissions]
 
-###############################################################################
-#### Marginal Reductions of CH₄ with simulateous CO₂ taxes at increasing levels
-###############################################################################
-### Copy combined results sorted for the marginal CH₄ tax reductions
-# overcountdfCH4 = sort(deepcopy(overcountdf),[:CO₂_tax,:CH₄_tax])
-### Set up color gradient
-CListG = reshape( range(colorant"darkgreen", stop=colorant"white",length=n), 1, n );
-### Plot Reductions with 0 tax on CO₂ 
-plot(overcountdfCH4[1:100,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[1:100,:CH4Emissions] .- (TotCH4bnchmk .-overcountdfCH4[1,:CH4Emissions]))*10^3, color=:darkgreen, linewidth=3, 
-legend=false, colorbar=true, ylabel="marginal CH₄ reductions (MMt CO₂eq)", guidefont="Palatino Roman", xlabel="CH₄ tax level")
-### Loop to generate lines for each marginal reduction (additional reduction of CH₄ beyond what we already get from a CO₂ tax at each level)
-for l in 102:101:10000 # TODO This has to change after the larger run, AND the +99 etc below
-    plot!(overcountdfCH4[l:l+99,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[l:l+99,:CH4Emissions].- (TotCH4bnchmk .-overcountdfCH4[l,:CH4Emissions]))*10^3, color=CListG[Int(round(l/100,digits=0))])
-end
-plot!(overcountdfCH4[10000:10100,:CH₄_tax],(TotCH4bnchmk .- overcountdfCH4[10000:10100,:CH4Emissions].- (TotCH4bnchmk .-overcountdfCH4[10000,:CH4Emissions]))*10^3, color=:honeydew)
-Plots.plot!(collect(0:.10),collect(0:.10),line_z=range(1.0, stop=100.0, length=100),  c=cgrad(:Greens, rev=true), legend=false, 
- colorbartitle="pre-exisiting CO₂ tax level",colorbartickvals=[100:-1:0], colorbarlabelalias= [0:1:100], colorbar_titlefontfamily="Palatino Roman")
-png(joinpath(@__DIR__,"./Results/CH4reductions_w_CO2tax"))
-# # # # # # # # EVdf2 = checkch4CO2[1]
-# # # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
-# # # # # # print(EVdf_slice2)
-# # # # checkch4CO2[7]
-# # # # # print(EVdf2)
-# # # # checkch4CO2[1]
-# # # # ##### png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
-# # # ##### checkch4CO2[2]
-# # # # EVdf = checkch4CO2[1]
-# # # # ##### print("checkch4CO2",checkch4CO2[3])
-# # # # EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf)# 4329.824705730001
-# # # # EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget),EVdf)
+# # ###############################################################################
+# # #### Marginal Reductions of CH₄ with simulateous CO₂ taxes at increasing levels
+# # ###############################################################################
+# # ### Copy combined results sorted for the marginal CH₄ tax reductions
+# # overcountdfCH4 = sort(deepcopy(overcountdf),[:CO₂_tax,:CH₄_tax])
+# # # ### Set up color gradient
+# # CListG = reshape( range(colorant"darkgreen", stop=colorant"lightgreen",length=n+1), 1, n+1 );
 
-# resultdf = copy(checkCO2[1])#[1:1300,:]
-# # resultdf = copy(checkch4CO2[1])
+# # ### Plot Reductions with 0 tax on CO₂ 
+# # plot(overcountdfCH4[1:n+1,:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[1:n+1,:Emissions] .- (TotGHGbnchmk .-overcountdfCH4[1,:Emissions]))*10^3, color=:darkgreen, linewidth=3, 
+# # legend=false, colorbar=true, ylim=(0,3048), ylabel="marginal GHG reductions\n(MMt CO₂eq)", guidefont=(10,"Palatino Roman"), xtickfont=p13, ytickfont=p13, xlabel="CH₄ tax level", left_margin=2mm, bottom_margin=3mm)
+# # # ### Loop to generate lines for each marginal reduction (additional reduction of CH₄ beyond what we already get from a CO₂ tax at each level)
+# # for l in n+2:n+1:length(overcountdfCH4[:,1])-n-1 
+# #     plot!(overcountdfCH4[l:l+n,:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[l:l+n,:Emissions].- (TotGHGbnchmk .-overcountdfCH4[l,:Emissions]))*10^3, color=CListG[Int(round(l/(n+1),digits=0))])
+# # end
+# # plot!(overcountdfCH4[length(overcountdfCH4[:,1])-n:length(overcountdfCH4[:,1]),:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[length(overcountdfCH4[:,1])-n:length(overcountdf[:,1]),:Emissions].- (TotGHGbnchmk .-overcountdfCH4[length(overcountdf[:,1])-n,:Emissions]))*10^3, color=:honeydew)
+# # Plots.plot!(collect(0:.-10),collect(0:.-10),line_z=collect(226:-1:0),  c=cgrad([:darkgreen,:lightgreen]),# colorbartitle="pre-exisiting CO₂ tax level", )#, rev=true]))
+# # colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], rightmargin=14mm)
+# # annotate!(278,1500,Plots.text("pre-exisiting CO₂ tax level", 12,"Palatino Roman", rotation=90))
+
+# # png(joinpath(@__DIR__,"./Results/GHGreductions_CH4_0CO2tax_matchaxis"))
+
+# # # # # # # # # EVdf2 = checkch4CO2[1]
+# # # # # # # # EVdf_slice2= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf2[:,[1,2,3,11]])# 4329.824705730001
+# # # # # # # # print(EVdf_slice2)
+# # # # # # checkch4CO2[7]
+# # # # # # # print(EVdf2)
+# # # # # # checkch4CO2[1]
+# # # # # # ##### png(checkch4CO2[7], "./Results/Bothtax-Allemiss")
+# # # # # ##### checkch4CO2[2]
+# # # # # # EVdf = checkch4CO2[1]
+# # # # # # ##### print("checkch4CO2",checkch4CO2[3])
+# # # # # # EVdf_slice= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget) && x.Emissions >(TotGHGbnchmk*10^3-ReductTarget-1),EVdf)# 4329.824705730001
+# # # # # # EVdf_cap= filter(x -> x.Emissions <(TotGHGbnchmk*10^3-ReductTarget),EVdf)
+
+# # resultdf = copy(checkCO2[1])#[1:1300,:]
+# resultdf = copy(checkch4CO2[1])
 # tax1 = names(resultdf)[1]; tax2 = names(resultdf)[2]
-# print(resultdf)
-# 1
-# # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
-# # plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
-# # plch4 = plot(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label=false, title="CH₄ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2]) \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
-# # plch4 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCH4bnchmk*10^3)) 
-# # plco2 = plot(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label=false, title="CO₂ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2])  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
-# # plco2 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCO2bnchmk*10^3))
-# pltEV = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3, legend=:left, label="Total GHG Emissions", ylim=(0,maximum(resultdf[:,:Emissions])*10^3+500), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
-# xlims=(0,resultdf[end,tax1]), color=:black, linewidth=2, ylab="MMt CO₂eq", linestyle=:dashdot,
-# yguidefontsize=9, legendfont=font(9,"Palatino Roman"),guidefont=font(10,"Palatino Roman"))
-# pltEV = plot!(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label="CH₄ Emissions", linewidth=1.5, color=:darkgreen, linestyle=:dashdotdot)
-# pltEV = plot!(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linestyle=:dash)#, ylim=(0,5000))
-# pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(0,maximum(resultdf[:,:Emissions])*10^3+500), color=:red, linewidth=0.2)
-# # pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-ReductTarget],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
-# # pltEV = plot!(twinx(),resultdf[!,tax1],resultdf[!,:EVCES2], legend=:right, label="Excess Burden:\nRight axis", ylabel= "Percentage change", guidefont=font(9,"Palatino Roman"), linewidth=2., xlim=(0,resultdf[end,tax1]), ylim=(0,1), yticks=([0.0,0.2,0.4,0.6,0.8,1.0],["0.0%","0.2%","0.4%","0.6%","0.8%","1.0%"]), legendfont=font(9,"Palatino Roman"))
-# # pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3,  xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xlabel="$(replace(tax2,"_"=>" ")) \$/t", linewidth=0, legend=false, guidefont=font(10,"Palatino Roman"),xticks=([0,45],["0","\$45"]))
-# #Not working
-# # pltEV = Plots.scatter!(twiny(),[resultdf[120,tax2]],[resultdf[120,:CO2Emissions].*10^3],  xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xticks=false,legend=false, guidefont=font(10,"Palatino Roman"))
+# # # print(resultdf)
+# # # 1
+# # # # # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
+# # # # # plt = plot!([CO2_taxrate], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3))
+# # # # # plch4 = plot(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label=false, title="CH₄ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2]) \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
+# # # # # plch4 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCH4bnchmk*10^3)) 
+# # # # # plco2 = plot(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label=false, title="CO₂ Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(names(resultdf)[1]) $(names(resultdf)[2])  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))
+# # # # # plco2 = plot!([CO2_taxrate], seriestype=:vline, label=false, ylim=(0,TotCO2bnchmk*10^3))
+# # shapes = [:none, :auto, :circle, :rect, :star5, :diamond, :hexagon, :cross, :xcross, :utriangle, :dtriangle, :rtriangle, :ltriangle, :pentagon, :heptagon, :octagon, :star4, :star6, :star7, :star8, :vline, :hline, :+, :x]
 
-# # ### % Reduction version 
-# pltEV = plot(resultdf[!,tax1], (resultdf[!,:Emissions].-resultdf[1,:Emissions])./resultdf[1,:Emissions], legend=:bottom, label="Total GHG Emissions", ylim=(-1,.1), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq",yticks=([-1,-0.8,-0.6,-0.4,-0.2,0],	["-100%","-80%","-60%","-40%","-20%","0%"]), #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
-# xlims=(0,resultdf[end,tax1]), color=:black, linewidth=1, ylab="% change in emissions", linestyle=:dashdot,
-# yguidefontsize=9, legendfont=font(9,"Palatino Roman"),guidefont=font(10,"Palatino Roman"))
+# # # for i in 1:length(shapes)
+# pltEV = plot(repeat([0],length(resultdf[:,1])), repeat([0],length(resultdf[:,1])), label=false, ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
+# xlims=(0,resultdf[end,tax1]), color=:darkgrey, linewidth=2, ylab="MMt CO₂eq", linestyle=:dashdot,
+# yguidefontsize=9, legendfont=font(10,"Palatino Roman"),guidefont=font(12,"Palatino Roman"), tickfont=(9,"Palantino Roman"))
+
+# pltEV = plot!(resultdf[!,tax1], repeat([TotGHGbnchmk*10^3],length(resultdf[:,1])), label="Benchmark Emissions",  color=:darkgrey, linewidth=2, linestyle=:dashdot, legend=false)#, yguidefontsize=9, legendfont=font(9,"Palatino Roman"),guidefont=font(10,"Palatino Roman"))
+# pltEV = plot!(resultdf[!,tax1], resultdf[!,:Emissions].*10^3, label="Total GHG Emissions", color=:black, linewidth=2, linestyle=:dashdot, legend=false)#:topright)#legend_position=(.09,1), legendfont=font(14,"Palatino Roman"),guidefont=font(14,"Palatino Roman"))
+# # pltEV = plot!(resultdf[!,tax1], repeat([TotGHGbnchmk*10^3],length(resultdf[:,1])), label="Benchmark Emissions", linestyle=:dashdot, linewidth=2, color=:darkgrey)
+# reduction_target = 1117.47  # -961.344/(TotGHGbnchmk*10^3) for CH4 SCC, # 3053.83/(TotGHGbnchmk*10^3)
+# # pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-reduction_target],length(resultdf[:,tax1])), color=:lightgreen, label="Reduction target",linewidth=1.5)
+# pltEV = plot!(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linewidth= 4)#linestyle=:dash)#, ylim=(0,5000))
+# pltEV = plot!(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label="CH₄ Emissions", linewidth=4, color=:darkgreen)#, linestyle=:dashdotdot)
+# pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-ReductTarget],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
+# # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3+200), color=:red, linewidth=2)
+# pltEV = scatter!([NaN], [NaN], color = :red, label="Equivalent Variation % change (right axis)", markershape= :circle,markersize= 10, markerstrokewidth=10, markercolor="red") ## EV line
+
+# #     # pltEV = plot!(resultdf[!,tax1],resultdf[!,:EVCES2], legend=:right, label="Equivalent Variation:\n% change", ylabel= "Percentage change",
+# #     # guidefont=font(9,"Palatino Roman"), linewidth=2, xlim=(0,resultdf[end,tax1]), ylim=(0,2),color=:brown,markershape=:x, markersize=10,
+# #     # yticks=([0.0,0.5,1.0,1.5,2.0],["0.0%","0.5%","1.%","1.5%","2.0%"]), legendfont=font(9,"Palatino Roman"))
+# ### Supplementary spaced line for EV, to use as markers
+# setupEV1 = resultdf[!,:EVCES2]
+# setupEV = setupEV1[collect(1:10:length(setupEV1)),:]
+# setuptaxes = resultdf[:,tax1][collect(1:10:length(resultdf[:,tax1])),:]
+  
+# pltEV = plot!(twinx(),resultdf[:,tax1],setupEV1,
+#  xlim=(0,resultdf[end,tax1]), legend=false,color=:brown,ylab="Total cost as % of initial income",
+#  yguidefontsize=9,guidefont=font(12,"Palatino Roman"), tickfont=(9,"Palantino Roman"),
+# #legend=:topright,label="CO2 spillover %\nright axis", legendfont=font(9,"Palatino Roman"),
+# ylim=(0,1),yticks=([0,.20,.40,.60,.80,1],["-0.0%","-0.2%","-0.4%","-0.6%","-0.8%","-1.0%"]),ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
+# pltEV = plot!(twinx(), setuptaxes, setupEV,ylim=(0,1),line=false,yticks=false,#yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]), tickfontsize=11,,legendfont=font(11,"Palatino Roman")
+# xlim=(0,resultdf[end,tax1]+1),markershape= :circle,markersize= 3, markerstrokewidth=3, markerstrokecolor="red",legend=false)#,yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]),tickfontsize=11,legendfont=font(11,"Palatino Roman"))
+# # # # display(pltEV)
+# # # # sleep(2)
+# # # # end
+
+# # pltEV = plot!(twinx(),resultdf[!,tax1],resultdf[!,:EVCES2], legend=:right, label="Excess Burden:\nRight axis", ylabel= "Percentage change",
+# #  guidefont=font(9,"Palatino Roman"), linewidth=2., xlim=(0,resultdf[end,tax1]), color=:brown,markershape=:x, markersize=10,
+# #  ylim=(0,1), yticks=([0.0,0.2,0.4,0.6,0.8,1.0],["0.0%","0.2%","0.4%","0.6%","0.8%","1.0%"]), legendfont=font(9,"Palatino Roman"))
+
+# pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xtickfont=(10,"Palantino Roman"),xlabel="$(replace(tax2,"_"=>" ")) \$/t", linewidth=0, legend=false, guidefont=font(12,"Palatino Roman"),xticks=([0,maximum(resultdf[!,tax2])],["\$0","\$$(Int(round(maximum(resultdf[!,tax2]);digits=0)))"]))
+
+# png(pltEV, joinpath(@__DIR__,"./Results/Target_noEV_oilgasonly"))
+
+# # # #Not working
+# # # # pltEV = Plots.scatter!(twiny(),[resultdf[120,tax2]],[resultdf[120,:CO2Emissions].*10^3],  xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xticks=false,legend=false, guidefont=font(10,"Palatino Roman"))
+
+# # # # ### % Reduction version 
+# pltEV = plot(repeat([0],length(resultdf[:,1])), repeat([0],length(resultdf[:,1])), label=false, ylim=(-1,0), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", yticks=([-1,-0.8,-0.6,-0.4,-0.2,0],["-100%","-80%","-60%","-40%","-20%","0%"]),#title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
+# xlims=(0,resultdf[end,tax1]), color=:darkgrey, linewidth=2, ylab="% change in emissions", linestyle=:dashdot,
+# yguidefontsize=12, legendfont=font(9,"Palatino Roman"),guidefont=font(11,"Palatino Roman"), tickfont=(12,"Palantino Roman"))
+# # pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CO2Emissions].-resultdf[1,:CO2Emissions])./resultdf[1,:CO2Emissions], label="CO₂ Emissions", color=:blue, linewidth= 4)#linestyle=:dash)#, ylim=(0,5000))
+# # pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CH4Emissions].-resultdf[1,:CH4Emissions])./resultdf[1,:CH4Emissions], label="CH₄ Emissions", linewidth=4, color=:darkgreen)#, linestyle=:dashdotdot)
+# # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(-1,0), color=:red, linewidth=2)
+
+
+# pltEV = plot(resultdf[!,tax1], (resultdf[!,:Emissions].-resultdf[1,:Emissions])./resultdf[1,:Emissions], legend=:bottomleft, label="Total GHG Emissions", ylim=(-1,.1), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq",yticks=([-1,-0.8,-0.6,-0.4,-0.2,0],	["-100%","-80%","-60%","-40%","-20%","0%"]), #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])", 
+# xlims=(0,resultdf[end,tax1]), color=:black, linewidth=1, ylab="% change in emissions", linestyle=:solid,
+# yguidefontsize=12, legendfont=font(10,"Palatino Roman"),guidefont=font(11,"Palatino Roman"), tickfont=(12,"Palantino Roman"),
+# # yguidefontsize=11, legendfont=font(9,"Palatino Roman"),guidefont=font(11,"Palatino Roman")
+# )
 # pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CH4Emissions].-resultdf[1,:CH4Emissions])./resultdf[1,:CH4Emissions], label="CH₄ Emissions", color=:darkgreen, linestyle=:dash)
-# pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CO2Emissions].-resultdf[1,:CO2Emissions])./resultdf[1,:CO2Emissions], label="CO₂ Emissions", color=:blue, linestyle=:dashdot)#, ylim=(0,5000))
-# pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(-1,.1), color=:red, linewidth=0.2)
+# pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CO2Emissions].-resultdf[1,:CO2Emissions])./resultdf[1,:CO2Emissions], label="CO₂ Emissions", color=:blue, linestyle=:dashdot, linewidth=1)#, ylim=(0,5000))
+# # # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(-1,.1), color=:red, linewidth=0.2)
+# # ## Legend entry for right y-axis series
+# pltEV = plot!([NaN], [NaN], label="Spillovers: CO₂ % of reductions (right axis)", color=:orange, linewidth=2,markershape=:star4,markersize= 28, markercolor="orange",markerstrokecolor="orange")
 
-# # # # ### Next line for CH4 spillovers, only valid for CO2-only policy
-# pltEV = plot!(twinx(),resultdf[:,tax1],[resultdf[2,:CH4perc_red]; resultdf[2:end,:CH4perc_red]],legend=:right, label="CH₄ spillover %\nright axis", color=:orange, linewidth=2,legendfont=font(9,"Palatino Roman"), 
-# ylim=(0,100), xlims=(0,resultdf[end,tax1]),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]))
-# pltEV = plot!(twinx(),resultdf[2:end,tax1],(resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions]), label="CO2 spillover %\nright axis", color=:orange, legend=:left)#, ylim=(0,1),xticks=([0,.10,.20,.30,.40,.50,.60,.70],["0%","10%","20%","30%","40%","50%","60%","70%"])
-# ## Next line for CO2 spillovers, only valid for CH4-only policy
-# pltEV = plot!(twinx(),resultdf[:,tax1],[0; (resultdf[1,:CO2Emissions] .-resultdf[2:end,:CO2Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions])], legend=:topright,label="CO2 spillover %\nright axis", color=:orange,legendfont=font(9,"Palatino Roman"), xlim=(0,resultdf[end,tax1]),ylim=(0,1),yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]))
+# # # # # # # ### Next line for CH4 spillovers, only valid for CO2-only policy
+# # # # pltEV = plot!(twinx(),resultdf[:,tax1],[resultdf[2,:CH4perc_red]; resultdf[2:end,:CH4perc_red]],legend=:right, label="CH₄ spillover %\nright axis", color=:orange, linewidth=2,legendfont=font(9,"Palatino Roman"), 
+# # # # ylim=(0,100), xlims=(0,resultdf[end,tax1]),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]))
+# # # # pltEV = plot!(twinx(),resultdf[2:end,tax1],(resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions]), label="CO2 spillover %\nright axis", color=:orange, legend=:left)#, ylim=(0,1),xticks=([0,.10,.20,.30,.40,.50,.60,.70],["0%","10%","20%","30%","40%","50%","60%","70%"])
+
+# # # # # # # ### Next line for CO2 spillovers, only valid for CH4-only policy
+# # # # # # #  % OF emission reduction version
+# setup1 = [0; (resultdf[1,:CO2Emissions] .-resultdf[2:end,:CO2Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions])] # CO2 spillovers version
+# # setup1 = [0; (resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])./(resultdf[1,:Emissions] .-resultdf[2:end,:Emissions])] # CH4 Spillovers version
+
+# # # # # # # Alternate: % OVER individual GHG version
+# # # # setup1 = [0; (resultdf[1,:CO2Emissions] .-resultdf[2:end,:CO2Emissions])./(resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])] # CO2 spillovers from CH4 tax version
+# # # # setup1 = [0; (resultdf[1,:CH4Emissions] .-resultdf[2:end,:CH4Emissions])./(resultdf[1,:CO2Emissions] .-resultdf[2:end,:CO2Emissions])] # CH4 Spillovers from CO2 tax version
+
+# setup = setup1[collect(2:20:length(setup1)),:]
+# setuptaxes = resultdf[:,tax1][collect(2:20:length(resultdf[:,tax1])),:]
+
+# pltEV = plot!(twinx(),resultdf[2:end,tax1],setup1[2:end],
+#  xlim=(0,resultdf[end,tax1]), legend=false,color=:orange,#legend=:topright,label="CO2 spillover %\nright axis", legendfont=font(9,"Palatino Roman"),
+#  y_foreground_color_text=:black, y_foreground_color_axis=:orange,y_foreground_color_border=:orange,y_guidefontcolor=:orange,
+#  ylim=(0,1),yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]),ytickfontsize=15,ytickfont="Palantino Roman",legendfont=font(11,"Palatino Roman"))
+# # # # # # # # % over individual reductions version (yticks) 
+# # # # y_foreground_color_text=:black, y_foreground_color_axis=:orange,y_foreground_color_border=:orange,y_guidefontcolor=:orange,
+# # # # ylim=(0,3.1),yticks=([0,.5,1,1.5,2,2.5,3],["0%","50%","100%","150%","200%","250%","300%"]),ytickfontsize=10,ytickfont="Palantino Roman",legendfont=font(11,"Palatino Roman"))
+
+# pltEV = plot!(twinx(),resultdf[2:end,tax1],setup1[2:end],
+#  xlim=(0,resultdf[end,tax1]), color=:orange, legend=false,#legend=:topright,label="CO2 spillover %\nright axis", legendfont=font(9,"Palatino Roman"),
+#  y_foreground_color_text=:orange, y_foreground_color_axis=:orange,y_foreground_color_border=:orange,y_guidefontcolor=:orange,
+#  ylim=(0,1),yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]),ytickfontsize=15,ytickfont="Palantino Roman",legendfont=font(11,"Palatino Roman"))
+# # # # # # % over individual reductions version (yticks) 
+# # y_foreground_color_text=:orange, y_foreground_color_axis=:orange,y_foreground_color_border=:orange,y_guidefontcolor=:orange,
+# # ylim=(0,3.1),yticks=([0,.5,1,1.5,2,2.5,3],["0%","50%","100%","150%","200%","250%","300%"]),ytickfontsize=10,ytickfont="Palantino Roman",legendfont=font(11,"Palatino Roman"))
+
+# pltEV = plot!(twinx(), setuptaxes, setup,ylim=(0,1),line=false,yticks=false,#yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]), tickfontsize=11,,legendfont=font(11,"Palatino Roman")
+# xlim=(0,resultdf[end,tax1]+1),markershape=:star4,markersize= 8, markercolor="orange",legend=false, color=:orange, markerstrokecolor="orange",
+# y_foreground_color_text=:orange, y_foreground_color_axis=:orange,y_foreground_color_border=:orange,y_guidefontcolor=:orange,
+# )#,yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]),tickfontsize=11,legendfont=font(11,"Palatino Roman"))
+
+# # # # ## Legend only
+# pltEVleg = plot([NaN], [NaN], color = :darkgrey, linestyle=:dashdot,label="Benchmark Emissions",legendfont=font(14,"Palatino Roman"), linewidth=1.7)
+# pltEVleg = plot!([NaN], [NaN], color = :black,label="Total GHG Emissions",linestyle=:dashdot,legendfont=font(14,"Palatino Roman"), linewidth=1.7)
+# reduction_target = 1117.47  # -961.344/(TotGHGbnchmk*10^3) for CH4 SCC, # 3053.83/(TotGHGbnchmk*10^3)
+# pltEVleg = plot!([NaN], [NaN], color=:yellow, label="Reduction target",linewidth=1.5)
+# pltEVleg = plot!([NaN], [NaN], color = :blue, label="CO₂ Emissions",linewidth=4)
+# pltEVleg = plot!([NaN], [NaN], color = :darkgreen, label="CH₄ Emissions",linewidth=4)
+# # # pltEVleg = plot!([NaN], [NaN], color = :red, label="SCCO₂",seriestype=:vline,linewidth=2)
+# #     #    pltEVleg = scatter!([NaN], [NaN], markersize = 10, color = :orange, label="CH4 spillover% (right axis)",markershape=:star4)
+# #     #     pltEVleg = scatter!([NaN], [NaN], markersize = 10, color = :orange, label="CO2 spillover% (right axis)",markershape=:rtriangle)
+# pltEVleg = scatter!([NaN], [NaN], color = :red, label="Equivalent Variation, % change (right axis)", markershape= :circle,markersize= 10, markerstrokewidth=3, markerstrokecolor="red")
+# display(pltEVleg)
+# sleep(3)
+# end
 # pltEV = plot!(twinx(),resultdf[2:end,tax1],resultdf[2:end,:CO2perc_red],legend=:right, label="CO₂ spillover %\nright axis", legendfont=font(9,"Palatino Roman"), color=:orange, xlim=(0,maximum(resultdf[:,tax1])), ylim=(0,100),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]))
 
-# 1
 # # TestVars = copy(checkch4CO2[2])
 # # TestVars = copy(checkCO2[2])
 # print(TestVars)
