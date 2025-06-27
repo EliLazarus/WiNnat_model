@@ -3,13 +3,14 @@ using MPSGE
 using DataFrames, JLD2
 using JuMP
 using MPSGE.JuMP.Containers
-using CSV, Plots
+using CSV, Plots, Plots.PlotMeasures
 
 ### Run the economic data aggregation/disaggregation script if it hasn't been
 if !@isdefined(WplusSpAgCdata2022)
     include("./data/AggWiNDCdata.jl")
 end
 
+# WiNDC v0.1.1 `https://github.com/uw-windc/WiNDC.jl.git#aggregation`   ...C:\Users\Eli\.julia\packages\WiNDC\htB5C
 ## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
 # New data from Mitch Oct 11
 # P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
@@ -255,15 +256,15 @@ Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
 MultiNat = MPSGEModel()
 
 @parameters(MultiNat, begin
-    ta[Jp], ta_0DAA[Jp]#ta_0[Jp]
-    ty[Jp], ty_0DAA[Jp] #ty_0[Jp]
-    tm[Jp], tm_0DAA[Jp] #tm_0[Jp]
-    # ta[j=Jp], ta_0DAA[j]#ta_0[Jp]
-    # ty[j=Jp], ty_0DAA[j] #ty_0[Jp]
-    # tm[j=Jp], tm_0DAA[j] #tm_0[Jp]
+    # ta[Jp], ta_0DAA[Jp]#ta_0[Jp]
+    # ty[Jp], ty_0DAA[Jp] #ty_0[Jp]
+    # tm[Jp], tm_0DAA[Jp] #tm_0[Jp]
+    ta[j=Jp], ta_0DAA[j]#ta_0[Jp]
+    ty[j=Jp], ty_0DAA[j] #ty_0[Jp]
+    tm[j=Jp], tm_0DAA[j] #tm_0[Jp]
     CH₄_tax, 0.
-    CH4_secs[Jp], CH4_tax_switch_on_sectors[Jp]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
-    # CH4_secs[j=Jp], CH4_tax_switch_on_sectors[j]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
+    # CH4_secs[Jp], CH4_tax_switch_on_sectors[Jp]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
+    CH4_secs[j=Jp], CH4_tax_switch_on_sectors[j]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
     CO₂_tax, 0.     
     # t_elas_y, 0.
     # elas_y, 0.05
@@ -316,12 +317,12 @@ end
 end)
 
 # # Variables to track and report levels of CO2 emissions
-@auxiliary(MultiNat, CO2em, index = [[:gas, :oil, :coa]])
-# @auxiliary(MultiNat, CO2em[[:gas, :oil, :coa]])
+# @auxiliary(MultiNat, CO2em, index = [[:gas, :oil, :coa]])
+@auxiliary(MultiNat, CO2em[[:gas, :oil, :coa]])
 @auxiliary(MultiNat, CO2TotEm, description = "Total CO2 emissions from fossil fuels")
 # Variables to track and report levels of CH4 emissions
-@auxiliary(MultiNat, CH4em, index = [[:agr,:coa,:gas,:pip,:oil,:wst]])
-# @auxiliary(MultiNat, CH4em[[:agr,:coa,:gas,:pip,:oil,:wst]])
+# @auxiliary(MultiNat, CH4em, index = [[:agr,:coa,:gas,:pip,:oil,:wst]])
+@auxiliary(MultiNat, CH4em[[:agr,:coa,:gas,:pip,:oil,:wst]])
 @auxiliary(MultiNat, CH4TotEm, description = "Total CH4 emissions")
 @auxiliary(MultiNat, TotEm, description = "Total both emissions")
 
@@ -532,7 +533,7 @@ Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip]
 MevbnchCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 # EVbnch2  = Mevbnch2 - value(RA) 
 EVbnch  = Mevbnch - value(RA) 
-elasRA = MPSGE.elasticity(MultiNat.productions[FDem].input)
+elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
 # priceIndCES = (sum([((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) * value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 PrIndexbnchCES = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
@@ -606,7 +607,7 @@ for (n,i) in enumerate(Ip)
 end
 
 ## DataFrame to hold the industry indices with descriptions
-Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),5),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),4),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
@@ -650,7 +651,7 @@ push!(EqVar, [:ch4 utilch4 utilCESch4 Mevch4 EVch4 EVch4/value(RA)*100 (utilCESc
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
 end
-Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),5),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
+Rs = DataFrame([Y value.(Y) first.(last.(string.(Y),4),3)][sortperm([Y value.(Y)][:,2], rev= true), :], [:var, :val, :index])
 Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Sorted, to report highest and lowest 4 output activity levels for this policy simulation
 Rs[:,2][1:4]
