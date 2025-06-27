@@ -11,24 +11,14 @@ if !@isdefined(WplusSpAgCdata2022)
 end
 
 # WiNDC v0.1.1 `https://github.com/uw-windc/WiNDC.jl.git#aggregation`   ...C:\Users\Eli\.julia\packages\WiNDC\htB5C
-## Load all the data: Data was uploaded and structured into Dicts of DenseAxisArrays with a Julia notebook "national_data.ipynb"
-# New data from Mitch Oct 11
-# P= load(joinpath(@__DIR__,"./data/national_ls/DAAData.jld2"))["data"] # load in data from saved Notebook output Dict, named P
-# P = MultiNatdata
-# P = WplusSpAgCdata2020  
 P = WplusSpAgCdata2022 # Re-aggregated/disaggregated from BEA detailed via WiNDC.jl, and my AggWiNDCdata.jl script
-# P = WplusAgCSpdata2022 # Re-aggregated/disaggregated from BEA detailed via WiNDC.jl, and my AggWiNDCdata.jl script
 
 S= load(joinpath(@__DIR__,"./data/national_ls/Indices.jld2"))["data"] # load in data from saved Notebook output Dict, named S
 Sectors = CSV.read(joinpath(@__DIR__,"./Sectorsplus.csv"), DataFrame);
 ## New sectors:
-# uel (utility: Electric power generation, transmission, and distribution), 
-# ugs (utility: Natural gas distribution), 
-# uwt (utility: Water, sewage and other systems), 
-# coa (coal mining)
-# min (other non-oil/gas mining [not coal])
-### min => coa for CH4sectors, oil => oil & gas.
-### emissions and abatement for gas split btw 'gas' and 'pip'?
+# uel (utility: Electric power generation, transmission, and distribution), ugs (utility: Natural gas distribution), uwt (utility: Water, sewage and other systems), 
+# coa (coal mining), min (other non-oil/gas mining [not coal])
+### oil => oil & gas emissions and abatement for gas split btw 'gas' and 'pip'?
 
 I = [i for i∈S[:i] if i∉[:use,:oth]] # Index for WiNDC BEA Sectors
 Ip = [[x for x in I if x∉[:uti]]; [:uel,:ugs, :uwt, :coa, :gas, :rnw]]
@@ -65,8 +55,6 @@ ta_0DAA = DenseAxisArray([ta_0[i,:value] for i in Ip], Ip)
 ## Base Marginal Abatement Cost EPA data (2022). $/t and MMtCO2eq
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, skipto=17)
-# # MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, limit=14)
-# MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2020_data.csv"), DataFrame, header=2, skipto=17)
 
 #####################
 # SET SCENARIO
@@ -96,17 +84,17 @@ CH4_taxrate = 282.885#<=target for all CH
     # CO2_taxrate = 35.19435  + 200 * 1.130480652 # CO2 tax to match CH4 reductions at SCC
     # CH4_taxrate = .08 ## Test combo to reach 3053.83 SCCO2 reductions with combo
     # CO2_taxrate = .19393 ## Test combo to reach 3053.83 SCCO2 reductions with combo
+### SCC
     # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
 # CH4_taxrate = 1356.16 # target = 
     # CH4_taxrate = 1356.16 + 200 * 1.130480652# Rate that gets same GHG reduction as CO2 at SCC 
+### Alt specs
 # CH4_taxrate = 60.765#<=re target w 5 x oil/gas, oil/gas tax
 # CO2_taxrate = 49.8915#<=updated target w 20-yr GWP
 # # CH4_taxrate = 62.539#<=updated target w 20-yr GWP 
 # CH4_taxrate = 130.257#<=updated target w 20-yr GWP, oil/gas tax (optimal with 0 CO2 tax??)
-# CH4_taxrate = 79.4405#<=updated target w 20-yr GWP, no abatement 
 # CO2_taxrate = 43.7836#<=updated target x 5 oil/gas
 # CH4_taxrate = 48.4625#42.3005#<=updated target x 5 oil/gas , oil/gas tax
-
 # CO2_taxrate = 50.479#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07
 # CH4_taxrate = 8.219#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07 
 # CH4_taxrate = 10.9021#<=updated target w 20-yr GWP & x 5 oil/gas & oil gas taxed only, Reduction targ=1845.07 
@@ -118,6 +106,7 @@ CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" 
 # CO2_taxrate = 8.07#<=target for all CH4 combination with no abatement
 # CH4_taxrate = 202.34#<=target for all CH4# combination with no abatement
+# CH4_taxrate = 79.4405#<=updated target w 20-yr GWP, no abatement 
 
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
@@ -125,33 +114,30 @@ print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
 
 only_oilgaspip = true
-#########> Comment out below to turn OFF Methane tax for coal, agriculture, and waste => Tax ONLY for oil, gas, and pip
-only_oilgaspip = false
+only_oilgaspip = false ####> Comment out to implement tax ONLY on oil, gas, pip =>turn **OFF** Methane tax for coal, agriculture, and waste
 CH4_tax_switch_on_sectors = DenseAxisArray([0 for i in Ip], Ip)
 if !only_oilgaspip;  ; print("[All CH4 tax] "); end
 CH4_tax_switch_on_sectors[CH4sectors] .=1 # All sectors switched on by default, but only CH4sectors in the loop for the taxes and have non-zero CH4Intensity
 if only_oilgaspip; CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("[CH4 gas/oil/pip ONLY] "); end# sectors here will have NO CH4 tax
 
 GWP20year = true
-######> Comment out below for 20-year GWP simulation 
-GWP20year = false
+GWP20year = false###> Comment out to implement 20-year GWP simulation 
 EPACO2eqNonCO2_to_GHGInv_multiplier = 28/25 # The non-CO2 MAC data (emissions and abatement) uses 25, the GHG Inv uses 28
 GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
 if GWP20year; GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print("{20 year GWP} "); end
 if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 20-year GWP simulation 
  
 CH4x5 = true
-######> Comment out below to multiply CH4 emissions x 5
-CH4x5 = false
+CH4x5 = false ###> Comment out to implement x 5 multiple CH4 emissions
 if CH4x5; Undercount_oilgasch4_multiplier = 5; print("::5 x CH₄::"); end#(Plant et al 2022   #Alvarez 2018 said 1.6)
 if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# default (comment out for oilgas multi)
 
 multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
 ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;println(": Reduction target=",ReductTarget)
+#########################
+### End scenario, => Start data set up
+#########################
 
-#########################
-### End scenario, start data
-#########################
 # % split for pipelines and oil from MAC for 'GAS' by proportion of combined economic output
 gas_of_GAS = sum(ys_0[:,:gas])/(sum(ys_0[:,:pip])+sum(ys_0[:,:oil])+sum(ys_0[:,:gas]))
 pip_of_GAS = sum(ys_0[:,:pip])/(sum(ys_0[:,:pip])+sum(ys_0[:,:oil])+sum(ys_0[:,:gas]))
@@ -215,8 +201,8 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
 CO2Int = DenseAxisArray(zeros(length(Jp)),Jp)
 # 2024 GHG Inv Table 3-5: CO2 Emissions from Fossil Fuel Combustion by Fuel Type and Sector (MMT CO2 Eq.)
 TotalCO2EmMMt_coal =  895.9 # <=2022 # 835.6 <=2020  EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
-# Option with no transport emissions in the model: assumption that direct
-# TotalCO2EmMMt_gas_oil = 2104.80
+### (Option with no transport emissions in the model: assumption that direct)
+### TotalCO2EmMMt_gas_oil = 2104.80
 Natural_gasCO2 =  1740.70 #<=2022(incl 70.2 transport, Table 3-5:)  1615.7 #<=2020 (incl 58.7 transport, Table 3-5:)
 PetroleumCO2 =  2115.40 #<=2022 (incl 1,681.10 transport, Table 3-5) # 1890.0 #<=2020 (incl 1,514.2 transport, Table 3-5)
 # Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
@@ -231,7 +217,6 @@ CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
 CO2Int[:gas] =   TotalCO2EmGt_gas/sum(id_0[:gas,:])
 
 TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
-# TotCH4bnchmk = sum(CH4emiss[:EPAemiss,:]) # from single step data version, same data, same value
 TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 0.6902703880400002
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 5.0315703880400005
 
@@ -271,13 +256,7 @@ MultiNat = MPSGEModel()
     CH₄_tax, 0.
     # CH4_secs[Jp], CH4_tax_switch_on_sectors[Jp]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
     CH4_secs[j=Jp], CH4_tax_switch_on_sectors[j]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
-    CO₂_tax, 0.     
-    # t_elas_y, 0.
-    # elas_y, 0.05
-    # t_elas_a, 2.            
-    # elas_a, 0.
-    # elas_dm, 2.
-    # d_elas_ra, 1.
+    CO₂_tax, 0.
 end)
 
 @sectors(MultiNat,begin
@@ -310,7 +289,6 @@ elseif (Kmobile=="no")
     PVAK[Jp], (description = "Kapital Input to VA blocks",) # separate from L and fix within sector
     PVAL, (description = "Labour Input to VA blocks",) # separate from K, and mobile btw sectors (1 price)
     end)
-
 end
 
 @commodities(MultiNat,begin
@@ -806,11 +784,6 @@ TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2
 EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReductionResults[:,3:end].*10^3); EmissionReductionResults_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 EmissionReductionResults_Mt.pc_diff .= -EmissionReductionResults_Mt.Interactions ./ EmissionReductionResults_Mt.Sum_of_each_tax .* 100 
 
-
-# print("checkch4",checkch4[3])
-# print(check[1])
-# png(checkCO2[2], "./Results/CO2to1600RAUnfxd")
-# return Emissions_Mt, 
 println(
 sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
 # Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), 
