@@ -81,38 +81,44 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
 # Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
 CO2_taxrate = 42.68#<=target for all CH4
 CH4_taxrate = 282.885#<=target for all CH
-# CO2_taxrate = 45.271#<=re target w oilgas multi
+# CO2_taxrate = 5.6134#<= Paris target with SCCH4 for all CH4
+    # CO2_taxrate = 45.271#<=re target w oilgas multi
+### Optimal combinations
     # CO2_taxrate = 18.44176473    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
     # CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
     # CO2_taxrate = 10.39 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
-    # CH4_taxrate =47.75 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
-    # CO2_taxrate = 0.2095 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
-    # CH4_taxrate =9.75 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
+    # CH4_taxrate = 39.92 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement 362.55
+    # CO2_taxrate = 0.2095 #~ value for optimum combimation, all CH4, YES GWP, 5x oil/gas, w abatement
+    # CH4_taxrate =9.75 #~ value for optimum combimation, all CH4, YES GWP, 5x oil/gas, w abatement
     # CO2_taxrate = 2 #~ value for optimum combimation, all CH4, 5 x oil/gas, w abatement
-    # CH4_taxrate = 47.5 #~ value for optimum combimation, all CH4, 5 x oil/gas, w abatement
-    # CO2_taxrate = 8.07#<=target for all CH4 combination with no abatement
-    # CH4_taxrate = 202.34#<=target for all CH4# combination with no abatement
-    # CO2_taxrate = 200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
-    # CO2_taxrate = 35.19435  + 200 * 1.130480652
-    # CH4_taxrate = 200 * 1.130480652 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
-# CH4_taxrate = 1356.16 #+ 200 * 1.130480652# Rate that gets same GHG reduction as CO2 at SCC 
-# CH4_taxrate = 60.765#<=re target w oilgas multi
+    # CH4_taxrate = 38.271 #~ value for optimum combimation, all CH4, 5 x oil/gas, w abatement # 42.3 what is this?
+    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+    # CO2_taxrate = 35.19435  + 200 * 1.130480652 # CO2 tax to match CH4 reductions at SCC
+    # CH4_taxrate = .08 ## Test combo to reach 3053.83 SCCO2 reductions with combo
+    # CO2_taxrate = .19393 ## Test combo to reach 3053.83 SCCO2 reductions with combo
+    # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
+# CH4_taxrate = 1356.16 # target = 
+    # CH4_taxrate = 1356.16 + 200 * 1.130480652# Rate that gets same GHG reduction as CO2 at SCC 
+# CH4_taxrate = 60.765#<=re target w 5 x oil/gas, oil/gas tax
 # CO2_taxrate = 49.8915#<=updated target w 20-yr GWP
-# CH4_taxrate = 62.539#<=updated target w 20-yr GWP 
-# CH4_taxrate = 163.925#<=updated target w 20-yr GWP, oil/gas tax 
+# # CH4_taxrate = 62.539#<=updated target w 20-yr GWP 
+# CH4_taxrate = 130.257#<=updated target w 20-yr GWP, oil/gas tax (optimal with 0 CO2 tax??)
 # CH4_taxrate = 79.4405#<=updated target w 20-yr GWP, no abatement 
 # CO2_taxrate = 43.7836#<=updated target x 5 oil/gas
-# CH4_taxrate = 42.3005#<=updated target x 5 oil/gas 
+# CH4_taxrate = 48.4625#42.3005#<=updated target x 5 oil/gas , oil/gas tax
 
 # CO2_taxrate = 50.479#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07
 # CH4_taxrate = 8.219#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07 
-# CH4_taxrate = 13.4085#<=updated target w 20-yr GWP & x 5 oil/gas & oil gas taxed only, Reduction targ=1845.07 
+# CH4_taxrate = 10.9021#<=updated target w 20-yr GWP & x 5 oil/gas & oil gas taxed only, Reduction targ=1845.07 
 # CO2_taxrate = 48.54#<=target for CO2 emissions only to meet target
 # CH4_taxrate = 393.134 #<= target for CH$ oil/gas/pip
 # CH4_taxrate = 318.64#<=re target w oilgas multi w/o abatement 
 
 CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" 
+# CO2_taxrate = 8.07#<=target for all CH4 combination with no abatement
+# CH4_taxrate = 202.34#<=target for all CH4# combination with no abatement
+
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
@@ -328,19 +334,7 @@ end)
 
 
 @consumer(MultiNat, RA, description = "Representative Agent")
-"""
-ID = Ip = [i for i∈Ip if i∉[:oil,:min, :uti]] # separate oilandgas and min, i without oil or min AND separate uti, so i without oil, min, or uti.
-:wtr = uti (360) - ide_0 (290) ~ 70
-:ele -> uti (360) - %ele = ide_0 (290)
-:rnw -> :ele * .4
-:elc -> coal for electrity : ele * .2
-:elg -> gas for electricity : ele *.4
-:oil -> oil - :elg : oil and gas for energy which is all oil and gas except gas for electrity
 
-e is coming from id_0. %s. and then split to direct and elec. So e is a new DAA, with ide_0, input for each.
-then split that data for elect, gas, and oil.
-    then split elec for rnw, min (for now) and oil (for gas for now)
-"""
 # Domestic production for all sectors
 
 # for j∈Jp
@@ -357,7 +351,7 @@ for j∈Jp
     @production(MultiNat, Y[j], [t= 0, # Data re-allocation of oil and gas fixed this! re .05, # Can't be zero with slack activities. Need values from lit, but in absence, 0.05 is lowest that solves ~1 for Y[gas]&Y[oil] in the benchmark
     s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
     va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en],
-    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[:uel,:SAGE_en]### Elec SHOULDN'T CHANGE WITH J!!!! 
+    oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[:uel,:SAGE_en]### Elec preference between coa/gas/rnw doesn't change between sectors - common to all sectors 
     ],begin
     [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]...
     [@input(PA[i], id_0[i,j], sm) for i∈ID]... 
@@ -372,7 +366,6 @@ for j∈Jp
 end)
 end
 # # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
-# print("ElasVA = SAGEkl:: ")
 if (Kmobile=="yes")
 for j∈Jp
         @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
@@ -397,7 +390,6 @@ if CH4abatement=="yes"
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
-                                                    # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
                         [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         [@input(PVA[va], va_0[va,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])]) for va∈VA]...
                     end)
@@ -409,8 +401,7 @@ if CH4abatement=="yes"
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
-                    # @production(MultiNat, vam[j], [t=0, s = 0, va => s = 1], begin
-                        [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
+                       [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         @input(PVAK[c],va_0[:surplus,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])])
                         @input(PVAL,    va_0[:compen,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])])
                     end)
@@ -441,11 +432,10 @@ for i∈Ip
         reference_price=1+tm_0[i,:value])# No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO₂_tax * CO2Int[i]),
     end)
 end;
-println(" No CH4 tariff:: ")
 
-## Final Consumption with elasticity of Demand
-@production(MultiNat, FDem, [t=0, s=.999999], begin #.9999999], begin #
-    @output(PC, sum(pce_0),t) #for i∈Ip]    
+## Final Consumption with CES elasticity of Demand (Consumption utility)
+@production(MultiNat, FDem, [t=0, s=.999999], begin
+    @output(PC, sum(pce_0),t)
     [@input(PA[i], pce_0[i,:pce],s) for i in Ip]...
 end)
 
@@ -456,7 +446,7 @@ if (Kmobile=="yes")
     @endowment(PFX, only(bopdef_0))
     [@endowment(PA[i], -sum(fd_0[i,xfd] for xfd∈FD if xfd!=:pce)) for i∈Ip]...
     [@endowment(PVA[va], sum(va_0[va,j] for j∈Jp)) for va∈VA]...
-    end, elasticity = 1)
+    end, elasticity = .999999)
     # end, elasticity = d_elas_ra)
 elseif (Kmobile=="no")
     @demand(MultiNat, RA, begin
@@ -505,8 +495,6 @@ set_silent(MultiNat)
 if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CH₄"); println("Yes CH4 tariff!!!"); end
 if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CO₂"); println("Yes CO2 tariff!!!"); end 
 # Benchmark 
-# fix(PA[:oil],1)
-# fix(PA[:rec], 1)
 fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 ### Note: Benchmark doesn't solve to appropriate residual at 0 interation because of margins of slack activity. 
 ### Does balance with interactions or slack vars and production commented out.
@@ -875,11 +863,11 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
         # value(CH4em[:oil]),value(CH4em[:pip]),value(CO2em[:coa]),value(CO2em[:oil])
         ]  )
         totrevboth  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-        sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-        sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-        sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
-        income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
-                elasRA = MPSGE.elasticity(MultiNat.productions[FDem].input)
+            sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
+            sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
+            sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+        income = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
+        elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
         totdem = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
         # util    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
         utilCESf    = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
@@ -916,14 +904,11 @@ set_silent(MultiNat)
 ###############################
 ## This Section for manaully tweaked vectors of carbon taxes that fit with increasing CH4 taxes to meet reduction targets in each setting
 ###############################
-# OLD  co2vec = [45.38,41.3,40.9,40.75,39.52,39.4,39.21,39.05,38.9,38.75,38.6,38.45,37.9,37.75,37.6,37.5,37.35,37.19,36.75,36.65,36.5,36.35,36.2,36.05,35.3,35.17,35,34.9,34.75,34.6,34.45,34.35,34.2,34.05,33.91,33.78,32.73,32.6,32.45,32.35,32.2,32.1,31.95,31.85,31.7,31.57,31.45,31.3,30.55,30.45,30.3,30.2,30.1,29.94,29.85,29.7,29.6,29.45,29.35,29.25,28.8,28.68,28.56,28.44,28.33,28.21,28.09,27.97,27.85,27.74,27.62,27.51,27.39,27.28,27.16,27.05,26.93,26.82,26.7,26.58,26.46,26.35,26.23,26.11,25.99,25.87,25.75,25.64,25.52,25.4,25.29,25.18,25.06,24.95,24.84,24.73,24.61,24.5,24.38,24.27,24.15,24.04,23.92,23.81,23.69,23.58,23.46,23.35,23.23,23.12,23,22.89,22.78,22.66,22.55,22.44,22.33,22.21,22.1,22,20.65,20.55,20.45,20.32,20.25,20.15,20.03,19.9,19.82,19.72,19.6,19.48,19.37,19.27,19.16,19.06,18.95,18.85,18.75,18.64,18.54,18.43,18.34,18.25,18.12,18.02,17.92,17.82,17.73,17.63,17.5,17.4,17.3,17.2,17.1,17,16.9,16.8,16.7,16.6,16.5,16.39,16.28,16.18,16.09,16,15.88,15.79,15.69,15.6,15.5,15.39,15.28,15.18,15.07,14.98,14.9,14.79,14.68,14.59,14.5,14.4,14.3,14.2,14.1,14,13.9,13.8,13.7,13.6,13.5,13.4,13.3,13.2,13.1,13,12.9,12.8,12.73,12.64,12.54,12.42,12.32,12.22,12.13,12.04,11.95,11.86,11.76,11.67,11.58,11.47,11.36,11.27,11.18,11.09,11,10.91,10.82,10.71,10.62,10.53,10.44,10.34,10.25,10.15,10.05,9.95,9.85,9.75,9.66,9.58,9.5,9.4,9.31,9.22,9.12,9.03,8.94,8.84,8.75,8.66,8.56,8.47,8.37,8.28,8.19,8.09,8,7.9,7.81,7.72,7.63,7.54,7.46,7.37,7.28,7.19,7.1,7.01,6.92,6.83,6.74,6.65,6.56,6.46,6.37,6.28,6.19,6.09,6,5.91,5.83,5.74,5.65,5.57,5.48,5.39,5.3,5.22,5.13,5.04,4.94,4.85,4.77,4.68,4.6,4.51,4.42,4.33,4.24,4.15,4.06,3.97,3.89,3.8,3.71,3.62,3.53,3.44,3.35,3.27,3.18,3.1,3.01,2.93,2.85,2.76,2.68,2.6,2.51,2.43,2.34,2.26,2.18,2.09,2.01,1.92,1.84,1.75,1.67,1.58,1.5,1.41,1.32,1.23,1.14,1.05,0.99,0.91,0.83,0.74,0.66,0.57,0.49,0.41,0.33,0.24,0.16,0.08,0
-# ] # all ch4, 0:1:341
- # attempt at all ch4 smooth, but not as good actually co2vec = [45.361; 41.325; 40.8; collect(40.4:-((40.4-30.1)/50):30.1) ; collect(30:-((30-23.5)/50):23.5); collect(23:-((23-14.5)/76):14.5) ;collect(14.1:-((14.1-7.4)/76):7.4) ; collect(7:-((7-.36)/76):.36);.26;.175;.1;.03]
-# co2vec = [42.68; 40.5; 40; collect(39:-((39-24.7)/121):24.7) ; collect(24.5:-((24.5-11.55)/132):11.55) ; collect(11.5:-((11.5-.35)/132):.35);.3;.2;.1;.01
-# ]  # For oil, gas, pip only (up to 491) #491.43 with 0, but not a step
-# co2vec = [45.361; 42.01; 41.8; collect(41.5:-((41.5-26)/150):26) ; collect(26:-((26-11.55)/169):11.55) ; collect(11.5:-((11.5-.2)/163):.2);.18;.15;.1;.01
-# ] 492, not sure what for
-# co2vec = [45.38,45.2,45.1,44.95,44.62,44.5,44.31,44.15,44,43.75,43.6,43.35,43.1,42.95,42.8,42.7,42.55,42.39,42.15,41.85,41.7,41.55,41.4,41.25,41.1,40.97,40.8,40.5,40.35,40.2,40.05,39.75,39.6,39.45,39.31,39.18,39.23,39.1,38.95,38.85,38.7,38.1,37.95,37.85,37.7,37.37,37.25,37.1,36.95,36.85,36.7,36.4,36.6,36.44,36.35,35.7,35.6,35.45,35.35,35.05,35.3,35.18,34.56,34.44,34.33,34.21,33.89,33.77,33.65,33.54,33.42,33.11,32.99,32.88,32.76,32.45,32.33,32.22,32.1,31.78,31.66,31.55,31.43,31.31,31.19,30.97,30.85,30.64,30.52,30.3,30.19,30.08,29.96,29.85,29.64,29.53,29.31,29.2,29.08,28.87,28.75,28.54,28.32,28.21,28.09,27.98,27.76,27.65,27.53,27.32,27.2,26.99,26.88,26.66,26.55,26.34,26.13,26.01,25.9,25.7,25.55,25.45,25.35,25.22,25.05,24.95,24.83,24.6,24.52,24.32,24.1,23.98,23.87,23.67,23.56,23.36,23.35,23.15,23.05,22.84,22.64,22.53,22.34,22.25,22.12,21.82,21.72,21.62,21.43,21.23,21.2,21,20.9,20.7,20.6,20.5,20.3,20.2,20,19.9,19.7,19.59,19.48,19.28,19.19,19,18.88,18.79,18.59,18.5,18.3,18.19,17.98,17.88,17.77,17.68,17.5,17.39,17.28,17.09,17,16.8,16.7,16.5,16.4,16.2,16.1,16,15.9,15.7,15.6,15.5,15.3,15.2,15.1,14.9,14.8,14.7,14.53,14.44,14.24,14.12,14.02,13.82,13.73,13.64,13.45,13.26,13.16,13.07,12.98,12.77,12.66,12.57,12.38,12.29,12.2,12.01,11.92,11.81,11.62,11.53,11.44,11.24,11.15,11.05,10.85,10.75,10.55,10.55,10.36,10.28,10.1,10,9.91,9.72,9.62,9.53,9.34,9.24,9.15,9.06,8.86,8.77,8.67,8.48,8.39,8.29,8.1,8,7.91,7.82,7.63,7.54,7.46,7.27,7.18,7.09,6.9,6.81,6.72,6.53,6.44,6.25,6.26,6.06,5.97,5.88,5.79,5.59,5.5,5.41,5.23,5.14,5.05,4.97,4.78,4.69,4.6,4.42,4.33,4.14,4.04,3.95,3.87,3.78,3.7,3.51,3.42,3.23,3.24,3.05,2.96,2.87,2.79,2.6,2.51,2.32,2.23,2.14,2.05,1.97,1.88,1.8,1.61,1.43,1.45,1.26,1.18,1.1,1.01,0.83,0.74,0.56,0.48,0.39,0.31,0.22,0
+# co2vec = [42.68,	39.344,	39.247,	39.203,	39.068,	38.932,	38.797,	38.662,	38.527,	38.393,	38.258,	38.124,	37.989,	37.855,	37.721,	37.587,	37.454,	37.32,	37.165,	37.032,	36.899,	36.767,	36.634,	36.502,	36.194,	36.066,	35.938,	35.81,	35.682,	35.555,	35.427,	35.3,	35.173,	35.046,	34.919,	34.792,	34.356,	34.237,	34.117,	33.997,	33.878,	33.758,	33.639,	33.52,	33.401,	33.282,	33.163,	33.045,	32.721,	32.607,	32.493,	32.38,	32.266,	32.152,	32.039,	31.925,	31.812,	31.699,	31.586,	31.473,	31.337,	31.225,	31.113,	31,	30.888,	30.777,	30.665,	30.553,	30.442,	30.331,	30.219,	30.108,	29.997,	29.886,	29.775,	29.665,	29.554,	29.443,	29.333,	29.223,	29.113,	29.003,	28.893,	28.783,	28.673,	28.564,	28.454,	28.344,	28.235,	28.126,	28.017,	27.908,	27.799,	27.69,	27.581,	27.473,	27.364,	27.256,	27.148,	27.04,	26.932,	26.824,	26.716,	26.608,	26.5,	26.393,	26.286,	26.178,	26.071,	25.964,	25.857,	25.75,	25.643,	25.537,	25.43,	25.324,	25.217,	25.111,	25.005,	24.899,	24.596,	24.494,	24.392,	24.291,	24.189,	24.094,	23.991,	23.888,	23.786,	23.683,	23.581,	23.478,	23.376,	23.274,	23.172,	23.07,	22.968,	22.867,	22.765,	22.663,	22.562,	22.461,	22.359,	22.258,	22.157,	22.056,	21.956,	21.855,	21.754,	21.654,	21.553,	21.453,	21.353,	21.253,	21.153,	21.053,	20.953,	20.853,	20.754,	20.655,	20.555,	20.456,	20.357,	20.258,	20.159,	20.06,	19.961,	19.863,	19.764,	19.666,	19.567,	19.469,	19.371,	19.273,	19.175,	19.077,	18.979,	18.882,	18.784,	18.686,	18.589,	18.492,	18.395,	18.298,	18.201,	18.104,	18.007,	17.911,	17.814,	17.718,	17.621,	17.525,	17.429,	17.333,	17.237,	17.141,	17.045,	16.95,	16.854,	16.759,	16.663,	16.568,	16.473,	16.378,	16.283,	16.188,	16.093,	15.999,	15.904,	15.81,	15.715,	15.621,	15.527,	15.433,	15.339,	15.245,	15.151,	15.057,	14.964,	14.87,	14.777,	14.684,	14.591,	14.498,	14.405,	14.312,	14.219,	14.126,	14.033,	13.941,	13.849,	13.756,	13.664,	13.572,	13.48,	13.388,	13.296,	13.204,	13.113,	13.021,	12.93,	12.838,	12.747,	12.656,	12.565,	12.474,	12.383,	12.292,	12.202,	12.111,	12.021,	11.93,	11.84,	11.75,	11.659,	11.569,	11.48,	11.39,	11.298,	11.208,	11.118,	11.028,	10.938,	10.848,	10.758,	10.669,	10.579,	10.49,	10.401,	10.311,	10.222,	10.133,	10.045,	9.956,	9.867,	9.779,	9.69,	9.602,	9.513,	9.425,	9.337,	9.249,	9.161,	9.073,	8.986,	8.898,	8.811,	8.723,	8.636,	8.549,	8.462,	8.375,	8.288,	8.201,	8.115,	8.028,	7.941,	7.855,	7.769,	7.683,	7.596,	7.51,	7.425,	7.339,	7.253,	7.167,	7.082,	6.997,	6.911,	6.826,	6.741,	6.656,	6.571,	6.486,	6.402,	6.317,	6.232,	6.148,	6.064,	5.979,	5.895,	5.811,	5.727,	5.643,	5.56,	5.476,	5.392,	5.309,	5.226,	5.142,	5.059,	4.976,	4.893,	4.81,	4.727,	4.645,	4.562,	4.48,	4.397,	4.315,	4.233,	4.15,	4.069,	3.987,	3.905,	3.823,	3.741,	3.66,	3.578,	3.497,	3.416,	3.334,	3.253,	3.172,	3.091,	3.011,	2.93,	2.849,	2.769,	2.688,	2.608,	2.528,	2.448,	2.368,	2.288,	2.208,	2.128,	2.048,	1.969,	1.889,	1.81,	1.731,	1.651,	1.572,	1.493,	1.414,	1.336,	1.257,	1.178,	1.1,	1.021,	0.943,	0.864,	0.786,	0.708,	0.63,	0.552,	0.474,	0.397,	0.319,	0.242,	0.164,	0.087,	0.009,	0
+# ] #For oil, gas, pip only up to 395 (393.134)
+
+# co2vec = [
+#     45.38,45.2,45.1,44.95,44.62,44.5,44.31,44.15,44,43.75,43.6,43.35,43.1,42.95,42.8,42.7,42.55,42.39,42.15,41.85,41.7,41.55,41.4,41.25,41.1,40.97,40.8,40.5,40.35,40.2,40.05,39.75,39.6,39.45,39.31,39.18,39.23,39.1,38.95,38.85,38.7,38.1,37.95,37.85,37.7,37.37,37.25,37.1,36.95,36.85,36.7,36.4,36.6,36.44,36.35,35.7,35.6,35.45,35.35,35.05,35.3,35.18,34.56,34.44,34.33,34.21,33.89,33.77,33.65,33.54,33.42,33.11,32.99,32.88,32.76,32.45,32.33,32.22,32.1,31.78,31.66,31.55,31.43,31.31,31.19,30.97,30.85,30.64,30.52,30.3,30.19,30.08,29.96,29.85,29.64,29.53,29.31,29.2,29.08,28.87,28.75,28.54,28.32,28.21,28.09,27.98,27.76,27.65,27.53,27.32,27.2,26.99,26.88,26.66,26.55,26.34,26.13,26.01,25.9,25.7,25.55,25.45,25.35,25.22,25.05,24.95,24.83,24.6,24.52,24.32,24.1,23.98,23.87,23.67,23.56,23.36,23.35,23.15,23.05,22.84,22.64,22.53,22.34,22.25,22.12,21.82,21.72,21.62,21.43,21.23,21.2,21,20.9,20.7,20.6,20.5,20.3,20.2,20,19.9,19.7,19.59,19.48,19.28,19.19,19,18.88,18.79,18.59,18.5,18.3,18.19,17.98,17.88,17.77,17.68,17.5,17.39,17.28,17.09,17,16.8,16.7,16.5,16.4,16.2,16.1,16,15.9,15.7,15.6,15.5,15.3,15.2,15.1,14.9,14.8,14.7,14.53,14.44,14.24,14.12,14.02,13.82,13.73,13.64,13.45,13.26,13.16,13.07,12.98,12.77,12.66,12.57,12.38,12.29,12.2,12.01,11.92,11.81,11.62,11.53,11.44,11.24,11.15,11.05,10.85,10.75,10.55,10.55,10.36,10.28,10.1,10,9.91,9.72,9.62,9.53,9.34,9.24,9.15,9.06,8.86,8.77,8.67,8.48,8.39,8.29,8.1,8,7.91,7.82,7.63,7.54,7.46,7.27,7.18,7.09,6.9,6.81,6.72,6.53,6.44,6.25,6.26,6.06,5.97,5.88,5.79,5.59,5.5,5.41,5.23,5.14,5.05,4.97,4.78,4.69,4.6,4.42,4.33,4.14,4.04,3.95,3.87,3.78,3.7,3.51,3.42,3.23,3.24,3.05,2.96,2.87,2.79,2.6,2.51,2.32,2.23,2.14,2.05,1.97,1.88,1.8,1.61,1.43,1.45,1.26,1.18,1.1,1.01,0.83,0.74,0.56,0.48,0.39,0.31,0.22,0
 # ] # For oil/gas/pip only, No abatement. (up to 319) 
 # co2vec = [49.8 49 19 17.7 17 16.5 16 15.3 14.9 14.4 14 13.5 13 12.5 12.1 11.6 9.45 9 8.5 8 7.7 7.2 6.8 6.4 6 5.5 5.2 4.7 4.4 3.8 3.5 3.1 2.8 2.5 2.1 1.7 1.3 .9 .6 .21 0
 # ]# 41 steps 0:0.25:10 GWP=81.2, CH4 oil x 5, econ-wide CH4 tax, w Abatement
