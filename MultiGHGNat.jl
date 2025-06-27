@@ -117,23 +117,30 @@ Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
 
-CH4_tax_switch_on_sectors = DenseAxisArray([0 for i in Ip], Ip)
-CH4_tax_switch_on_sectors[CH4sectors] .=1 # Neutral: all sectors have tax (but only CH4sectors have non-zero CH4Intensity)
-CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("CH4 gas/oil/pip ONLY Yes?,or->")# sectors here will have NO CH4 tax
+only_oilgaspip = true
 #########> Comment out below to turn OFF Methane tax for coal, agriculture, and waste => Tax ONLY for oil, gas, and pip
-CH4_tax_switch_on_sectors[CH4sectors] .=1; print("NO,") # Neutral: all sectors have tax (but only CH4sectors have non-zero CH4Intensity)
+only_oilgaspip = false
+CH4_tax_switch_on_sectors = DenseAxisArray([0 for i in Ip], Ip)
+if !only_oilgaspip;  ; print("[All CH4 tax] "); end
+CH4_tax_switch_on_sectors[CH4sectors] .=1 # All sectors switched on by default, but only CH4sectors in the loop for the taxes and have non-zero CH4Intensity
+if only_oilgaspip; CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("[CH4 gas/oil/pip ONLY] "); end# sectors here will have NO CH4 tax
 
+GWP20year = true
+######> Comment out below for 20-year GWP simulation 
+GWP20year = false
 EPACO2eqNonCO2_to_GHGInv_multiplier = 28/25 # The non-CO2 MAC data (emissions and abatement) uses 25, the GHG Inv uses 28
 GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
-GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print(" GWPmulti yes?, or->")
-######> Comment out for 20-year GWP simulation 
-GWPmulti = 1; print("NO ") # Comment out for 20-year GWP simulation 
+if GWP20year; GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print("{20 year GWP} "); end
+if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 20-year GWP simulation 
  
-Undercount_oilgasch4_multiplier = 5; print(" Undercount CH₄ yes?, or->")#(Plant et al 2022   #Alvarez 2018 said 1.6)
-Undercount_oilgasch4_multiplier = 1; print("NO ")# default (comment out for oilgas multi)
+CH4x5 = true
+######> Comment out below to multiply CH4 emissions x 5
+CH4x5 = false
+if CH4x5; Undercount_oilgasch4_multiplier = 5; print("::5 x CH₄::"); end#(Plant et al 2022   #Alvarez 2018 said 1.6)
+if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# default (comment out for oilgas multi)
 
 multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
-ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;print(": Reduction targ=",ReductTarget,", ")
+ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;println(": Reduction target=",ReductTarget)
 
 #########################
 ### End scenario, start data
@@ -385,7 +392,7 @@ end
 if CH4abatement=="yes"
     VAMcommodSet = [VAM5,VAM10,VAM15,VAM20,VAM30,VAM40,VAM50,VAM100,VAM500,VAM1000]
     if (Kmobile=="yes")
-        for c∈CH4sectors
+        for c∈CH4sectors # Here we filter for sector-specific methane tax cases (CH$sectors is boolean)
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
@@ -397,7 +404,7 @@ if CH4abatement=="yes"
             end
         end
     elseif (Kmobile=="no")
-        for c∈CH4sectors
+        for c∈CH4sectors # Here we filter for sector-specific methane tax cases (CH$sectors is boolean)
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
@@ -419,22 +426,18 @@ for m∈M
     end)
 end
  
-# for i∈Ip
-    # @production(MultiNat, A[i], [t = t_elas_a, s = elas_a, dm => s = elas_dm], begin
-    # @production(MultiNat, A[i], [t = 2, s = 0, dm => s = 2], begin
-# println("elasdm=SAGEnf")
 for i∈Ip
     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_E3_Av_Armington]], begin
         [@output(PA[i], a_0[i,:value], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i,:value])]... 
         [@output(PFX, x_0[i,:exports], t)]...
         [@input(PM[m], md_0[i,m], s) for m∈M]...
         @input(PY[i], y_0[i,:value], dm)
-## Emissions tariff on CH4 goods because inputs
-#         @input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i]),Tax(RA,CH₄_tax* VASInt[i])],reference_price=1+tm_0[i,:value])# No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO₂_tax * CO2Int[i]),
-#     end)
-# end;  println("Yes CH4 tariff: ")  
-## Alternative, no tariff on CH4 goods        
-@input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i])],reference_price=1+tm_0[i,:value]) # without excise tariff CH4 goods (or oil, 'coal' i.e. 'min
+        @input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i]),
+## Emissions tariffs ## Does not work, does not make sense.
+        # Tax(RA,CH₄_tax* VASInt[i]), # Actually INCREASES CO2 emissions (effect on CH4 seems reasonable) 
+        # Tax(RA, CO₂_tax * CO2Int[i]) # massively REDUCES reductions
+        ],
+        reference_price=1+tm_0[i,:value])# No tariff on CO2 bc oil and gas are taxed as inputs to production, which includes these imports: Tax(RA,CO₂_tax * CO2Int[i]),
     end)
 end;
 println(" No CH4 tariff:: ")
@@ -497,6 +500,9 @@ end
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
 set_silent(MultiNat)
 
+### print for emissions excise taxes
+if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CH₄"); println("Yes CH4 tariff!!!"); end
+if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CO₂"); println("Yes CO2 tariff!!!"); end 
 # Benchmark 
 # fix(PA[:oil],1)
 # fix(PA[:rec], 1)
