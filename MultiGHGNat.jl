@@ -314,7 +314,6 @@ end)
 @consumer(MultiNat, RA, description = "Representative Agent")
 
 # Domestic production for all sectors
-
 # for j∈Jp
 #         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
 #         [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
@@ -323,10 +322,9 @@ end)
 #         end)
 # end
 
-# Test of re-nesting within Y block without disaggregation
 ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
-    @production(MultiNat, Y[j], [t= 0, # Data re-allocation of oil and gas fixed this! re .05, # Can't be zero with slack activities. Need values from lit, but in absence, 0.05 is lowest that solves ~1 for Y[gas]&Y[oil] in the benchmark
+    @production(MultiNat, Y[j], [t= 0,
     s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
     va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en],
     oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[:uel,:SAGE_en]### Elec preference between coa/gas/rnw doesn't change between sectors - common to all sectors 
@@ -478,18 +476,18 @@ fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 ### Does balance with interactions or slack vars and production commented out.
 # solve!(MultiNat , cumulative_iteration_limit = 0)
 solve!(MultiNat)#, output_minor_iterations_frequency=1)
-fullvrbnch = generate_report(MultiNat);
-rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg)
-fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :var))#:bmkmarg))#:bnchmrk))#
 
 TaxRev = DataFrame(solve=Symbol[], Total_Revenue=Float64[], Change_in_Rev=Float64[], Income=Float64[])
-EqVar  = DataFrame(solve=Symbol[], utility=Float64[], utilCES=Float64[], Mev=Float64[], OldEq_Var=Float64[], OldEV_pc=Float64[], Ut_perc=Float64[])
-
-totrevbnch  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+ # taxes are negative in production, but positive for revenue
+EqVar  = DataFrame(solve=Symbol[], utilCES=Float64[], Mev=Float64[], OldEq_Var=Float64[], EV=Float64[], Ut_perc=Float64[])
+function totalrevenue()
+-(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+ # taxes are negative in production, but positive for revenue
 sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
 sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
 sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+end
+totrevbnch = totalrevenue()
 income      = totrevbnch + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:bnch totrevbnch totrevbnch-totrevbnch income])
 
@@ -503,12 +501,13 @@ elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
 # priceIndCES = (sum([((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) * value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 PrIndexbnchCES = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCES = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
-# utilCES = sum([(pce_0[i,:pce]/sum(pce_0))^(1/elasRA)*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
-# utilCD    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])
-utilCD    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
+function utilCESfn()
+    sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+end
+utilCES = utilCESfn()
+# utilCD    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
 
-push!(EqVar, [:bnch utilCD utilCES Mevbnch EVbnch EVbnch/value(RA)*100 -(utilCES-utilCES)/utilCES*100] )
+push!(EqVar, [:bnch utilCES Mevbnch EVbnch value(RA)*(utilCES-utilCES)/utilCES  (utilCES-utilCES)/utilCES*100] )
 sum([value(FDem)*value(compensated_demand(FDem,PA[i]))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])
 
 # Initialize a Dataframe to save final demand results
@@ -538,11 +537,7 @@ set_value!(ta,0)
 set_value!(tm,0)
 
 solve!(MultiNat)
-
-totrevWiNcntfac = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+totrevWiNcntfac = totalrevenue()
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
@@ -551,9 +546,9 @@ PaaschePrIndex = sum([value(PA[i])*value(FDem)*value(compensated_demand(FDem,PA[
 Wmaybe = (value(RA)/LaspeyresPrIndex - value(RA))/value(RA) 
 totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
 # EVWiNcntfac2  = MevWiNcntfac2 - value(RA) 
-utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+# utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESWiNcntfac = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+utilCESWiNcntfac = utilCESfn()
 # utilWiNcntfac2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])
 # MevWiNcntfac2 = prod([(1/value(PA[i]))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #])
 MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
@@ -561,7 +556,7 @@ MevWiNcntfacCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(f
 EVWiNcntfac  = MevWiNcntfac - value(RA) 
 EVWiNcntfacCES  = MevWiNcntfacCES - value(RA) 
 EVWiNcntfacCES/value(RA) * 100
-push!(EqVar, [:WiNcntfac utilWiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac EVWiNcntfac/value(RA)*100 (utilCESWiNcntfac-utilCES)/utilCES*100])
+push!(EqVar, [:WiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac value(RA)*(utilCESWiNcntfac-utilCES)/utilCES (utilCESWiNcntfac-utilCES)/utilCES*100])
 
 fullvrWiNcntfact = generate_report(MultiNat)
 rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
@@ -590,10 +585,7 @@ set_value!(CH₄_tax, CH4_taxrate)
 set_value!(CO₂_tax,0.) # Set CO2 tax to 0 for running separately.
 solve!(MultiNat)
 
-totrevch4   = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+totrevch4 = totalrevenue()
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:ch4 totrevch4 totrevch4-totrevbnch income])
 
@@ -603,16 +595,16 @@ Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in I
 # EVch42  = Mevch42 - value(RA) 
 EVch4  = Mevch4 - value(RA) 
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESch4 = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+utilCESch4  = utilCESfn()
 Mevch4CES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 EVch4CES  = Mevch4CES - value(RA) 
 EVch4CES/value(RA) * 100
 PrIndexCESch4 = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 PrIndexCESch4 * utilCESch4 - value(RA)
 # utilch42    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemch4) for i in Ip])
-utilch4    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+# utilch4    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 
-push!(EqVar, [:ch4 utilch4 utilCESch4 Mevch4 EVch4 EVch4/value(RA)*100 (utilCESch4-utilCES)/utilCES*100])
+push!(EqVar, [:ch4 utilCESch4 Mevch4 EVch4 value(RA)*(utilCESch4-utilCES)/utilCES (utilCESch4-utilCES)/utilCES*100])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
@@ -637,10 +629,7 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
-totrevco2   = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+totrevco2 = totalrevenue()
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
 
@@ -649,11 +638,10 @@ totdemco2 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
 Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #]
 # EVco22  = Mevco22 - value(RA) 
 EVco2  = Mevco2 - value(RA) 
-# No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESco2 = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+utilCESco2  = utilCESfn()
 # utilco22    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemco2) for i in Ip])
-utilco2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
-push!(EqVar, [:co2 utilco2 utilCESco2 Mevco2 EVco2 EVco2/value(RA)*100 (utilCESco2-utilCES)/utilCES*100])
+# utilco2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:co2 utilCESco2 Mevco2 EVco2 value(RA)*(utilCESco2-utilCES)/utilCES (utilCESco2-utilCES)/utilCES*100])
 
 
 for (n,i) in enumerate(Ip)
@@ -680,23 +668,17 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, CH4_taxrate)
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
-totrevboth  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+totrevboth = totalrevenue()
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
 
 totdemboth = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
-# Mevboth2 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #])
 Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #]
-# EVboth2  = Mevboth2 - value(RA) 
 EVboth  = Mevboth - value(RA) 
-# No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESboth = sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+utilCESboth  = utilCESfn()
 # utilboth2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemboth) for i in Ip])
-utilboth    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
-push!(EqVar, [:both utilboth utilCESboth Mevboth EVboth EVboth/value(RA)*100 (utilCESboth-utilCES)/utilCES*100])
+# utilboth    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
+push!(EqVar, [:both utilCESboth Mevboth EVboth value(RA)*(utilCESboth-utilCES)/utilCES (utilCESboth-utilCES)/utilCES*100])
 
 
 for (n,i) in enumerate(Ip)
