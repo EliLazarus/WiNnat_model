@@ -67,8 +67,19 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
 
 ## Set tax rates 
 # Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-CO2_taxrate = 42.68#<=target for all CH4
-CH4_taxrate = 282.885#<=target for all CH
+CO2_taxrate = 48.198#<=target for all CH4 (post Consumption utility elasticities from Marc)
+CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities from Marc)
+
+    ### Optimal combinations
+# CO2_taxrate = 29.2774    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
+# CH4_taxrate = 60 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
+	
+
+
+
+
+# CO2_taxrate = 42.68#<=target for all CH4
+# CH4_taxrate = 282.885#<=target for all CH
 # CO2_taxrate = 5.6134#<= Paris target with SCCH4 for all CH4
     # CO2_taxrate = 45.271#<=re target w oilgas multi
 ### Optimal combinations
@@ -242,6 +253,10 @@ Elas=DenseAxisArray(Matrix(Elasdf[:,2:end]),Symbol.(Elasdf[:,1]),Symbol.(names(E
 Elas[:rnw,:E3_m_ID] = deepcopy(Elas[:uel,:E3_m_ID])
 Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
 
+### Proportion of residential electricity consumption for vehicle charging
+veh_chrg_pc = 5252/1509233 # https://www.eia.gov/totalenergy/data/monthly/pdf/sec7_19.pdf
+# Alternative, 2020, similar, veh_chrg_pc = 3.2/824.3 # electric vehicle charging/total https://www.eia.gov/consumption/residential/data/2020/c&e/pdf/ce5.1a.pdf 
+
 # function Multiloop(CO2_taxrate,CH4_taxrate) 
 
 MultiNat = MPSGEModel()
@@ -410,9 +425,33 @@ for i∈Ip
 end;
 
 ## Final Consumption with CES elasticity of Demand (Consumption utility)
-@production(MultiNat, FDem, [t=0, s=.999999], begin
+# @production(MultiNat, FDem, [t=0, s=.999999], begin
+@production(MultiNat, FDem, [t=0,           s=0.5, # Big difference in utility change comes from here. 
+transp=>s=0.35,                             
+non_pers_transp=>transp=0.25,                  pers_transp=>transp=0.4, 
+veh_exp=>pers_transp=0.25,                     fuels=>pers_transp=0.25,
+veh_elect=>fuels=Elas[:uel,:SAGE_en],  pet=>fuels=1000, # veh_fuel leaf, elasticity value v minor impact, but nesting definition needed
+# non-transport expenditures  
+non_transp=>s=0.5,
+goods=>non_transp=.87,                        housing_exp=>non_transp=0.3,  # goods value is average of E3 intermediate demand 'materials' substitution elasticities
+own_occ_exp=>housing_exp=0.25,                 home_nrg_expd=>housing_exp=0.75,
+elect=>home_nrg_expd=Elas[:uel,:SAGE_en],   homefuels=>home_nrg_expd=0.5,
+], begin
     @output(PC, sum(pce_0),t)
-    [@input(PA[i], pce_0[i,:pce],s) for i in Ip]...
+    # [@input(PA[i], pce_0[i,:pce],s) for i in Ip]...
+    # transport expenditures
+    [@input(PA[i], pce_0[i,:pce],non_pers_transp)        for i in [:air :trn :wtt :trk :grd :otr]]...  # non_pers_transp 
+    [@input(PA[i], pce_0[i,:pce],veh_exp)                for i in [:mot :ote :mvt]]... # Vehicle and Service Expenditures pers_transp  0.4
+    [@input(PA[i], pce_0[i,:pce]*veh_chrg_pc, veh_elect)     for i in [:uel, :rnw]]... # Electricity 0.25 small fraction, for vehicle charging
+    @input(PA[:pet], pce_0[:pet,:pce],pet)   #Motor Vehicle Fuels 0.25 # pet
+    # non-transport expenditures
+    [@input(PA[i], pce_0[i,:pce],goods)                  for i in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa ]),Ip)]... # Everything else, filter out all specified
+    [@input(PA[i], pce_0[i,:pce],own_occ_exp)            for i in [:hou,:ore]]...    #Owner-occupied and Rental Expenditures 
+    [@input(PA[i], pce_0[i,:pce]*(1-veh_chrg_pc),elect)  for i in [:uel, :rnw]]...    # 'Electricity', home_nrg_exp, 0.75
+    [@input(PA[i], pce_0[i,:pce],homefuels)              for i in [:ugs, :coa]]... # natural gas, homefuels, 0.5   # pip and gas are 0
+    
+    # [@input(PA[:ugs], pce_0[:ugs,:pce],ugs)] # natural gas, homefuels, 0.5   # pip and gas are 0
+    # [@input(PA[:coa], pce_0[:coa,:pce],coa)]  # 'fuel oil'  TODO this should really have PART of pet...but not much. As is, there is no oil, and coal extraction is very small.
 end)
 
 if (Kmobile=="yes")
@@ -479,6 +518,10 @@ solve!(MultiNat)#, output_minor_iterations_frequency=1)
 fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :var))#:bmkmarg))#:bnchmrk))#
 
+if !@isdefined(CESutility_multinat)
+    include("CESUtility.jl")
+end
+
 TaxRev = DataFrame(solve=Symbol[], Total_Revenue=Float64[], Change_in_Rev=Float64[], Income=Float64[])
 EqVar  = DataFrame(solve=Symbol[], utilCES=Float64[], Mev=Float64[], OldEq_Var=Float64[], EV=Float64[], Ut_perc=Float64[])
 function totalrevenue()
@@ -499,12 +542,21 @@ MevbnchCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter
 EVbnch  = Mevbnch - value(RA) 
 elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
 # priceIndCES = (sum([((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) * value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
-PrIndexbnchCES = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
+# PrIndexbnchCES = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
+
+
+# function CESutil(sector::ScalarSector,I::Vector, nest::Symbol)
+#     sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasticity(sector,nest)-1)/elasticity(sector,nest)) for i in I if value(compensated_demand(FDem,PA[i]))>0])^(elasticity(sector,nest)/(elasticity(sector,nest)-1))
+# end
+
+
 function utilCESfn()
     sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
 end
-utilCES = utilCESfn()
+# utilCES = utilCESfn()
+utilCES = CESutility_multinat()
+# utilCES = CESutility_multinatAlt()
 # utilCD    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
 
 push!(EqVar, [:bnch utilCES Mevbnch EVbnch value(RA)*(utilCES-utilCES)/utilCES  (utilCES-utilCES)/utilCES*100] )
@@ -548,7 +600,9 @@ totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i i
 # EVWiNcntfac2  = MevWiNcntfac2 - value(RA) 
 # utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESWiNcntfac = utilCESfn()
+# utilCESWiNcntfac = utilCESfn()
+utilCESWiNcntfac = CESutility_multinat()
+# utilCESWiNcntfac = CESutility_multinatAlt()
 # utilWiNcntfac2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])
 # MevWiNcntfac2 = prod([(1/value(PA[i]))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #])
 MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
@@ -595,7 +649,9 @@ Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in I
 # EVch42  = Mevch42 - value(RA) 
 EVch4  = Mevch4 - value(RA) 
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
-utilCESch4  = utilCESfn()
+# utilCESch4  = utilCESfn()
+utilCESch4  = CESutility_multinat()
+# utilCESch4  = CESutility_multinatAlt()
 Mevch4CES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 EVch4CES  = Mevch4CES - value(RA) 
 EVch4CES/value(RA) * 100
@@ -638,7 +694,9 @@ totdemco2 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
 Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #]
 # EVco22  = Mevco22 - value(RA) 
 EVco2  = Mevco2 - value(RA) 
-utilCESco2  = utilCESfn()
+# utilCESco2  = utilCESfn()
+utilCESco2  = CESutility_multinat()
+# utilCESco2  = CESutility_multinatAlt()
 # utilco22    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemco2) for i in Ip])
 # utilco2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:co2 utilCESco2 Mevco2 EVco2 value(RA)*(utilCESco2-utilCES)/utilCES (utilCESco2-utilCES)/utilCES*100])
@@ -675,7 +733,9 @@ push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
 totdemboth = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
 Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #]
 EVboth  = Mevboth - value(RA) 
-utilCESboth  = utilCESfn()
+# utilCESboth  = utilCESfn()
+utilCESboth  = CESutility_multinat()
+# utilCESboth  = CESutility_multinatAlt()
 # utilboth2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemboth) for i in Ip])
 # utilboth    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 push!(EqVar, [:both utilCESboth Mevboth EVboth value(RA)*(utilCESboth-utilCES)/utilCES (utilCESboth-utilCES)/utilCES*100])
@@ -691,6 +751,15 @@ end
 fullvrboth = generate_report(MultiNat)
 rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
 fullvrboth[!,:var] = Symbol.(fullvrboth[:,:var])
+
+###### Add Quant diff and % of consumption columns for Final Demand report dataframe
+# FDemand[:,:ch4Qdelta]=FDemand[:,:ch4tax].-FDemand[:,:bnch]
+# FDemand[:,:CO2Qdelta]=FDemand[:,:co2tax].-FDemand[:,:bnch]
+# FDemand[:,:bothQdelta]=FDemand[:,:both].-FDemand[:,:bnch]
+# FDemand[:,:bncQpc]=FDemand[:,:bnch]./sum(FDemand[:,:bnch])*100
+# FDemand[:,:ch4Qpc]=FDemand[:,:ch4tax]./sum(FDemand[:,:ch4tax])*100
+# FDemand[:,:CO2Qpc]=FDemand[:,:co2tax]./sum(FDemand[:,:co2tax])*100
+# FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 #Generate Dataframe with all results (including names expressions)
 FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
