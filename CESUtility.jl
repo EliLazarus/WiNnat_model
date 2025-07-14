@@ -18,7 +18,7 @@ function ces_node(
     ρ = 1 - 1 / σ   # calculate once, so \rho is a constant
     total_benchmark = sum(values(bnch_quants))
     weights = Dict(q => bnch_quants[q] / total_benchmark for q in keys(quantities))
-    utility = sum(weights[i] * quantities[i]^ρ for i in keys(quantities) if quantities[i]>0)^(1 / ρ)
+    utility = value(FDem) * sum(weights[i] * quantities[i]^((σ-1)/σ) for i in keys(quantities) if quantities[i]>0)^(σ / (σ-1))
 
     return (
         Dict(nest => total_benchmark),
@@ -26,11 +26,12 @@ function ces_node(
 end
 
 function CESutility_multinat()
+
 ### For leaves
 leaf_ugs = Dict(:ugs => pce_0[:ugs,:pce])
 leaf_coa = Dict(:coa => pce_0[:coa,:pce])
 # Leaves [:ugs,:coa] into :homefuels
-homefuel_i,homefuel_ute = ces_node(merge(leaf_coa,leaf_ugs),  Dict([x=>value(compensated_demand(FDem,PA[x])) for x in [:coa,:ugs]]))#,electricity=:elect)
+homefuel_i,homefuel_ute = ces_node(merge(leaf_coa,leaf_ugs),  Dict([x=>value(compensated_demand(FDem,PA[x])) for x in [:coa,:ugs]]))
 
 # Leaves [:rnw, :uel] into :elect
 leaf_rnw = Dict(:rnw_elect => pce_0[:rnw,:pce] * (1-veh_chrg_pc))
@@ -117,5 +118,36 @@ ch_pr = Dict(
 :hou => :own_occ_exp,                      :ore => :own_occ_exp,
 :elect => :home_nrg_expd,  :homefuels => :home_nrg_expd,
 :ugs => :homefuels,                       :coa => :homefuels,
-:uel_elect => :elect,             :rnw_elect => :elect, #These have different names to distinguish both times that electricity appears
+:uel_elect => :elect,             :rnw_elect => :elect,
+:uel => :elect,             :rnw => :elect,
+ #These have different names to distinguish both times that electricity appears
 )
+
+
+### Alternate version for testing a single nest level of the same structure
+function ces_nodeAlt(
+    bnch_quants::Dict{Symbol,Float64}, # hold the name of the inputs and benchmark data quantities (can be leaves or nests, with the total benchmark - data for leaves, or from nest returns
+    quantities::Dict{Symbol,Float64},#; # hold the name of the inputs and utilities (can be leaves or nests, with the total benchmark - data for leaves, or from nest returns
+)   
+    
+    σ = 0.999999 #elasticity(FDem,0.999)
+    # ρ = 1 - 1 / σ   # calculate once, so \rho is a constant
+    total_benchmark = sum(values(bnch_quants))
+    weights = Dict(q => bnch_quants[q] / total_benchmark for q in keys(quantities))
+    utility = value(FDem) *sum(weights[i] *  quantities[i]^((σ-1)/σ) for i in keys(quantities) if quantities[i]>0)^(σ / (σ-1))
+    # utility = sum(weights[i] * quantities[i]^ρ for i in keys(quantities) if quantities[i]>0)^(1 / ρ)
+
+    return (
+        Dict(nest => total_benchmark),
+        Dict(nest => utility),)
+end
+
+bnch_quants = leaves
+quantities = Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in Ip)
+
+function CESutility_multinatAlt()
+
+leaves = Dict(x => pce_0[x,:pce] for x in Ip)
+goods_i, goods_ute = ces_nodeAlt(leaves,Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in Ip))
+    return only(values(goods_ute))
+end
