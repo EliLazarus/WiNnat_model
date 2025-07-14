@@ -7,7 +7,6 @@ function ces_node(
     quantities::Dict{Symbol,Float64},#; # hold the name of the inputs and utilities (can be leaves or nests, with the total benchmark - data for leaves, or from nest returns
 )   
     nests = []
-    # elases = []
     for i in keys(quantities)
         push!(nests, ch_pr[i])
     end
@@ -19,13 +18,11 @@ function ces_node(
     ρ = 1 - 1 / σ   # calculate once, so \rho is a constant
     total_benchmark = sum(values(bnch_quants))
     weights = Dict(q => bnch_quants[q] / total_benchmark for q in keys(quantities))
-    # --- CES aggregation ---
     utility = sum(weights[i] * quantities[i]^ρ for i in keys(quantities) if quantities[i]>0)^(1 / ρ)
-    # --- Return in standardized form ---
+
     return (
         Dict(nest => total_benchmark),
-        Dict(nest => utility),
-    )
+        Dict(nest => utility),)
 end
 
 function CESutility_multinat()
@@ -94,21 +91,8 @@ s_i, s_ute = ces_node(merge(transp_i, non_transp_i),merge(transp_ute, non_transp
     return only(values(s_ute))
 end
 
-# quantities = merge(d,Dict(:elect=>value(compensated_demand(FDem,PA[:uel]))))
-# quantities = Dict([:nat_gas, :fuel_oil] .=>[value(compensated_demand(FDem,PA[x])) for x in [:ugs,:coa]])
-# elasticity(MPSGE.parent(MPSGE.netputs(production(FDem))[PA[:ugs]][1])[1])
-# # get own next name
-# MPSGE.name(MPSGE.parent(MPSGE.netputs(production(FDem))[PA[:ugs]][1])[1])
-# ## Extract parent name
-# MPSGE.name((MPSGE.parent(MPSGE.netputs(production(FDem))[PA[:ugs]][1])[1]).parent)
-# elasticity((MPSGE.parent(MPSGE.netputs(production(FDem))[PA[:ugs]][1])[1]).parent)
-# MPSGE.name(MPSGE.parent(MPSGE.netputs(production(FDem))[:veh_fuel][1])[1])
-
-# CESutil(FDem, Dict(:ugs=>pce_0[:ugs,:pce],:coa=>pce_0[:coa,:pce]),:homefuels, Dict(x=>value(compensated_demand(FDem,PA[x])) for x in [:ugs,:coa]))[1]
-# CESutil(FDem, Dict(:pet=>pce_0[:ugs,:pce], :fuels=>sum(values(CESutil(FDem, Dict(:rnw=>pce_0[:rnw,:pce],:uel=>pce_0[:uel,:pce]),:veh_elect,Dict(x=>value(compensated_demand(FDem,PA[x])) for x in [:rnw, :uel]))[2]))),:fuels, Dict(:pet=>value(compensated_demand(FDem,PA[:pet])),:veh_elect=>CESutil(FDem,Dict(:rnw=>pce_0[:rnw,:pce],:uel=>pce_0[:uel,:pce]) ,:veh_elect,Dict(x=>value(compensated_demand(FDem,PA[x])) for x in [:rnw, :uel]))[1]))
-
 # # Edited from elastiticity vector
-# ### Keys are the ends, and values are the nodes and the elasticity from the node
+# ### Keys are the ends, and values are the nodes above
 ch_pr = Dict(
 :transp => :s,  :non_transp => :s,
                             
@@ -118,7 +102,7 @@ ch_pr = Dict(
 :trk => :non_pers_transp,          :grd => :non_pers_transp, :otr => :non_pers_transp, 
 :mot => :veh_exp,                  :ote => :veh_exp, :mvt => :veh_exp,
 :veh_elect => :fuels,               :pet => :fuels, 
-:uel_veh_elect => :veh_elect,             :rnw_veh_elect => :veh_elect, #This is for aggregating to get the share wieghts
+:uel_veh_elect => :veh_elect,             :rnw_veh_elect => :veh_elect, #These have different names to distinguish both times that electricity appears
 
 :goods => :non_transp,                        :housing_exp => :non_transp, 
 :pla  => :goods, :soc  => :goods, :leg  => :goods, :rnt  => :goods, :fof  => :goods, :mov  => :goods, :adm  => :goods, :slg  => :goods,
@@ -132,52 +116,6 @@ ch_pr = Dict(
 :own_occ_exp => :housing_exp,              :home_nrg_expd => :housing_exp,
 :hou => :own_occ_exp,                      :ore => :own_occ_exp,
 :elect => :home_nrg_expd,  :homefuels => :home_nrg_expd,
-# homefuelhome_fossil => :homefuels,
 :ugs => :homefuels,                       :coa => :homefuels,
-# :uel => :homefuels],                         :rnw => :veh_elect],
-:uel_elect => :elect,             :rnw_elect => :elect, #This is for aggregating to get the share wieghts
+:uel_elect => :elect,             :rnw_elect => :elect, #These have different names to distinguish both times that electricity appears
 )
-
-## Benchmark
-# set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
-# set_value!(CO₂_tax, 0.0)
-# set_value!(ta,ta_0DAA[Jp])
-# set_value!(tm,tm_0DAA[Jp])
-# solve!(MultiNat)# Temp measure to address residual price changes
-# bnch_util = CESutility_multinat()
-# println(" Consumption utility is : ",CESutility_multinat())
-# println("% change is " ,round((CESutility_multinat()-bnch_util)/bnch_util*100, digits=4))
-
-# ## Counterfactual
-# set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
-# set_value!(CO₂_tax, 0.0)
-# set_value!(ta,0)
-# set_value!(tm,0)
-# solve!(MultiNat)# Temp measure to address residual price changes
-# println(" Consumption utility is : ",CESutility_multinat())
-# println("% change is " ,round((CESutility_multinat()-bnch_util)/bnch_util*100, digits=4))
-
-# ## Set other taxes back to benchmark
-# set_value!(ta,ta_0DAA[Jp])
-# set_value!(tm,tm_0DAA[Jp])
-
-# ## CH4 tax
-# set_value!(CO₂_tax, 0)
-# set_value!(CH₄_tax, CH4_taxrate)
-# solve!(MultiNat, cumulative_iteration_limit=10000) #;
-# println(" Consumption utility is : ",CESutility_multinat())
-# println("% change is " ,round((CESutility_multinat()-bnch_util)/bnch_util*100, digits=4))
-
-# # CO2 tax
-# set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
-# set_value!(CO₂_tax, CO2_taxrate)
-# solve!(MultiNat, cumulative_iteration_limit=10000) #;
-# println(" Consumption utility is : ",CESutility_multinat())
-# println("% change is " ,round((CESutility_multinat()-bnch_util)/bnch_util*100, digits=4))
-
-# # Both
-# set_value!(CO₂_tax, CO2_taxrate)
-# set_value!(CH₄_tax, CH4_taxrate)
-# solve!(MultiNat, cumulative_iteration_limit=10000) #;
-# println(" Consumption utility is : ",CESutility_multinat())
-# println("% change is " ,round((CESutility_multinat()-bnch_util)/bnch_util*100, digits=4))
