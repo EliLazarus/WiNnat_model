@@ -268,8 +268,14 @@ CO2Int[:gas] =   TotalCO2EmGt_gas/sum(id_0[:gas,:])
 CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
 
 TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
-TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 0.6902703880400002
-TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 5.0315703880400005
+TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 2020 was 0.6902703880400002
+TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 202 was 5.0315703880400005
+
+realtaxpc = []
+for ff in [:coa,:oil,:gas]
+push!(realtaxpc,CO2Int[ff]*CO2_taxrate)
+end
+CO2_realtaxpc = DenseAxisArray(realtaxpc,([CO2_taxrate]))
 
 ### NOT USED: 
 # Crude oil barrels production 2020: 4144184x10^3
