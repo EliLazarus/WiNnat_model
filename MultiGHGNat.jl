@@ -185,6 +185,8 @@ if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# defa
 
 multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
 ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;println(": Reduction target=",ReductTarget)
+print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
+print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
 #########################
 ### End scenario, => Start data set up
 #########################
