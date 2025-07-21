@@ -26,11 +26,13 @@ function ces_node(
         Dict{Symbol, Float64}(nest => utility),)
 end
 
-function CESutility_multinat()
+# @run ces_node(Dict{Symbol, Float64}(:ugs => pce_0[:ugs,:pce],:coa => pce_0[:coa,:pce]), 
+#     Dict{Symbol, Float64}(:coa=>value(compensated_demand(FDem,PA[:coa])),:ugs=>value(compensated_demand(FDem,PA[:ugs]))))
 
-### For leaves
-leaf_ugs = Dict(:ugs => pce_0[:ugs,:pce])
-leaf_coa = Dict(:coa => pce_0[:coa,:pce])
+function CESutility_multinat(
+    bnchdata::NamedMatrix
+)
+
 # Leaves [:ugs,:coa] into :homefuels
 homefuel_i,homefuel_ute = ces_node(Dict{Symbol, Float64}(:ugs => bnchdata[:ugs,:pce],:coa => bnchdata[:coa,:pce]), 
     Dict{Symbol, Float64}(:coa=>value(compensated_demand(FDem,PA[:coa])),:ugs=>value(compensated_demand(FDem,PA[:ugs]))))
