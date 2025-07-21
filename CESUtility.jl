@@ -8,17 +8,18 @@ function ces_node(
 )   
     nests = []
     for i in keys(quantities)
-        push!(nests, ch_pr[i])
+        push!(nests, ch_pr[i]) # Dict that has children as keys and parents as values
     end
     if !all( ==(nests[1]), nests)
         error("Error: not the same nest")
     end
-    nest = nests[1] # this is the parent, the one they're going into 
+    nest = nests[1] # this is the parent, the one they're going into (just one, to use to get elasticity)
     σ = elasticity(FDem,nest)
-    ρ = 1 - 1 / σ   # calculate once, so \rho is a constant
-    total_benchmark = sum(values(bnch_quants))
-    weights = Dict(q => bnch_quants[q] / total_benchmark for q in keys(quantities))
-    utility = value(FDem) * sum(weights[i] * quantities[i]^((σ-1)/σ) for i in keys(quantities) if quantities[i]>0)^(σ / (σ-1))
+    # ρ = 1 - 1 / σ   # calculate once, so \rho is a constant
+    total_benchmark = sum(values(bnch_quants)) # values from the benchmark data, used for shares
+    shares = Dict{Symbol, Float64}(q => bnch_quants[q] / total_benchmark for q in keys(quantities)) 
+    utility =  value(FDem) * sum(shares[i] * quantities[i]^((σ-1)/σ) for i in keys(quantities) if quantities[i]>0)^(σ/(σ-1)) #value(FDem) is the activity level of the utility 'sector' quantities are the comp_dem [leaves], or the utility of input composite
+    # utility =  value(FDem) * sum(shares[i]^σ * quantities[i]^(1-σ) for i in keys(quantities) if quantities[i]>0)^(1 / (σ-1)) #value(FDem) is the activity level of the utility 'sector' quantities are the comp_dem [leaves], or the utility of input composite
 
     return (
         Dict(nest => total_benchmark),
@@ -118,13 +119,10 @@ ch_pr = Dict(
 :hou => :own_occ_exp,                      :ore => :own_occ_exp,
 :elect => :home_nrg_expd,  :homefuels => :home_nrg_expd,
 :ugs => :homefuels,                       :coa => :homefuels,
-:uel_elect => :elect,             :rnw_elect => :elect,
-:uel => :elect,             :rnw => :elect,
- #These have different names to distinguish both times that electricity appears
+:uel_elect => :elect,             :rnw_elect => :elect,  #These have different names to distinguish both times that electricity appears
 )
 
-
-### Alternate version for testing a single nest level of the same structure
+# ### Alternate version for testing a single nest level of the same structure, to see if it matches the old demand elasticity
 function ces_nodeAlt(
     bnch_quants::Dict{Symbol,Float64}, # hold the name of the inputs and benchmark data quantities (can be leaves or nests, with the total benchmark - data for leaves, or from nest returns
     quantities::Dict{Symbol,Float64},#; # hold the name of the inputs and utilities (can be leaves or nests, with the total benchmark - data for leaves, or from nest returns

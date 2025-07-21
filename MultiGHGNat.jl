@@ -382,7 +382,7 @@ if CH4abatement=="yes"
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
                     @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
                         [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
-                        [@input(PVA[va], va_0[va,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])]) for va∈VA]...
+                        [@input(PVA[va], va_0[va,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])]) for va∈VA]... #CH4_secs is a boolean to be able to turn of any sector from the CH4 tax
                     end)
                 end
             end
