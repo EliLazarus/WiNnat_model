@@ -95,3 +95,29 @@ subset(bnchM1, :var => ByRow(x -> occursin(r"RA", x))) # need vars as strings fo
 
 # Show entire DataFrame in replace
 show(stdout,"text/plain",df)
+
+# Copy to clipboard
+clipboard(sprint(show, "text/tab-separated-values", resultdf))
+
+@run fn() # goes straight into the debugger for the fn!
+@code_warntype
+
+### My hack to run compensated_demand with nests for MultiNat electricity for CES Utility without parent_name_chain
+### Goes in build.jl
+function compensated_demand(S::ScalarSector, C::ScalarCommodity, nest::Symbol; virtual = false)
+if nest == :elect
+N =   [netputs(S,C)[2]]#[:elect, :home_nrg_expd, :housing_exp, :non_transp, :s]
+elseif nest == :veh_elect
+N = [netputs(S,C)[1]] #[:veh_elect, :fuels, :pers_transp, :transp, :s]
+else
+    N = [n for n∈netputs(S,C) if nest∈parent_name_chain(n)] #Then it checks that the actual nest name is there.
+end
+
+#### TODO Add this in a PR
+    if isempty(N)
+        error("This netput (input or output) doesn't appear in a nest of that name")
+    end
+    return sum(compensated_demand.(N, virtual = virtual); init = 0)
+end
+
+

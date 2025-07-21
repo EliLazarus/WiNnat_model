@@ -78,16 +78,12 @@ non_transp_i, non_transp_ute = ces_node(merge(housing_exp_i,goods_i),merge(housi
 # quantities = merge(housing_exp_ute,goods_ute)
 
 # # # Leaves[[:rnw, :uel]] into [:veh_elect]
-# leaf_rnw_veh = Dict{Symbol, Float64}(:rnw_veh_elect => bnchdata[:rnw,:pce] * veh_chrg_pc)
-# leaf_uel_veh = Dict{Symbol, Float64}(:uel_veh_elect => bnchdata[:uel,:pce] * veh_chrg_pc)
 veh_elect_i,veh_elect_ute = ces_node(Dict{Symbol, Float64}(:rnw_veh_elect => bnchdata[:rnw,:pce] * veh_chrg_pc, :uel_veh_elect => bnchdata[:uel,:pce] * veh_chrg_pc), 
     Dict{Symbol, Float64}(:rnw_veh_elect=>value(compensated_demand(FDem,PA[:rnw],:veh_elect)),:uel_veh_elect=>value(compensated_demand(FDem,PA[:uel],:veh_elect))))
 # bnch_quants = merge(leaf_rnw_veh,leaf_uel_veh)
 # quantities = Dict{Symbol, Float64}(Veh_electq_names[x]=>value(compensated_demand(FDem,PA[x],:veh_elect)) for x in [:rnw, :uel])
 
 # # # Leaves[:pet, :oil] into :petr
-# leaf_pet = Dict{Symbol, Float64}(:pet => bnchdata[:pet,:pce])
-# leaf_oil = Dict{Symbol, Float64}(:oil => bnchdata[:oil,:pce])
 petr_i, petr_ute= ces_node(Dict{Symbol, Float64}(:pet => bnchdata[:pet,:pce], :oil => bnchdata[:oil,:pce]),  
     Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:pet,:oil]]))
 # petr_i, petr_ute= ces_node(merge(leaf_pet,leaf_oil), merge(leaf_pet,leaf_oil))
@@ -106,6 +102,8 @@ veh_exp_i, veh_exp_ute = ces_node(Dict{Symbol, Float64}(x => bnchdata[x,:pce] fo
 
 # Nest fuels, veh_exp=>pers_transp=0.25,                     
 pers_transp_i, pers_transp_ute = ces_node(merge(fuels_i, veh_exp_i),merge(fuels_ute, veh_exp_ute))
+# bnch_quants = merge(fuels_i, veh_exp_i)
+# quantities = merge(fuels_ute, veh_exp_ute)
 
 # Leaves [:air :trn :wtt :trk :grd :otr] => non_pers_transp
 non_pers_transp_i, non_pers_transp_ute = ces_node(Dict{Symbol, Float64}(x => bnchdata[x,:pce] for x in [:air,:trn,:wtt,:trk,:grd,:otr]),
@@ -115,9 +113,13 @@ non_pers_transp_i, non_pers_transp_ute = ces_node(Dict{Symbol, Float64}(x => bnc
 
 # Nest non_pers_transp=>transp=0.25,                  pers_transp=>transp=0.4, 
 transp_i, transp_ute = ces_node(merge(non_pers_transp_i, pers_transp_i),merge(non_pers_transp_ute, pers_transp_ute))
+# bnch_quants = merge(non_pers_transp_i, pers_transp_i)
+# quantities = merge(non_pers_transp_ute, pers_transp_ute)
 
 # Nest transp, non_transp=>s,
 s_i, s_ute = ces_node(merge(transp_i, non_transp_i),merge(transp_ute, non_transp_ute))
+# bnch_quants = merge(transp_i, non_transp_i)
+# quantities = merge(transp_ute, non_transp_ute)
 
     return only(values(s_ute))
 end
@@ -170,12 +172,8 @@ function ces_nodeAlt(
         Dict(nest => utility),)
 end
 
-bnch_quants = leaves
-quantities = Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in Ip)
-
 function CESutility_multinatAlt()
-
-leaves = Dict(x => pce_0[x,:pce] for x in Ip)
-goods_i, goods_ute = ces_nodeAlt(leaves,Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in Ip))
+    leaves = Dict(x => pce_0[x,:pce] for x in Ip)
+    goods_i, goods_ute = ces_nodeAlt(leaves,Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in Ip))
     return only(values(goods_ute))
 end

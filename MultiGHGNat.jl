@@ -209,7 +209,7 @@ VAMset = [:VAM5,:VAM10,:VAM15,:VAM20,:VAM30,:VAM40,:VAM50,:VAM100,:VAM500,:VAM10
     VAM_costover = DenseAxisArray(zeros(length(VAMset),length(CH4sectors)),VAMset,CH4sectors) # Initialise DenseAxisArray
     [VAM_costover[cost,c] = (sum(va_0[VA,c])+CH4_cumul_cost[cost,c])/sum(va_0[VA,c]) for cost in VAMset for c in CH4sectors]
 
-CO2Int = DenseAxisArray(zeros(length(Jp)),Jp)
+CO2Int = DenseAxisArray(zeros(length(Jp)),Jp) # Initialise DAA
 # 2024 GHG Inv Table 3-5: CO2 Emissions from Fossil Fuel Combustion by Fuel Type and Sector (MMT CO2 Eq.)
 TotalCO2EmMMt_coal =  895.9 # <=2022 # 835.6 <=2020  EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
 ### (Option with no transport emissions in the model: assumption that direct)
