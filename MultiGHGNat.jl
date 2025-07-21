@@ -254,18 +254,18 @@ CO2Int = DenseAxisArray(zeros(length(Jp)),Jp) # Initialise DAA
 TotalCO2EmMMt_coal =  895.9 # <=2022 # 835.6 <=2020  EPA Inventory CO2 Stationary Combustion - Coal sum(Electricity, Industrial, Commercial, & Residential=0)
 ### (Option with no transport emissions in the model: assumption that direct)
 ### TotalCO2EmMMt_gas_oil = 2104.80
-Natural_gasCO2 =  1740.70 #<=2022(incl 70.2 transport, Table 3-5:)  1615.7 #<=2020 (incl 58.7 transport, Table 3-5:)
-PetroleumCO2 =  2115.40 #<=2022 (incl 1,681.10 transport, Table 3-5) # 1890.0 #<=2020 (incl 1,514.2 transport, Table 3-5)
+TotalCO2EmMMt_Natural_gas =  1740.70 #<=2022(incl 70.2 transport, Table 3-5:)  1615.7 #<=2020 (incl 58.7 transport, Table 3-5:)
+TotalCO2EmMMt_Petroleum =  2115.40 #<=2022 (incl 1,681.10 transport, Table 3-5) # 1890.0 #<=2020 (incl 1,514.2 transport, Table 3-5)
 # Option with all Transport CO2 emissions attributed to oil inputs: assumption that forms of oil fuel all transport that has direct CO2 emissions, and so taxing CO2 is total emissions from all oil as an input 
-# TotalCO2EmMMt_gas_oil = Natural_gasCO2 + PetroleumCO2 # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
+# TotalCO2EmMMt_gas_oil = TotalCO2EmMMt_Natural_gas + TotalCO2EmMMt_Petroleum # EPA inventory all CO2 transport + CO2 Stationary Combustion - both Oil & Natural Gas sum(Electricity, Industrial, Commercial, Residential & oil U.S. Territories)Sta
 # (MMtCO2eq/$Bill x 10-^3 -> Gt/$B=t/$) EPA Inventory 2022 sum of CO2 MMt for coal, and for gas & oil per Billion of total benchmark intermediate input from sector
 TotalCO2EmGt_coal = TotalCO2EmMMt_coal*10^-3
-TotalCO2EmGt_gas = Natural_gasCO2*10^-3
-TotalCO2EmGt_oil = PetroleumCO2*10^-3
+TotalCO2EmGt_gas  = TotalCO2EmMMt_Natural_gas*10^-3
+TotalCO2EmGt_oil  = TotalCO2EmMMt_Petroleum*10^-3
 
-CO2Int[:coa] =  TotalCO2EmGt_coal/sum(id_0[:coa,:]) 
-CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
+CO2Int[:coa] =  TotalCO2EmGt_coal/sum(id_0[:coa,:]) # Sum of value of coal as an input into all sectors
 CO2Int[:gas] =   TotalCO2EmGt_gas/sum(id_0[:gas,:])
+CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
 
 TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
 TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 0.6902703880400002
@@ -576,31 +576,32 @@ push!(TaxRev, [:bnch totrevbnch totrevbnch-totrevbnch income])
 
 totdem = -value(FDem)*value(compensated_demand(FDem,PC))
 # Mevbnch2 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
-Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
-MevbnchCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+
+# Mevbnch = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+# MevbnchCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
 # EVbnch2  = Mevbnch2 - value(RA) 
-EVbnch  = Mevbnch - value(RA) 
-elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
+# elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
 # priceIndCES = (sum([((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) * value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 # PrIndexbnchCES = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
 
-
 # function CESutil(sector::ScalarSector,I::Vector, nest::Symbol)
 #     sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasticity(sector,nest)-1)/elasticity(sector,nest)) for i in I if value(compensated_demand(FDem,PA[i]))>0])^(elasticity(sector,nest)/(elasticity(sector,nest)-1))
 # end
-
-
-function utilCESfn()
-    sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
-end
-# utilCES = utilCESfn()
-utilCES = CESutility_multinat()
-# utilCES = CESutility_multinatAlt()
+# function utilCESfn()
+#     sum([(pce_0[i,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
+# end
+# utilCESbnch = utilCESfn()
 # utilCD    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
 
-push!(EqVar, [:bnch utilCES Mevbnch EVbnch value(RA)*(utilCES-utilCES)/utilCES  (utilCES-utilCES)/utilCES*100] )
-sum([value(FDem)*value(compensated_demand(FDem,PA[i]))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])
+utilCESbnch = CESutility_multinat(pce_0)
+Ut_pc = (utilCESbnch-utilCESbnch)/utilCESbnch
+MEVdelt  = value(RA)*Ut_pc
+Mevbnch =  value(RA)+MEVdelt
+
+# push!(EqVar, [:bnch utilCESbnch Mevbnch EVbnch value(RA)*(utilCESbnch-utilCESbnch)/utilCESbnch  (utilCESbnch-utilCESbnch)/utilCESbnch*100] )
+push!(EqVar, [:bnch  Mevbnch MEVdelt utilCESbnch Ut_pc*100] )
+# sum([value(FDem)*value(compensated_demand(FDem,PA[i]))*(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])
 
 # Initialize a Dataframe to save final demand results
 FDemand = DataFrame(index=Vector{Symbol}(undef, length(Ip)),
@@ -633,10 +634,10 @@ totrevWiNcntfac = totalrevenue()
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
-LaspeyresPrIndex = sum([value(PA[i])*pce_0[i,:pce] for i in Ip])/value(RA)
-PaaschePrIndex = sum([value(PA[i])*value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])/sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
-Wmaybe = (value(RA)/LaspeyresPrIndex - value(RA))/value(RA) 
-totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+# LaspeyresPrIndex = sum([value(PA[i])*pce_0[i,:pce] for i in Ip])/value(RA)
+# PaaschePrIndex = sum([value(PA[i])*value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])/sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+# Wmaybe = (value(RA)/LaspeyresPrIndex - value(RA))/value(RA) 
+# totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
 # EVWiNcntfac2  = MevWiNcntfac2 - value(RA) 
 # utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
@@ -649,12 +650,12 @@ push!(EqVar, [:WiNcntfac MevWiNcntfac MEVdeltWiNcntfac utilCESWiNcntfac Ut_pcWiN
 # push!(EqVar, [:bnch utilCESbnch Mevbnch EVbnch value(RA)*(utilCESbnch-utilCESbnch)/utilCESbnch  (utilCESbnch-utilCESbnch)/utilCESbnch*100] )
 # utilWiNcntfac2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])
 # MevWiNcntfac2 = prod([(1/value(PA[i]))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #])
-MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
-MevWiNcntfacCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
-EVWiNcntfac  = MevWiNcntfac - value(RA) 
-EVWiNcntfacCES  = MevWiNcntfacCES - value(RA) 
-EVWiNcntfacCES/value(RA) * 100
-push!(EqVar, [:WiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac value(RA)*(utilCESWiNcntfac-utilCES)/utilCES (utilCESWiNcntfac-utilCES)/utilCES*100])
+# MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
+# MevWiNcntfacCES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+# EVWiNcntfac  = MevWiNcntfac - value(RA) 
+# EVWiNcntfacCES  = MevWiNcntfacCES - value(RA) 
+# EVWiNcntfacCES/value(RA) * 100
+# push!(EqVar, [:WiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac value(RA)*(utilCESWiNcntfac-utilCESbnch)/utilCESbnch (utilCESWiNcntfac-utilCESbnch)/utilCESbnch*100])
 
 # fullvrWiNcntfact = generate_report(MultiNat)
 # rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
@@ -687,24 +688,29 @@ totrevch4 = totalrevenue()
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:ch4 totrevch4 totrevch4-totrevbnch income])
 
-totdemch4 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
-# Mevch42 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #])
-Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #]
-# EVch42  = Mevch42 - value(RA) 
-EVch4  = Mevch4 - value(RA) 
+# totdemch4 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+# # Mevch42 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #])
+# Mevch4    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:ch4,TaxRev)[!,:Income]) #]
+# # EVch42  = Mevch42 - value(RA) 
+# EVch4  = Mevch4 - value(RA) 
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
 # utilCESch4  = utilCESfn()
-utilCESch4  = CESutility_multinat()
+utilCESch4  = CESutility_multinat(pce_0)
+Ut_pcch4 = (utilCESch4-utilCESbnch)/utilCESbnch
+MEVdeltch4  = value(RA)*Ut_pcch4
+Mevch4 =  value(RA)+MEVdeltch4
+push!(EqVar, [:ch4 Mevch4 MEVdeltch4 utilCESch4 Ut_pcch4*100] )
+
 # utilCESch4  = CESutility_multinatAlt()
-Mevch4CES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
-EVch4CES  = Mevch4CES - value(RA) 
-EVch4CES/value(RA) * 100
-PrIndexCESch4 = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
-PrIndexCESch4 * utilCESch4 - value(RA)
+# Mevch4CES = prod([(1/value(PA[i])) for i in Ip if value(PA[i])>0])* only(filter(x->x.solve==:bnch,TaxRev)[!,:Income])
+# EVch4CES  = Mevch4CES - value(RA) 
+# EVch4CES/value(RA) * 100
+# PrIndexCESch4 = (sum([pce_0[i,:pce]/sum(pce_0)*value(PA[i])^(1-elasRA) for i in Ip]))^(1/(1-elasRA))
+# PrIndexCESch4 * utilCESch4 - value(RA)
 # utilch42    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemch4) for i in Ip])
 # utilch4    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 
-push!(EqVar, [:ch4 utilCESch4 Mevch4 EVch4 value(RA)*(utilCESch4-utilCES)/utilCES (utilCESch4-utilCES)/utilCES*100])
+# push!(EqVar, [:ch4 utilCESch4 Mevch4 EVch4 value(RA)*(utilCESch4-utilCESbnch)/utilCESbnch (utilCESch4-utilCESbnch)/utilCESbnch*100])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:ch4tax] = value(FDem)*value(compensated_demand(FDem,PA[i]))
@@ -736,17 +742,22 @@ totrevco2 = totalrevenue()
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
 
-totdemco2 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
-# Mevco22 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #])
-Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #]
-# EVco22  = Mevco22 - value(RA) 
-EVco2  = Mevco2 - value(RA) 
+# totdemco2 = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+# # Mevco22 = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #])
+# Mevco2    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:co2,TaxRev)[!,:Income]) #]
+# # EVco22  = Mevco22 - value(RA) 
+# EVco2  = Mevco2 - value(RA) 
 # utilCESco2  = utilCESfn()
-utilCESco2  = CESutility_multinat()
+utilCESco2  = CESutility_multinat(pce_0)
+Ut_pcco2 = (utilCESco2-utilCESbnch)/utilCESbnch
+MEVdeltco2  = value(RA)*Ut_pcco2
+Mevco2 =  value(RA)+MEVdeltco2
+push!(EqVar, [:co2 Mevco2 MEVdeltco2 utilCESco2 Ut_pcco2*100] )
+
 # utilCESco2  = CESutility_multinatAlt()
 # utilco22    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemco2) for i in Ip])
 # utilco2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
-push!(EqVar, [:co2 utilCESco2 Mevco2 EVco2 value(RA)*(utilCESco2-utilCES)/utilCES (utilCESco2-utilCES)/utilCES*100])
+# push!(EqVar, [:co2 utilCESco2 Mevco2 EVco2 value(RA)*(utilCESco2-utilCESbnch)/utilCESbnch (utilCESco2-utilCESbnch)/utilCESbnch*100])
 
 
 for (n,i) in enumerate(Ip)
@@ -779,16 +790,19 @@ totrevboth = totalrevenue()
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
 
-totdemboth = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
-Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #]
-EVboth  = Mevboth - value(RA) 
+# totdemboth = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+# Mevboth    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:both,TaxRev)[!,:Income]) #]
+# EVboth  = Mevboth - value(RA) 
 # utilCESboth  = utilCESfn()
-utilCESboth  = CESutility_multinat()
+utilCESboth  = CESutility_multinat(pce_0)
+Ut_pcboth = (utilCESboth-utilCESbnch)/utilCESbnch
+MEVdeltboth  = value(RA)*Ut_pcboth
+Mevboth =  value(RA)+MEVdeltboth
+push!(EqVar, [:both Mevboth MEVdeltboth utilCESboth Ut_pcboth*100] )
 # utilCESboth  = CESutility_multinatAlt()
 # utilboth2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdemboth) for i in Ip])
 # utilboth    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
-push!(EqVar, [:both utilCESboth Mevboth EVboth value(RA)*(utilCESboth-utilCES)/utilCES (utilCESboth-utilCES)/utilCES*100])
-
+# push!(EqVar, [:both utilCESboth Mevboth EVboth value(RA)*(utilCESboth-utilCESbnch)/utilCESbnch (utilCESboth-utilCESbnch)/utilCESbnch*100])
 
 for (n,i) in enumerate(Ip)
     FDemand[n,:both] = value(FDem)*value(compensated_demand(FDem,PA[i]))
