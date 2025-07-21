@@ -22,8 +22,8 @@ function ces_node(
     # utility =  value(FDem) * sum(shares[i]^σ * quantities[i]^(1-σ) for i in keys(quantities) if quantities[i]>0)^(1 / (σ-1)) #value(FDem) is the activity level of the utility 'sector' quantities are the comp_dem [leaves], or the utility of input composite
 
     return (
-        Dict(nest => total_benchmark),
-        Dict(nest => utility),)
+        Dict{Symbol, Float64}(nest => total_benchmark),
+        Dict{Symbol, Float64}(nest => utility),)
 end
 
 function CESutility_multinat()
@@ -32,27 +32,43 @@ function CESutility_multinat()
 leaf_ugs = Dict(:ugs => pce_0[:ugs,:pce])
 leaf_coa = Dict(:coa => pce_0[:coa,:pce])
 # Leaves [:ugs,:coa] into :homefuels
-homefuel_i,homefuel_ute = ces_node(merge(leaf_coa,leaf_ugs),  Dict([x=>value(compensated_demand(FDem,PA[x])) for x in [:coa,:ugs]]))
+homefuel_i,homefuel_ute = ces_node(Dict{Symbol, Float64}(:ugs => bnchdata[:ugs,:pce],:coa => bnchdata[:coa,:pce]), 
+    Dict{Symbol, Float64}(:coa=>value(compensated_demand(FDem,PA[:coa])),:ugs=>value(compensated_demand(FDem,PA[:ugs]))))
+# homefuel_i,homefuel_ute = ces_node(merge(leaf_coa,leaf_ugs), merge(leaf_coa,leaf_ugs))
+# bnch_quants = merge(leaf_coa,leaf_ugs)
+# quantities =   Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:coa,:ugs]])
 
 # Leaves [:rnw, :uel] into :elect
-leaf_rnw = Dict(:rnw_elect => pce_0[:rnw,:pce] * (1-veh_chrg_pc))
-leaf_uel = Dict(:uel_elect => pce_0[:uel,:pce] * (1-veh_chrg_pc))
-Electq_names = Dict(:rnw=>:rnw_elect,:uel=>:uel_elect)
-elect_i,elect_ute = ces_node(merge(leaf_rnw,leaf_uel), Dict(Electq_names[x]=>value(compensated_demand(FDem,PA[x],:elect)) for x in [:rnw, :uel]))
+elect_i,elect_ute = ces_node(Dict{Symbol, Float64}(:rnw_elect => bnchdata[:rnw,:pce] * (1-veh_chrg_pc),:uel_elect => bnchdata[:uel,:pce] * (1-veh_chrg_pc)),
+    Dict{Symbol, Float64}(:rnw_elect=>value(compensated_demand(FDem,PA[:rnw],:elect)),:uel_elect=>value(compensated_demand(FDem,PA[:uel],:elect))))
+# elect_i,elect_ute = ces_node(merge(leaf_rnw,leaf_uel), merge(leaf_rnw,leaf_uel))
+# bnch_quants = merge(leaf_rnw,leaf_uel), Dict{Symbol, Float64}(Electq_names[x]=>value(compensated_demand(FDem,PA[x],:elect)) for x in [:rnw, :uel])
+# quantities = 
 
 # Nests [:homefuels, :elect] into [:home_nrg_expd]
 home_nrg_expd_i,home_nrg_expd_ute = ces_node(merge(homefuel_i,elect_i),merge(homefuel_ute,elect_ute))
+# bnch_quants = merge(homefuel_i,elect_i),merge(homefuel_ute,elect_ute))
+# quantities = 
 
-# Leaves [:hou,:ore] into :own_occ_exp
-leaf_hou = Dict(:hou => pce_0[:hou,:pce])
-leaf_ore = Dict(:ore => pce_0[:ore,:pce])
-own_occ_exp_i, own_occ_exp_ute= ces_node(merge(leaf_hou,leaf_ore),  Dict([x=>value(compensated_demand(FDem,PA[x])) for x in [:hou,:ore]]))
-    
+# # Leaves [:hou,:ore] into :own_occ_exp
+own_occ_exp_i, own_occ_exp_ute= ces_node(Dict{Symbol, Float64}(:hou => bnchdata[:hou,:pce],:ore => bnchdata[:ore,:pce]),  
+    Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:hou,:ore]]))
+# own_occ_exp_i, own_occ_exp_ute= ces_node(merge(leaf_hou,leaf_ore), merge(leaf_hou,leaf_ore))
+# bnch_quants = merge(leaf_hou,leaf_ore)
+# quantities = Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:hou,:ore]])
+
+
 # Nests [:own_occ_exp, :home_nrg_expd] into [:housing_exp]
 housing_exp_i, housing_exp_ute = ces_node(merge(home_nrg_expd_i,own_occ_exp_i),merge(home_nrg_expd_ute,own_occ_exp_ute))
+# bnch_quants = merge(home_nrg_expd_i,own_occ_exp_i)
+# quantities = merge(home_nrg_expd_ute,own_occ_exp_ute)
 
-leaves_goods = Dict(x => pce_0[x,:pce] for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa ]),Ip))
-goods_i, goods_ute = ces_node(leaves_goods,Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa ]),Ip)))
+# leaves_goods = Dict{Symbol, Float64}(x => bnchdata[x,:pce] for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa :oil ]),Ip))
+goods_i, goods_ute = ces_node(Dict{Symbol, Float64}(x => bnchdata[x,:pce] for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa :oil ]),Ip)),
+    Dict{Symbol, Float64}(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa :oil]),Ip)))
+# goods_i, goods_ute = ces_node(leaves_goods,leaves_goods)
+# bnch_quants = leaves_goods
+# quantities = Dict{Symbol, Float64}(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa ]),Ip))
 
 # Nest :goods , :housing_exp into :non_transp, 
 non_transp_i, non_transp_ute = ces_node(merge(housing_exp_i,goods_i),merge(housing_exp_ute,goods_ute))
@@ -80,15 +96,20 @@ petr_i, petr_ute= ces_node(Dict{Symbol, Float64}(:pet => bnchdata[:pet,:pce], :o
 fuels_i, fuels_ute = ces_node(merge(veh_elect_i,petr_i),merge(veh_elect_ute,petr_ute))
 
 # Leaves [:mot :ote :mvt] =>veh_exp
-leaves_vehexp = Dict(x => pce_0[x,:pce] for x in [:mot, :ote, :mvt])
-veh_exp_i, veh_exp_ute = ces_node(leaves_vehexp,Dict(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in [:mot :ote :mvt]))
+veh_exp_i, veh_exp_ute = ces_node(Dict{Symbol, Float64}(x => bnchdata[x,:pce] for x in [:mot, :ote, :mvt]),
+    Dict{Symbol, Float64}(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in [:mot :ote :mvt]))
+# veh_exp_i, veh_exp_ute = ces_node(leaves_vehexp,leaves_vehexp)
+# bnch_quants = leaves_vehexp
+# quantities = Dict{Symbol, Float64}(x=>Float64(value(compensated_demand(FDem,PA[x]))) for x in [:mot :ote :mvt])
 
 # Nest fuels, veh_exp=>pers_transp=0.25,                     
 pers_transp_i, pers_transp_ute = ces_node(merge(fuels_i, veh_exp_i),merge(fuels_ute, veh_exp_ute))
 
 # Leaves [:air :trn :wtt :trk :grd :otr] => non_pers_transp
-leaves_np_trans = Dict(x => pce_0[x,:pce] for x in [:air,:trn,:wtt,:trk,:grd,:otr])
-non_pers_transp_i, non_pers_transp_ute = ces_node(leaves_np_trans,Dict(x=>value(compensated_demand(FDem,PA[x])) for x in [:air,:trn,:wtt,:trk,:grd,:otr]))
+non_pers_transp_i, non_pers_transp_ute = ces_node(Dict{Symbol, Float64}(x => bnchdata[x,:pce] for x in [:air,:trn,:wtt,:trk,:grd,:otr]),
+    Dict{Symbol, Float64}(x=>value(compensated_demand(FDem,PA[x])) for x in [:air,:trn,:wtt,:trk,:grd,:otr]))
+# bnch_quants = leaves_np_trans
+# quantities = Dict{Symbol, Float64}(x=>value(compensated_demand(FDem,PA[x])) for x in [:air,:trn,:wtt,:trk,:grd,:otr])
 
 # Nest non_pers_transp=>transp=0.25,                  pers_transp=>transp=0.4, 
 transp_i, transp_ute = ces_node(merge(non_pers_transp_i, pers_transp_i),merge(non_pers_transp_ute, pers_transp_ute))
@@ -101,7 +122,7 @@ end
 
 # # Edited from elastiticity vector
 # ### Keys are the ends, and values are the nodes above
-ch_pr = Dict(
+ch_pr = Dict{Symbol, Symbol}(
 :transp => :s,  :non_transp => :s,
                             
 :non_pers_transp => :transp,       :pers_transp => :transp, 
