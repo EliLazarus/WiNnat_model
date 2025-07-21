@@ -71,12 +71,12 @@ CO2_taxrate = 48.198#<=target for all CH4 (post Consumption utility elasticities
 CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities from Marc)
 
     ### Optimal combinations
-# CO2_taxrate = 29.2774    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
-# CH4_taxrate = 60 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
+# CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+
+        # CO2_taxrate = 29.2774    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
+        # CH4_taxrate = 60 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
 	
-
-
-
 
 # CO2_taxrate = 42.68#<=target for all CH4
 # CH4_taxrate = 282.885#<=target for all CH
@@ -91,11 +91,11 @@ CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities
     # CH4_taxrate =9.75 #~ value for optimum combimation, all CH4, YES GWP, 5x oil/gas, w abatement
     # CO2_taxrate = 2 #~ value for optimum combimation, all CH4, 5 x oil/gas, w abatement
     # CH4_taxrate = 38.271 #~ value for optimum combimation, all CH4, 5 x oil/gas, w abatement # 42.3 what is this?
-    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
     # CO2_taxrate = 35.19435  + 200 * 1.130480652 # CO2 tax to match CH4 reductions at SCC
     # CH4_taxrate = .08 ## Test combo to reach 3053.83 SCCO2 reductions with combo
     # CO2_taxrate = .19393 ## Test combo to reach 3053.83 SCCO2 reductions with combo
 ### SCC
+    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
     # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
 # CH4_taxrate = 1356.16 # target = 
     # CH4_taxrate = 1356.16 + 200 * 1.130480652# Rate that gets same GHG reduction as CO2 at SCC 
@@ -103,18 +103,22 @@ CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities
 # CH4_taxrate = 60.765#<=re target w 5 x oil/gas, oil/gas tax
 # CO2_taxrate = 49.8915#<=updated target w 20-yr GWP
 # # CH4_taxrate = 62.539#<=updated target w 20-yr GWP 
-# CH4_taxrate = 130.257#<=updated target w 20-yr GWP, oil/gas tax (optimal with 0 CO2 tax??)
-# CO2_taxrate = 43.7836#<=updated target x 5 oil/gas
 # CH4_taxrate = 48.4625#42.3005#<=updated target x 5 oil/gas , oil/gas tax
 # CO2_taxrate = 50.479#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07
 # CH4_taxrate = 8.219#<=updated target w 20-yr GWP x 5 oil/gas, Reduction targ=1845.07 
 # CH4_taxrate = 10.9021#<=updated target w 20-yr GWP & x 5 oil/gas & oil gas taxed only, Reduction targ=1845.07 
 # CO2_taxrate = 48.54#<=target for CO2 emissions only to meet target
-# CH4_taxrate = 393.134 #<= target for CH$ oil/gas/pip
 # CH4_taxrate = 318.64#<=re target w oilgas multi w/o abatement 
 
 CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 # CH4abatement="no" 
+# CO2_taxrate = 48.198#<=target for all CH4 combination with no abatement (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 209.325#<=target for all CH4# combination with no abatement (post Consumption utility elasticities from Marc)
+    ###Optimal
+# CO2_taxrate = 5.532#<=target for all CH4 (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 180#<=target for all CH (post Consumption utility elasticities from Marc)
+    	
+
 # CO2_taxrate = 8.07#<=target for all CH4 combination with no abatement
 # CH4_taxrate = 202.34#<=target for all CH4# combination with no abatement
 # CH4_taxrate = 79.4405#<=updated target w 20-yr GWP, no abatement 
@@ -131,17 +135,53 @@ if !only_oilgaspip;  ; print("[All CH4 tax] "); end
 CH4_tax_switch_on_sectors[CH4sectors] .=1 # All sectors switched on by default, but only CH4sectors in the loop for the taxes and have non-zero CH4Intensity
 if only_oilgaspip; CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("[CH4 gas/oil/pip ONLY] "); end# sectors here will have NO CH4 tax
 
+# CH4_taxrate = 406.364 #<= target for CH$ oil/gas/pip (was $393)
+
 GWP20year = true
 GWP20year = false###> Comment out to implement 20-year GWP simulation 
 EPACO2eqNonCO2_to_GHGInv_multiplier = 28/25 # The non-CO2 MAC data (emissions and abatement) uses 25, the GHG Inv uses 28
 GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
 if GWP20year; GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print("{20 year GWP} "); end
 if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 20-year GWP simulation 
- 
+# CO2_taxrate = 56.6298#<= 20-yr GWP (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 64.8137#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
+    ###Optimal 
+    # CO2_taxrate = 9.122#<= 20-yr GWP (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 47#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
+### Oil/Gas tax, 20-yr GWP
+# CO2_taxrate =  56.6298 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
+# CH4_taxrate =  134.89 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
+    ###Optimal oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
+    # CO2_taxrate = 4.345 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 119 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
+
 CH4x5 = true
 CH4x5 = false ###> Comment out to implement x 5 multiple CH4 emissions
 if CH4x5; Undercount_oilgasch4_multiplier = 5; print("::5 x CH₄::"); end#(Plant et al 2022   #Alvarez 2018 said 1.6)
 if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# default (comment out for oilgas multi)
+# CO2_taxrate = 49.7935#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 43.803#79999#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
+    ###Optimal x 5 combination
+    # CO2_taxrate = 0#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 43.803#79999#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
+
+# CO2_taxrate = 58.117 #<=Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 8.504 #<=Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    ###Optimal Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 8.504 #<=Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CO2_taxrate = 0 #<=Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+
+# CO2_taxrate = 49.7931 #<=oil/gas tax, x 5 oil/gas (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 50.2133 #<=oil/gas tax, x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # ###Optimal oil/gas tax, x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CO2_taxrate = 2.309 #<=oil/gas tax, x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 47 #<=oil/gas tax, x 5 oil/gas (post Consumption utility elasticities from Marc)
+
+# CO2_taxrate = 58.117 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 11.2758 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # ###Optimal oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CO2_taxrate = 0 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
+    # CH4_taxrate = 11.2758 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
 
 multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
 ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;println(": Reduction target=",ReductTarget)
