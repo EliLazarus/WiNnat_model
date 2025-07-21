@@ -555,7 +555,7 @@ fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 ### Does balance with interactions or slack vars and production commented out.
 # solve!(MultiNat , cumulative_iteration_limit = 0)
 solve!(MultiNat)#, output_minor_iterations_frequency=1)
-fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
+# fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :var))#:bmkmarg))#:bnchmrk))#
 
 if !@isdefined(CESutility_multinat)
@@ -563,7 +563,7 @@ if !@isdefined(CESutility_multinat)
 end
 
 TaxRev = DataFrame(solve=Symbol[], Total_Revenue=Float64[], Change_in_Rev=Float64[], Income=Float64[])
-EqVar  = DataFrame(solve=Symbol[], utilCES=Float64[], Mev=Float64[], OldEq_Var=Float64[], EV=Float64[], Ut_perc=Float64[])
+EqVar  = DataFrame(solve=Symbol[], Mev=Float64[], MEVdelta=Float64[],  utilCES=Float64[], Ut_perc=Float64[])#EV=Float64[],
 function totalrevenue()
 -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+ # taxes are negative in production, but positive for revenue
 sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
@@ -641,8 +641,12 @@ totdemWiNcntfac = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i i
 # utilWiNcntfac    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip ])
 # No exponent ^(1/elasRA) on share. Results are the same with either consistently applied. Not sure which is most 'correct'.
 # utilCESWiNcntfac = utilCESfn()
-utilCESWiNcntfac = CESutility_multinat()
-# utilCESWiNcntfac = CESutility_multinatAlt()
+utilCESWiNcntfac = CESutility_multinat(pce_0)
+Ut_pcWiNcntfac = (utilCESWiNcntfac-utilCESbnch)/utilCESbnch
+MEVdeltWiNcntfac  = value(RA)*Ut_pcWiNcntfac
+MevWiNcntfac =  value(RA)+MEVdeltWiNcntfac
+push!(EqVar, [:WiNcntfac MevWiNcntfac MEVdeltWiNcntfac utilCESWiNcntfac Ut_pcWiNcntfac*100] )
+# push!(EqVar, [:bnch utilCESbnch Mevbnch EVbnch value(RA)*(utilCESbnch-utilCESbnch)/utilCESbnch  (utilCESbnch-utilCESbnch)/utilCESbnch*100] )
 # utilWiNcntfac2    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])
 # MevWiNcntfac2 = prod([(1/value(PA[i]))^((value(FDem)*value(compensated_demand(FDem,PA[i])))/totdem) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #])
 MevWiNcntfac    = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])* only(filter(x->x.solve==:WiNcntfac,TaxRev)[!,:Income]) #]
@@ -652,9 +656,9 @@ EVWiNcntfacCES  = MevWiNcntfacCES - value(RA)
 EVWiNcntfacCES/value(RA) * 100
 push!(EqVar, [:WiNcntfac utilCESWiNcntfac MevWiNcntfac EVWiNcntfac value(RA)*(utilCESWiNcntfac-utilCES)/utilCES (utilCESWiNcntfac-utilCES)/utilCES*100])
 
-fullvrWiNcntfact = generate_report(MultiNat)
-rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
-fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
+# fullvrWiNcntfact = generate_report(MultiNat)
+# rename!(fullvrWiNcntfact, :value => :WiNcntfact, :margin => :WiNcntfactmarg)
+# fullvrWiNcntfact[!,:var] = Symbol.(fullvrWiNcntfact[:,:var])
 # print(sort(fullvrWiNcntfact, :var))#:bmkmarg))#:bnchmrk))#
 
 for (n,i) in enumerate(Ip)
@@ -711,9 +715,12 @@ Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 Rs[:,2][1:4]
 Rs[:,2][68:71]
 
-fullvrch4 = generate_report(MultiNat)
-rename!(fullvrch4, :value => :ch4tax, :margin => :ch4marg)
-fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
+CO2_ch4tax = value(CO2TotEm)
+CH4_ch4tax = value(CH4TotEm)
+GHG_ch4tax = value(TotEm)
+# fullvrch4 = generate_report(MultiNat)
+# rename!(fullvrch4, :value => :ch4tax, :margin => :ch4marg)
+# fullvrch4[!,:var] = Symbol.(fullvrch4[:,:var])
 # print(sort(fullvrch4, :ch4tax, by= abs, rev=true))#:ch4tax))#:var):ch4marg
 
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
@@ -750,10 +757,12 @@ end
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:4]
 # Rs[:,2][68:71]
-
-fullvrco2 = generate_report(MultiNat)
-rename!(fullvrco2, :value => :CO2tax, :margin => :CO2marg)
-fullvrco2[!,:var] = Symbol.(fullvrco2[:,:var])
+CO2_co2tax = value(CO2TotEm)
+CH4_co2tax = value(CH4TotEm)
+GHG_co2tax = value(TotEm)
+# fullvrco2 = generate_report(MultiNat)
+# rename!(fullvrco2, :value => :CO2tax, :margin => :CO2marg)
+# fullvrco2[!,:var] = Symbol.(fullvrco2[:,:var])
 
 ## Re-set to benchmark taxes
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
@@ -788,9 +797,13 @@ end
 # Rs = innerjoin(Sectors[:,[1,2]], Rs[:,[2,3]], on = :index)
 # Rs[:,2][1:5]
 # Rs[:,2][68:71]
-fullvrboth = generate_report(MultiNat)
-rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
-fullvrboth[!,:var] = Symbol.(fullvrboth[:,:var])
+CO2_bothtax = value(CO2TotEm)
+CH4_bothtax = value(CH4TotEm)
+GHG_bothtax = value(TotEm)
+
+# fullvrboth = generate_report(MultiNat)
+# rename!(fullvrboth, :value => :bothtaxes, :margin => :bothmarg)
+# fullvrboth[!,:var] = Symbol.(fullvrboth[:,:var])
 
 ###### Add Quant diff and % of consumption columns for Final Demand report dataframe
 # FDemand[:,:ch4Qdelta]=FDemand[:,:ch4tax].-FDemand[:,:bnch]
@@ -802,78 +815,83 @@ fullvrboth[!,:var] = Symbol.(fullvrboth[:,:var])
 # FDemand[:,:bothQpc]=FDemand[:,:both]./sum(FDemand[:,:both])*100
 
 #Generate Dataframe with all results (including names expressions)
-FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
-Compare = FullResults[1:end,[1,2,4,6,8,10]];
-## Sum the difference of each tax applied individually
-Compare.sum = Compare.ch4tax .- 1 + Compare.CO2tax .-1
+# FullResults = innerjoin(fullvrbnch, fullvrch4, fullvrco2, fullvrboth, fullvrWiNcntfact, on = [:var], makeunique=true);
+# Compare = FullResults[1:end,[1,2,4,6,8,10]];
+# ## Sum the difference of each tax applied individually
+# Compare.sum = Compare.ch4tax .- 1 + Compare.CO2tax .-1
 
 ## sum difference between the sum of the individual taxes to the combined taxes
-Compare.diff = Vector{Union{Missing, Float64}}(undef, length(Compare[:,1]))
-for n in 1:length(Compare[:,1])
-    if Compare.ch4tax[n] == 0 || Compare.CO2tax[n] == 0
-        Compare.diff[n] = missing
-    elseif Compare.bothtaxes[n] >= 1 &&  Compare.sum[n] >= 0
-        Compare.diff[n] = (Compare.bothtaxes[n] - 1) - Compare.sum[n]
-    elseif Compare.bothtaxes[n] >= 1 &&  Compare.sum[n] <= 0
-        Compare.diff[n] = 1 - Compare.bothtaxes[n] + Compare.sum[n]
-    elseif Compare.bothtaxes[n] <= 1 &&  Compare.sum[n] <= 0
-        Compare.diff[n] = 1 - Compare.bothtaxes[n] + Compare.sum[n]
-    elseif Compare.bothtaxes[n] <= 1 &&  Compare.sum[n] >= 0
-        Compare.diff[n] = 1 - Compare.bothtaxes[n] - Compare.sum[n]
-    end
-end
+# Compare.diff = Vector{Union{Missing, Float64}}(undef, length(Compare[:,1]))
+# for n in 1:length(Compare[:,1])
+#     if Compare.ch4tax[n] == 0 || Compare.CO2tax[n] == 0
+#         Compare.diff[n] = missing
+#     elseif Compare.bothtaxes[n] >= 1 &&  Compare.sum[n] >= 0
+#         Compare.diff[n] = (Compare.bothtaxes[n] - 1) - Compare.sum[n]
+#     elseif Compare.bothtaxes[n] >= 1 &&  Compare.sum[n] <= 0
+#         Compare.diff[n] = 1 - Compare.bothtaxes[n] + Compare.sum[n]
+#     elseif Compare.bothtaxes[n] <= 1 &&  Compare.sum[n] <= 0
+#         Compare.diff[n] = 1 - Compare.bothtaxes[n] + Compare.sum[n]
+#     elseif Compare.bothtaxes[n] <= 1 &&  Compare.sum[n] >= 0
+#         Compare.diff[n] = 1 - Compare.bothtaxes[n] - Compare.sum[n]
+#     end
+# end
 
-Compare[!,:var] = Symbol.(Compare[:,:var]);
+# Compare[!,:var] = Symbol.(Compare[:,:var]);
 # print(sort!(Compare, :var));
 # println(sort!(Compare, :diff, by = abs, rev=true))#[1:25,:])
 # CSV.write("C:\\Users\\Eli\\Box\\CGE\\MPSGE-JL\\First Mulit GHG taxes Paper\\MultiResults$(Dates.format(now(),"yyyy-mm-d_HhM")).csv", Compare, missingstring="missing", bom=true)
-compCO2em = filter(:var => ==(:CO2TotEm), Compare);
-compCH4em = filter(:var => ==(:CH4TotEm), Compare);
-compTotem = filter(:var => ==(:TotEm), Compare);
+# compCO2em = filter(:var => ==(:CO2TotEm), Compare);
+# compCH4em = filter(:var => ==(:CH4TotEm), Compare);
+# compTotem = filter(:var => ==(:TotEm), Compare);
+
 Emissions = DataFrame(
 ["CO2" "Gt" TotCO2bnchmk ;;
-only(compCO2em[:,:CO2tax]) ;;
-only(compCO2em[:,:ch4tax]) ;;
-only(compCO2em[:,:ch4tax]) + only(compCO2em[:,:CO2tax]) - TotCO2bnchmk;;
-only(compCO2em[:,:bothtaxes]) ;;
-only(compCO2em[:,:ch4tax]) + only(compCO2em[:,:CO2tax]) - TotCO2bnchmk - only(compCO2em[:,:bothtaxes]); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+### Need a CO2 emissions variable from each solve
+# Instead of compCO2em[:,:CO2tax], there's a CO2 emissions from CO2 taxes variable, and then a CO2 emissions from ch4 taxes variable.
+CO2_co2tax;; #only(compCO2em[:,:CO2tax]) ;;
+CO2_ch4tax ;; #only(compCO2em[:,:ch4tax]) ;;
+CO2_ch4tax + CO2_co2tax - TotCO2bnchmk;;
+CO2_bothtax;; #only(compCO2em[:,:bothtaxes]) ;;
+CO2_ch4tax + CO2_co2tax - TotCO2bnchmk - CO2_bothtax; # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "CH4" "GtCO2eq" TotCH4bnchmk ;;
-only(compCH4em[:,:CO2tax]) ;;
-only(compCH4em[:,:ch4tax]) ;;
-only(compCH4em[:,:ch4tax]) + only(compCH4em[:,:CO2tax]) - TotCH4bnchmk ;;
-only(compCH4em[:,:bothtaxes]) ;;
-only(compCH4em[:,:ch4tax]) + only(compCH4em[:,:CO2tax]) - TotCH4bnchmk - only(compCH4em[:,:bothtaxes]); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+CH4_co2tax ;; #only(compCH4em[:,:CO2tax]) ;;
+CH4_ch4tax ;; #only(compCH4em[:,:ch4tax]) ;;
+CH4_ch4tax + CH4_co2tax - TotCH4bnchmk ;;
+CH4_bothtax ;; #only(compCH4em[:,:bothtaxes]) ;;
+CH4_ch4tax + CH4_co2tax - TotCH4bnchmk - CH4_bothtax; # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "GHGs" "GtCO2eq" TotGHGbnchmk ;;
- only(compTotem[:,:CO2tax]) ;;
- only(compTotem[:,:ch4tax]) ;;
- only(compTotem[:,:ch4tax]) + only(compTotem[:,:CO2tax]) - TotGHGbnchmk ;;
- only(compTotem[:,:bothtaxes]) ;;
- only(compTotem[:,:ch4tax]) + only(compTotem[:,:CO2tax]) - TotGHGbnchmk - only(compTotem[:,:bothtaxes])],
+ GHG_co2tax ;; #only(compTotem[:,:CO2tax]) ;;
+ GHG_ch4tax ;; # only(compTotem[:,:ch4tax]) ;;
+ GHG_ch4tax + GHG_co2tax - TotGHGbnchmk ;;
+ GHG_bothtax ;; #only(compTotem[:,:bothtaxes]) ;;
+ GHG_ch4tax + GHG_co2tax - TotGHGbnchmk - GHG_bothtax],
 ["Emissions", "Unit", "Bnchmrk_Emissions", "CO2tax", "CH4tax","sum_of_taxes", "taxes_combined" ,"Interactions"])
 Emissions_Mt = hcat(Emissions[:,1:2],Emissions[:,3:end].*10^3); Emissions_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 
 EmissionReductionResults = DataFrame(
 ["CO2" "Gt" TotCO2bnchmk ;;
-TotCO2bnchmk - only(compCO2em[:,:CO2tax]) ;;
-TotCO2bnchmk - only(compCO2em[:,:ch4tax]) ;;
-TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) ;;
-TotCO2bnchmk - only(compCO2em[:,:bothtaxes]) ;;
-TotCO2bnchmk - only(compCO2em[:,:ch4tax]) + TotCO2bnchmk - only(compCO2em[:,:CO2tax]) - (TotCO2bnchmk - only(compCO2em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+TotCO2bnchmk - CO2_co2tax ;;
+TotCO2bnchmk - CO2_ch4tax ;;
+TotCO2bnchmk - CO2_ch4tax + TotCO2bnchmk - CO2_co2tax ;;
+TotCO2bnchmk - CO2_bothtax ;;
+TotCO2bnchmk - CO2_ch4tax + TotCO2bnchmk - CO2_co2tax - (TotCO2bnchmk - CO2_bothtax); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "CH4" "GtCO2eq" TotCH4bnchmk ;;
-TotCH4bnchmk - only(compCH4em[:,:CO2tax]) ;;
-TotCH4bnchmk - only(compCH4em[:,:ch4tax]) ;;
-TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) ;;
-TotCH4bnchmk - only(compCH4em[:,:bothtaxes]) ;;
-TotCH4bnchmk - only(compCH4em[:,:ch4tax]) + TotCH4bnchmk - only(compCH4em[:,:CO2tax]) - (TotCH4bnchmk - only(compCH4em[:,:bothtaxes])); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
+TotCH4bnchmk - CH4_co2tax ;;
+TotCH4bnchmk - CH4_ch4tax ;;
+TotCH4bnchmk - CH4_ch4tax + TotCH4bnchmk - CH4_co2tax ;;
+TotCH4bnchmk - CH4_bothtax ;;
+TotCH4bnchmk - CH4_ch4tax + TotCH4bnchmk - CH4_co2tax - (TotCH4bnchmk - CH4_bothtax); # Interactions = the amount not reduced with taxes combined, compared to expections from individual taxes
 "GHGs" "GtCO2eq" TotGHGbnchmk ;;
-TotGHGbnchmk - only(compTotem[:,:CO2tax]) ;;
-TotGHGbnchmk - only(compTotem[:,:ch4tax]) ;;
-TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) ;;
-TotGHGbnchmk - only(compTotem[:,:bothtaxes]) ;;
-TotGHGbnchmk - only(compTotem[:,:ch4tax]) + TotGHGbnchmk - only(compTotem[:,:CO2tax]) - (TotGHGbnchmk - only(compTotem[:,:bothtaxes]))],
+TotGHGbnchmk - GHG_co2tax ;;
+TotGHGbnchmk - GHG_ch4tax ;;
+TotGHGbnchmk - GHG_ch4tax + TotGHGbnchmk - GHG_co2tax ;;
+TotGHGbnchmk - GHG_bothtax ;;
+TotGHGbnchmk - GHG_ch4tax + TotGHGbnchmk - GHG_co2tax - (TotGHGbnchmk - GHG_bothtax)],
 ["Em_reductions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_each_tax", "both_taxes_combined" ,"Interactions"])
 EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReductionResults[:,3:end].*10^3); EmissionReductionResults_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
-EmissionReductionResults_Mt.pc_diff .= -EmissionReductionResults_Mt.Interactions ./ EmissionReductionResults_Mt.Sum_of_each_tax .* 100 
+
+### TODO Bring back later : not worth the dataframe generation right now, or figuing out the whole change to Compare, but maybe later
+# EmissionReductionResults_Mt.pc_diff .= -EmissionReductionResults_Mt.Interactions ./ EmissionReductionResults_Mt.Sum_of_each_tax .* 100 
 
 println(
 sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
