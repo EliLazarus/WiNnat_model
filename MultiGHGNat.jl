@@ -430,7 +430,7 @@ end;
 transp=>s=0.35,                             
 non_pers_transp=>transp=0.25,                  pers_transp=>transp=0.4, 
 veh_exp=>pers_transp=0.25,                     fuels=>pers_transp=0.25,
-veh_elect=>fuels=Elas[:uel,:SAGE_en],  pet=>fuels=1000, # veh_fuel leaf, elasticity value v minor impact, but nesting definition needed
+veh_elect=>fuels=Elas[:uel,:SAGE_en],  petr=>fuels=0, # veh_fuel leaf, elasticity value v minor impact, but nesting definition needed
 # non-transport expenditures  
 non_transp=>s=0.5,
 goods=>non_transp=.87,                        housing_exp=>non_transp=0.3,  # goods value is average of E3 intermediate demand 'materials' substitution elasticities
@@ -443,9 +443,9 @@ elect=>home_nrg_expd=Elas[:uel,:SAGE_en],   homefuels=>home_nrg_expd=0.5,
     [@input(PA[i], pce_0[i,:pce],non_pers_transp)        for i in [:air :trn :wtt :trk :grd :otr]]...  # non_pers_transp 
     [@input(PA[i], pce_0[i,:pce],veh_exp)                for i in [:mot :ote :mvt]]... # Vehicle and Service Expenditures pers_transp  0.4
     [@input(PA[i], pce_0[i,:pce]*veh_chrg_pc, veh_elect)     for i in [:uel, :rnw]]... # Electricity 0.25 small fraction, for vehicle charging
-    @input(PA[:pet], pce_0[:pet,:pce],pet)   #Motor Vehicle Fuels 0.25 # pet
+    [@input(PA[i], pce_0[i,:pce],petr)               for i in [:pet, :oil]]...   #Motor Vehicle Fuels 0.25 # pet
     # non-transport expenditures
-    [@input(PA[i], pce_0[i,:pce],goods)                  for i in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa ]),Ip)]... # Everything else, filter out all specified
+    [@input(PA[i], pce_0[i,:pce],goods)                  for i in filter(∉([:air :trn :wtt :trk :grd :otr :mot :ote :mvt :uel :rnw :pet :hou :ore :ugs :coa :oil ]),Ip)]... # Everything else, filter out all specified
     [@input(PA[i], pce_0[i,:pce],own_occ_exp)            for i in [:hou,:ore]]...    #Owner-occupied and Rental Expenditures 
     [@input(PA[i], pce_0[i,:pce]*(1-veh_chrg_pc),elect)  for i in [:uel, :rnw]]...    # 'Electricity', home_nrg_exp, 0.75
     [@input(PA[i], pce_0[i,:pce],homefuels)              for i in [:ugs, :coa]]... # natural gas, homefuels, 0.5   # pip and gas are 0

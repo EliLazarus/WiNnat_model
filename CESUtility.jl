@@ -56,22 +56,28 @@ goods_i, goods_ute = ces_node(leaves_goods,Dict(x=>Float64(value(compensated_dem
 
 # Nest :goods , :housing_exp into :non_transp, 
 non_transp_i, non_transp_ute = ces_node(merge(housing_exp_i,goods_i),merge(housing_exp_ute,goods_ute))
+# bnch_quants = merge(housing_exp_i,goods_i)
+# quantities = merge(housing_exp_ute,goods_ute)
 
-# Leaves [:rnw, :uel] into :elect
-leaf_rnw = Dict(:rnw_elect => pce_0[:rnw,:pce] * (1-veh_chrg_pc))
-leaf_uel = Dict(:uel_elect => pce_0[:uel,:pce] * (1-veh_chrg_pc))
-Electq_names = Dict(:rnw=>:rnw_elect,:uel=>:uel_elect)
-elect_i,elect_ute = ces_node(merge(leaf_rnw,leaf_uel), Dict(Electq_names[x]=>value(compensated_demand(FDem,PA[x],:elect)) for x in [:rnw, :uel]))
+# # # Leaves[[:rnw, :uel]] into [:veh_elect]
+# leaf_rnw_veh = Dict{Symbol, Float64}(:rnw_veh_elect => bnchdata[:rnw,:pce] * veh_chrg_pc)
+# leaf_uel_veh = Dict{Symbol, Float64}(:uel_veh_elect => bnchdata[:uel,:pce] * veh_chrg_pc)
+veh_elect_i,veh_elect_ute = ces_node(Dict{Symbol, Float64}(:rnw_veh_elect => bnchdata[:rnw,:pce] * veh_chrg_pc, :uel_veh_elect => bnchdata[:uel,:pce] * veh_chrg_pc), 
+    Dict{Symbol, Float64}(:rnw_veh_elect=>value(compensated_demand(FDem,PA[:rnw],:veh_elect)),:uel_veh_elect=>value(compensated_demand(FDem,PA[:uel],:veh_elect))))
+# bnch_quants = merge(leaf_rnw_veh,leaf_uel_veh)
+# quantities = Dict{Symbol, Float64}(Veh_electq_names[x]=>value(compensated_demand(FDem,PA[x],:veh_elect)) for x in [:rnw, :uel])
 
-# Leaves[[:rnw, :uel]] into [:veh_elect]
-leaf_rnw_veh = Dict(:rnw_veh_elect => pce_0[:rnw,:pce] * veh_chrg_pc)
-leaf_uel_veh = Dict(:uel_veh_elect => pce_0[:uel,:pce] * veh_chrg_pc)
-Veh_electq_names = Dict(:rnw=>:rnw_veh_elect,:uel=>:uel_veh_elect)
-veh_elect_i,veh_elect_ute = ces_node(merge(leaf_rnw_veh,leaf_uel_veh), Dict(Veh_electq_names[x]=>value(compensated_demand(FDem,PA[x],:veh_elect)) for x in [:rnw, :uel]))
+# # # Leaves[:pet, :oil] into :petr
+# leaf_pet = Dict{Symbol, Float64}(:pet => bnchdata[:pet,:pce])
+# leaf_oil = Dict{Symbol, Float64}(:oil => bnchdata[:oil,:pce])
+petr_i, petr_ute= ces_node(Dict{Symbol, Float64}(:pet => bnchdata[:pet,:pce], :oil => bnchdata[:oil,:pce]),  
+    Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:pet,:oil]]))
+# petr_i, petr_ute= ces_node(merge(leaf_pet,leaf_oil), merge(leaf_pet,leaf_oil))
+# bnch_quants = merge(leaf_pet,leaf_oil)
+# quantities = Dict{Symbol, Float64}([x=>value(compensated_demand(FDem,PA[x])) for x in [:pet,:oil]])
 
-# Nest/Leaf :pet, :veh_elect into :fuels, 
-leaf_pet = Dict(:pet => pce_0[:pet,:pce])
-fuels_i, fuels_ute = ces_node(merge(veh_elect_i,leaf_pet),merge(veh_elect_ute,Dict(:pet=>value(compensated_demand(FDem,PA[:pet])))))
+# Nest :petr, :veh_elect into :fuels, 
+fuels_i, fuels_ute = ces_node(merge(veh_elect_i,petr_i),merge(veh_elect_ute,petr_ute))
 
 # Leaves [:mot :ote :mvt] =>veh_exp
 leaves_vehexp = Dict(x => pce_0[x,:pce] for x in [:mot, :ote, :mvt])
@@ -103,8 +109,9 @@ ch_pr = Dict(
 :air => :non_pers_transp,          :trn => :non_pers_transp, :wtt => :non_pers_transp,
 :trk => :non_pers_transp,          :grd => :non_pers_transp, :otr => :non_pers_transp, 
 :mot => :veh_exp,                  :ote => :veh_exp, :mvt => :veh_exp,
-:veh_elect => :fuels,               :pet => :fuels, 
+:veh_elect => :fuels,               :petr => :fuels, 
 :uel_veh_elect => :veh_elect,             :rnw_veh_elect => :veh_elect, #These have different names to distinguish both times that electricity appears
+:pet => :petr, :oil => :petr,
 
 :goods => :non_transp,                        :housing_exp => :non_transp, 
 :pla  => :goods, :soc  => :goods, :leg  => :goods, :rnt  => :goods, :fof  => :goods, :mov  => :goods, :adm  => :goods, :slg  => :goods,
@@ -113,8 +120,8 @@ ch_pr = Dict(
    :con  => :goods, :ppd  => :goods, :amd  => :goods, :edu  => :goods, :wst  => :goods, :smn  => :goods, :fpd  => :goods, :pmt  => :goods,
     :sec  => :goods, :wrh  => :goods, :hos  => :goods, :gas  => :goods, :min  => :goods, :fbp  => :goods, :fbt  => :goods, :tsv  => :goods,
      :res  => :goods, :dat  => :goods, :fnd  => :goods, :ins  => :goods, :wht  => :goods, :nrs  => :goods, :art  => :goods, :fmt  => :goods,
-      :che  => :goods, :oil  => :goods, :alt  => :goods, :agr  => :goods, :gmt  => :goods, :fin  => :goods, :mmf  => :goods, :amb  => :goods,
-       :mch  => :goods, :wpd  => :goods, :ott  => :goods, :com  => :goods,
+      :che  => :goods,  :alt  => :goods, :agr  => :goods, :gmt  => :goods, :fin  => :goods, :mmf  => :goods, :amb  => :goods,
+       :mch  => :goods, :wpd  => :goods, :ott  => :goods, :com  => :goods, #:oil  => :goods, oil which is 0, is combined with pet to make a nest bc leaf+nest doesn't work
 :own_occ_exp => :housing_exp,              :home_nrg_expd => :housing_exp,
 :hou => :own_occ_exp,                      :ore => :own_occ_exp,
 :elect => :home_nrg_expd,  :homefuels => :home_nrg_expd,
