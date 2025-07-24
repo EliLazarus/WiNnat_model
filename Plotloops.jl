@@ -4,30 +4,36 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
     """# runs a loop increasing each tax by \$1/t and then plotting Total GHG (CO2 & CH4) **incorporated** emissions 
     # Arguments are: which tax to change, other tax to either change simultaneously OR keep at 0, st=initial \$ tax value, fin= final \$ tax value,
     # and final (optional) argument can be set to 0 to remove other tax, by default """
-    MargEVt = DataFrame(EV = Float64[], Totreduced=Float64[], CH4EV_t=Float64[], CO2EV_t=Float64[],TotEV_t=Float64[] ) # Welfare cost per ton reduced
-    margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], MevCES=[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
+    # MargEVt = DataFrame(EV = Float64[], Totreduced=Float64[], CH4EV_t=Float64[], CO2EV_t=Float64[],TotEV_t=Float64[] ) # Welfare cost per ton reduced
+    margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], MevCES=[], EVCESpc=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
     # margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utilityCES=[], Mev=[], MevCES=[], Equiv_Variarion=Float64[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
         CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
+    # margemiss2 = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], MevCES=[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
+    # # margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utilityCES=[], Mev=[], MevCES=[], Equiv_Variarion=Float64[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
+    #     CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
     rename!(margemiss,:tax1=>tax1.name) , rename!(margemiss,:tax2=>tax2.name)
-    Testvars = DataFrame(taxrt=Float64[], 
-    # Yagr=Float64[],Ycoa=Float64[], 
-    Ypip=Float64[], Yoil=Float64[],Ygas=Float64[],
-    # Ypet=Float64[], Apip=Float64[],Aoil=Float64[],Ywst=Float64[], CompDYPApip=Float64[],CompDApipPApip=Float64[],DemRAPApip=Float64[],
-    # PAagr=Float64[],PAcoa=Float64[],PApip=Float64[],PAoil=Float64[],PAwst=Float64[],PAuel=Float64[],
-    # compDApipPAoil=Float64[],compdDAoilPAoil=Float64[],
-    # VAMagr=Float64[],VAScoa=Float64[],VAMcoa=Float64[],VASpip=Float64[],VAMpip=Float64[], VASwst=Float64[],VAMwst=Float64[],
-    # VASagr=Float64[],VAM10agr=Float64[],VAM100agr=Float64[],VAM500agr=Float64[],VAMkagr=Float64[],Apip=[],
-    # VAScoa=Float64[],VAM10coa=Float64[],VAM100coa=Float64[],VAM500coa=Float64[],VAMkcoa=Float64[],
-    # VASpip=Float64[],VAM10pip=Float64[],
-    VAM100pip=Float64[],VAM500pip=Float64[],
-    # VAMkpip=Float64[],
-    VASoil=Float64[],VAM10oil=Float64[],VAM20oil=Float64[],VAM50oil=Float64[],VAM100oil=Float64[],VAM500oil=Float64[],VAMkoil=Float64[],
-    VASgas=Float64[],VAM10gas=Float64[],VAM20gas=Float64[],VAM50gas=Float64[],VAM100gas=Float64[],VAM500gas=Float64[],VAMkgas=Float64[],
-    # VASwst=Float64[],VAM10wst=Float64[],VAM100wst=Float64[],VAM500wst=Float64[],VAMkwst=Float64[],
-    TotEm=Float64[],CH4TotEm=Float64[],CO2TotEm=Float64[]
-    # CH4emoil=Float64[],CH4empip=Float64[],CO2ecoa=Float64[],CO2emoil=Float64[]
-    )
-    ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
+    # Testvars = DataFrame(taxrt=Float64[], 
+    # # Yagr=Float64[],Ycoa=Float64[], 
+    # Ypip=Float64[], Yoil=Float64[],Ygas=Float64[],
+    # # Ypet=Float64[], Apip=Float64[],Aoil=Float64[],Ywst=Float64[], CompDYPApip=Float64[],CompDApipPApip=Float64[],DemRAPApip=Float64[],
+    # # PAagr=Float64[],PAcoa=Float64[],PApip=Float64[],PAoil=Float64[],PAwst=Float64[],PAuel=Float64[],
+    # # compDApipPAoil=Float64[],compdDAoilPAoil=Float64[],
+    # # VAMagr=Float64[],VAScoa=Float64[],VAMcoa=Float64[],VASpip=Float64[],VAMpip=Float64[], VASwst=Float64[],VAMwst=Float64[],
+    # # VASagr=Float64[],VAM10agr=Float64[],VAM100agr=Float64[],VAM500agr=Float64[],VAMkagr=Float64[],Apip=[],
+    # # VAScoa=Float64[],VAM10coa=Float64[],VAM100coa=Float64[],VAM500coa=Float64[],VAMkcoa=Float64[],
+    # # VASpip=Float64[],VAM10pip=Float64[],
+    # VAM100pip=Float64[],VAM500pip=Float64[],
+    # # VAMkpip=Float64[],
+    # VASoil=Float64[],VAM10oil=Float64[],VAM20oil=Float64[],VAM50oil=Float64[],VAM100oil=Float64[],VAM500oil=Float64[],VAMkoil=Float64[],
+    # VASgas=Float64[],VAM10gas=Float64[],VAM20gas=Float64[],VAM50gas=Float64[],VAM100gas=Float64[],VAM500gas=Float64[],VAMkgas=Float64[],
+    # # VASwst=Float64[],VAM10wst=Float64[],VAM100wst=Float64[],VAM500wst=Float64[],VAMkwst=Float64[],
+    # TotEm=Float64[],CH4TotEm=Float64[],CO2TotEm=Float64[]
+    # # CH4emoil=Float64[],CH4empip=Float64[],CO2ecoa=Float64[],CO2emoil=Float64[]
+    # )
+    # ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
+    ### Establish benchmark Utility
+        set_value!(tax1, 0); set_value!(tax2, cnst*0); solve!(MultiNat, output="no");
+        utilCESbnchmk = CESutility_multinat(pce_0)
     for (i,j) in zip(start:interval:finish,vec)
         print(i,":",j,", ")
         if i>530 # this should really only happen for CO2 tax, but ...
@@ -38,61 +44,70 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
         set_value!(tax1, i)
         set_value!(tax2, cnst*j)
         solve!(MultiNat, output="no");
-        Results = generate_report(MultiNat)
-        Results[!,:var] = Symbol.(Results[:,:var]);
+        # Results = generate_report(MultiNat)
+        # Results[!,:var] = Symbol.(Results[:,:var]);
        
-        push!(Testvars, [i,                
-        # value(Y[:agr]), value(Y[:coa]),
-        value(Y[:pip]),value(Y[:oil]),value(Y[:gas]),
-        # value(Y[:pet]), value(A[:pip]),value(A[:oil]), value(Y[:wst]), value(compensated_demand(MultiNat[:Y][:pip],MultiNat[:PA][:pip])),value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:pip])),value(demand(MultiNat[:RA],MultiNat[:PA][:pip])),
-        # value(PA[:agr]),value(PA[:coa]),value(PA[:pip]),value(PA[:oil]),value(PA[:wst]),value(PA[:uel]),
-        # value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:oil])),value(compensated_demand(MultiNat[:A][:oil],MultiNat[:PA][:oil])),
-        # value(VAM[:agr]),value(VAS[:coa]),value(VAM[:coa]),value(VAS[:pip]),value(VAM[:pip]),
-        # value(VAS[:wst]),value(VAM[:wst]), value(VAS[:agr]),value(VAM10[:agr]),value(VAM100[:agr]),value(VAM500[:agr]),value(VAM1000[:agr]),value(A[:pip]),
-        # value(VAS[:coa]),value(VAM10[:coa]),value(VAM100[:coa]),value(VAM500[:coa]),value(VAM1000[:coa]),
-        # value(VAS[:pip]),value(VAM10[:pip]),
-        value(VAM100[:pip]),value(VAM500[:pip]),
-        # value(VAM1000[:pip]),
-        value(VAS[:oil]),value(VAM10[:oil]),value(VAM20[:oil]),value(VAM50[:oil]),value(VAM100[:oil]),value(VAM500[:oil]),value(VAM1000[:oil]),
-        value(VAS[:gas]),value(VAM10[:gas]),value(VAM20[:gas]),value(VAM50[:gas]),value(VAM100[:gas]),value(VAM500[:gas]),value(VAM1000[:gas]),# value(VAS[:wst]),value(VAM10[:wst]),value(VAM100[:wst]),value(VAM500[:wst]),value(VAM1000[:wst]),
-        value(TotEm),value(CH4TotEm),value(CO2TotEm)
-        # value(CH4em[:oil]),value(CH4em[:pip]),value(CO2em[:coa]),value(CO2em[:oil])
-        ]  )
-        totrevboth  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+
-            sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
-            sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-            sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
-        income = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
-        elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
-        totdem = sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip])
+        # push!(Testvars, [i,                
+        # # value(Y[:agr]), value(Y[:coa]),
+        # value(Y[:pip]),value(Y[:oil]),value(Y[:gas]),
+        # # value(Y[:pet]), value(A[:pip]),value(A[:oil]), value(Y[:wst]), value(compensated_demand(MultiNat[:Y][:pip],MultiNat[:PA][:pip])),value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:pip])),value(demand(MultiNat[:RA],MultiNat[:PA][:pip])),
+        # # value(PA[:agr]),value(PA[:coa]),value(PA[:pip]),value(PA[:oil]),value(PA[:wst]),value(PA[:uel]),
+        # # value(compensated_demand(MultiNat[:A][:pip],MultiNat[:PA][:oil])),value(compensated_demand(MultiNat[:A][:oil],MultiNat[:PA][:oil])),
+        # # value(VAM[:agr]),value(VAS[:coa]),value(VAM[:coa]),value(VAS[:pip]),value(VAM[:pip]),
+        # # value(VAS[:wst]),value(VAM[:wst]), value(VAS[:agr]),value(VAM10[:agr]),value(VAM100[:agr]),value(VAM500[:agr]),value(VAM1000[:agr]),value(A[:pip]),
+        # # value(VAS[:coa]),value(VAM10[:coa]),value(VAM100[:coa]),value(VAM500[:coa]),value(VAM1000[:coa]),
+        # # value(VAS[:pip]),value(VAM10[:pip]),
+        # value(VAM100[:pip]),value(VAM500[:pip]),
+        # # value(VAM1000[:pip]),
+        # value(VAS[:oil]),value(VAM10[:oil]),value(VAM20[:oil]),value(VAM50[:oil]),value(VAM100[:oil]),value(VAM500[:oil]),value(VAM1000[:oil]),
+        # value(VAS[:gas]),value(VAM10[:gas]),value(VAM20[:gas]),value(VAM50[:gas]),value(VAM100[:gas]),value(VAM500[:gas]),value(VAM1000[:gas]),# value(VAS[:wst]),value(VAM10[:wst]),value(VAM100[:wst]),value(VAM500[:wst]),value(VAM1000[:wst]),
+        # value(TotEm),value(CH4TotEm),value(CO2TotEm)
+        # # value(CH4em[:oil]),value(CH4em[:pip]),value(CO2em[:coa]),value(CO2em[:oil])
+        # ]  )
+        # totrevboth  = -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][s],MultiNat[:RA])) for s in Ip])+
+        #     sum([value(MPSGE.tax_revenue(MultiNat[:A][s],MultiNat[:RA])) for s in [x for x in Ip if x∉[:fbt,:mvt,:gmt]]])+
+        #     sum([value(MPSGE.tax_revenue(MultiNat[:VAS][s],MultiNat[:RA])) for s in Ip])+
+        #     sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+        # income = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
+        # elasRA = MPSGE.elasticity(MultiNat.productions[:FDem].input)
+        # totdem = sum([value(FDem)*value(compensated_demand(FDem,PA[s])) for s in Ip])
         # util    = prod([(value(FDem)*value(compensated_demand(FDem,PA[i])))^(pce_0[i,:pce]/sum(pce_0)) for i in Ip])
-        utilCESf = CESutility_multinat()
+        utilCESf = CESutility_multinat(pce_0)
         # utilCESf    = sum([(pce_0[s,:pce]/sum(pce_0))*(value(FDem)*value(compensated_demand(FDem,PA[s])))^((elasRA-1)/elasRA) for s in Ip if value(compensated_demand(FDem,PA[s]))>0])^(elasRA/(elasRA-1))
         # utilCESf    = sum([(pce_0[i,:pce]/sum(pce_0))^(1/elasRA)*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
         # Mev = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])*income
-        MevCES = prod([(1/value(PA[i]))^(value(FDem)*value(compensated_demand(FDem,PA[i]))/totdem) for i in Ip])*income
+        # MevCES = prod([(1/value(PA[s]))^(value(FDem)*value(compensated_demand(FDem,PA[s]))/totdem) for s in Ip])*income
+        EV_CES = -((utilCESf-utilCESbnchmk)/utilCESbnchmk)*100
+        MevCES = value(RA)*(1+EV_CES) # Money metric equivalent variation (for CES *change* in utility x baseline Expenditues)
         # EV  = Mev - value(RA)
         # EVCES  =  value(RA) - MevCES
-        EVCES2 = -((utilCESf-utilCES)/utilCES)*100
-        ResultsTroubleshoot =vcat(ResultsTroubleshoot, [Results fill(i,length(Results[:,1]))])
-        push!(margemiss, [i j only(filter(:var => ==(:TotEm), Results)[:, :value])  MevCES  EVCES2  ;;
-               only(filter(:var => ==(:CH4TotEm), Results)[:, :value])    only(filter(:var => ==(:CO2TotEm), Results)[:, :value])    ;;
-              100*(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value])) ;;
-              100*(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))     ])
+        # ResultsTroubleshoot =vcat(ResultsTroubleshoot, [Results fill(i,length(Results[:,1]))])
+        ## version without generate results
+        # MevCES=0  ; EV_CES=0  # just values to put in so EV doesn't have to calculate.
+        push!(margemiss, [i j value(TotEm)  MevCES  EV_CES  ;;
+               value(CH4TotEm)    value(CO2TotEm)    ;;
+              100*(TotCH4bnchmk-value(CH4TotEm))/(TotGHGbnchmk-value(TotEm)) ;;
+              100*(TotCO2bnchmk-value(CO2TotEm))/(TotGHGbnchmk-value(TotEm)) ])
 
-        EV = value(RA)*EVCES2*10^-2
-        TotRedt = TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:, :value])
-        EVperton_CH4  = EV/(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))
-        EVperton_CO2  = EV/(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))
-        EVperton_both = EV/TotRedt
-        push!(MargEVt, [EV TotRedt EVperton_CH4 EVperton_CO2 EVperton_both])
+
+        # push!(margemiss2, [i j only(filter(:var => ==(:TotEm), Results)[:, :value])  MevCES  EV_CES  ;;
+        #        only(filter(:var => ==(:CH4TotEm), Results)[:, :value])    only(filter(:var => ==(:CO2TotEm), Results)[:, :value])    ;;
+        #       100*(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value])) ;;
+        #       100*(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))/(TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:,:value]))     ])
+
+        # EV = value(RA)*EV_CES*10^-2
+        # TotRedt = TotGHGbnchmk-only(filter(:var => ==(:TotEm), Results)[:, :value])
+        # EVperton_CH4  = EV/(TotCH4bnchmk-only(filter(:var => ==(:CH4TotEm), Results)[:, :value]))
+        # EVperton_CO2  = EV/(TotCO2bnchmk-only(filter(:var => ==(:CO2TotEm), Results)[:, :value]))
+        # EVperton_both = EV/TotRedt
+        # push!(MargEVt, [EV TotRedt EVperton_CH4 EVperton_CO2 EVperton_both])
     end
     if cnst==0
         tax2in = "only"
     else
         tax2in = " & $tax2"
     end
-    return margemiss, Testvars, ResultsTroubleshoot, MargEVt#, plch4, plco2, plt3 #,pla, plm, plp, plo, plw, plpa, plpm, plpp, plpo, plpw, 
+    return margemiss#, margemiss2 #, Testvars, ResultsTroubleshoot, MargEVt#, plch4, plco2, plt3 #,pla, plm, plp, plo, plw, plpa, plpm, plpp, plpo, plpw, 
     # plcdyp, plcdap, plfdrap, plAp, plAo
 end
 
@@ -355,7 +370,6 @@ pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true,
 # print(sort(EVdf,:EV_pcnt)[1:120,:])
 # print(sort(EVdf_cap,:EV_pcnt)[1:40,:])
 # pltEV = plot(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linestyle=:dashdot, ylim=(0,5000),
-
 
 # pltEV = plot(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, ylim=(0,700), label="CH₄ Emissions", color=:darkgreen, linestyle=:dash,
 # legend=:left, xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq", #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])",
