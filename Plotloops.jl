@@ -442,3 +442,91 @@ pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true,
 # plAp = plot(margemiss[!,tax1.name],Testvars[!,:Apip], title= "RA:\$$RAval fxd:$isfixed", label="A:pip", ylim=(minimum(Testvars[!,:Apip]),maximum(Testvars[!,:Apip])), xlabel="$tax1 $tax2in \$/t")
 # plAo = plot(margemiss[!,tax1.name],Testvars[!,:Aoil], title= "RA:\$$RAval fxd:$isfixed", label="A:oil", ylim=(minimum(Testvars[!,:Aoil]),maximum(Testvars[!,:Aoil])), xlabel="$tax1 $tax2in \$/t")     # Or label=false, title="price of oil commodity"
 ##############################################
+
+
+# # ###############################################################################
+# # #### Marginal Reductions of CH₄ with simulateous CO₂ taxes at increasing levels
+# # ###############################################################################
+
+# ### Loop to generate full set of combination tax reductions
+n=226
+# # # overcountdf = DataFrame()
+# # # for t in 0:n
+# # # loop = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, n+1, fill(t,n+1)) #n+1
+# # # append!(overcountdf, loop[1])
+# # # end
+# # #### CSV.write("overcount226.csv", overcountdf, missingstring="missing", bom=true)
+
+overcountdf = CSV.read("overcount226.csv", DataFrame)  ## Basic is for CO2 tax and pre-exisiting CH4.
+# ### Set up color gradient for plotting
+# colour = "blue"; dk = colorant"darkblue"; lt = colorant"lightblue"; dkcolour = :darkblue;  ltcolour = :lightblue  
+# # colour = "green"; dk = colorant"darkgreen"; lt = colorant"lightgreen"; dkcolour = :darkgreen;  ltcolour = :lightgreen
+# CListB = reshape( range(dk, stop=lt,length=n), 1, n );
+# # # # Marginal Reductions of CO₂ with simulateous CH₄ taxes at increasing levels
+# # # ### Plot Reductions with 0 tax on CH₄ => green palette
+# p13 = (9,"Palatino Roman") # a font standard to apply all over
+# plot(overcountdf[1:n,:CO₂_tax],(TotGHGbnchmk .- overcountdf[1:n,:Emissions] .- (TotGHGbnchmk .-overcountdf[1,:Emissions]))*10^3, color=dkcolour, linewidth=3, 
+# legend=false, colorbar=true, yaxis=("marginal GHG reductions\n(MMt CO₂eq)", font(p13)), guidefont=(15,"Palatino Roman"), xtickfont=p13, ytickfont=p13, xlabel="CO₂ tax level", left_margin=2mm, bottom_margin=3mm)
+# ### Set up for contour, all the lines. They don't show until the following plot! line is run
+# for l in n+1:n:length(overcountdf[:,1])-n # TODO This has to change after the larger run, AND the +99 etc below
+#     plot!(overcountdf[l:l+n-1,:CO₂_tax],(TotGHGbnchmk .- overcountdf[l:l+n-1,:Emissions].- (TotGHGbnchmk .-overcountdf[l,:Emissions]))*10^3, color=CListB[Int(round(l/n,digits=0))])
+# end
+# plot!(overcountdf[length(overcountdf[:,1])-n+1:length(overcountdf[:,1]),:CO₂_tax],(TotGHGbnchmk .- overcountdf[length(overcountdf[:,1])-n+1:length(overcountdf[:,1]),:Emissions].- (TotGHGbnchmk .-overcountdf[length(overcountdf[:,1])-n+1,:Emissions]))*10^3, color=ltcolour)
+# Plots.plot!([NaN], [NaN],line_z=range(1.0, stop=n, length=n),  c=cgrad([dkcolour,ltcolour]), legend=false, colorbarxpad=10,
+# colorbartitle="pre-exisiting CH₄ tax level",colorbar_titlefontsize=13,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], colorbar_titlefontfamily="Palatino Roman", colorbartitle_leftmargin=20mm)
+# # colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], colorbar_titlefontfamily="Palatino Roman",rightmargin=12mm)
+# annotate!(290,1500,Plots.text("pre-exisiting CH₄ tax level", 18,"Palatino Roman", rotation=90))
+# # 1
+# # png(joinpath(@__DIR__,"./Results/GHGreductionsCO2_w_CH4taxbigtext"))
+# ### % overcounted (difference with CO2 taxes to reductions from CH4 taxes with 0 CO2 taxes [over reductions from CH4 taxes with 0 CO2 taxes])
+# # (overcountdfCH4[24971:25197,:Emissions] .-overcountdfCH4[1:227,:Emissions]) ./overcountdfCH4[1:227,:Emissions]
+
+# # ### Copy combined results sorted for the marginal CH₄ tax reductions
+overcountdfCH4 = sort(deepcopy(overcountdf),[:CO₂_tax,:CH₄_tax])  ### Results re-sorted to function as CH4 taxes with pre-existing CO2 taxes
+# # # # ### Set up color gradient
+# colour = "green"; dk = colorant"darkgreen"; lt = colorant"lightgreen"; dkcolour = :darkgreen;  ltcolour = :lightgreen
+# CListG = reshape( range(dk, stop=lt,length=n), 1, n );
+
+# # # ### Plot Reductions with 0 tax on CO₂ 
+# plot(overcountdfCH4[1:n+1,:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[1:n+1,:Emissions] .- (TotGHGbnchmk .-overcountdfCH4[1,:Emissions]))*10^3, color=:darkgreen, linewidth=3, 
+# legend=false, colorbar=true, ylim=(0,3048), ylabel="marginal GHG reductions\n(MMt CO₂eq)", guidefont=(10,"Palatino Roman"), xtickfont=p13, ytickfont=p13, xlabel="CH₄ tax level", left_margin=2mm, bottom_margin=3mm)
+# # ### Loop to generate lines for each marginal reduction (additional reduction of CH₄ beyond what we already get from a CO₂ tax at each level)
+# for l in n+2:n+1:length(overcountdfCH4[:,1])-n-1 
+#     plot!(overcountdfCH4[l:l+n,:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[l:l+n,:Emissions].- (TotGHGbnchmk .-overcountdfCH4[l,:Emissions]))*10^3, color=CListG[Int(round(l/(n+1),digits=0))])
+# end
+# plot!(overcountdfCH4[length(overcountdfCH4[:,1])-n:length(overcountdfCH4[:,1]),:CH₄_tax],(TotGHGbnchmk .- overcountdfCH4[length(overcountdfCH4[:,1])-n:length(overcountdf[:,1]),:Emissions].- (TotGHGbnchmk .-overcountdfCH4[length(overcountdf[:,1])-n,:Emissions]))*10^3, color=:honeydew)
+# Plots.plot!(collect(0:.-10),collect(0:.-10),line_z=collect(226:-1:0),  c=cgrad([:darkgreen,:lightgreen]),# colorbartitle="pre-exisiting CO₂ tax level", )#, rev=true]))
+# colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], rightmargin=14mm)
+# annotate!(278,1500,Plots.text("pre-exisiting CO₂ tax level", 12,"Palatino Roman", rotation=90))
+
+png(joinpath(@__DIR__,"./Results/GHGreductions_CO2_CH4tax_contourversion"))
+
+### Failed, original attempt at contour
+### The way to read this: At the zero of each axis, GHG reductions for that tax on its own. I don't think this shows anything helpful. 
+### I can't see the line of each single tax on its own, relative to the combination. 
+# contour(overcountdfCH4[1:n+1,:CH₄_tax], overcountdf[1:n,:CO₂_tax], (TotGHGbnchmk .-overcountdfCH4[:,:Emissions])*10^3, fill=(true,cgrad(:imola)), levels=20,xlabel= "CH₄ tax level",  ylabel="CO₂ tax level")
+# contour(overcountdf[1:n:end,:CH₄_tax], overcountdf[1:n,:CO₂_tax], (TotGHGbnchmk .-overcountdf[:,:Emissions])*10^3, fill=(true,cgrad(:imola)), levels=20,xlabel= "CH₄ tax level",  ylabel="CO₂ tax level")
+# contour(overcountdf[1:n,:CO₂_tax], overcountdf[1:n:end,:CH₄_tax], (TotGHGbnchmk .-overcountdf[:,:Emissions])*10^3, fill=(true,cgrad(:imola)), levels=20,ylabel= "CH₄ tax level",  xlabel="CO₂ tax level")
+#######################
+### Contour version ###
+#######################
+onlyCH4reduct = Dict(row.CH₄_tax => TotGHGbnchmk-row.Emissions for row in eachrow(overcountdf) if row.CO₂_tax == 0)
+onlyCO2reduct = Dict(row.CO₂_tax => TotGHGbnchmk-row.Emissions for row in eachrow(overcountdfCH4) if row.CH₄_tax == 0)
+
+# onlyCH4reduct[226]= 3053.28 #2394.01
+overcountdf.minusonlyCO2 = [TotGHGbnchmk-row.Emissions - onlyCH4reduct[row.CH₄_tax] for row in eachrow(overcountdf)]
+overcountdfCH4.minusonlyCH4 = [TotGHGbnchmk-row.Emissions - onlyCO2reduct[row.CO₂_tax] for row in eachrow(overcountdfCH4)]
+
+contour(overcountdf[1:n,:CO₂_tax], overcountdf[1:n:end,:CH₄_tax], overcountdf.minusonlyCO2*10^3, 
+    ylim=(0,226),xlim=(0,226), fill=(true,cgrad([:darkblue,:darkgreen,:yellow])), levels=20,ylabel= "CH₄ tax (\$/ton CO₂eq)",
+    xlabel="CO₂ tax (\$/ton)", title="Marginal emission reductions from a CO₂ tax \n at different levels of pre-existing CH₄ taxes\n", titlefont=font(12,"Palatino Roman"),guidefont=font(12,"Palatino Roman"))
+Plots.plot!(collect(0:.-10),collect(0:.-10),line_z=collect(226:-1:0),  c=cgrad([:darkgreen,:lightgreen]),# colorbartitle="pre-exisiting CO₂ tax level", )#, rev=true]))
+colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], rightmargin=8mm, legend=false)
+annotate!(270,116,Plots.text("GHG emission reductions MMt CO₂eq", 11,"Palatino Roman", rotation=90))
+
+contour(overcountdfCH4[1:n+1,:CH₄_tax], overcountdf[1:n,:CO₂_tax], overcountdfCH4.minusonlyCH4*10^3,
+     fill=(true,cgrad([:darkblue,:green,:lightgreen])), levels=15,xlabel= "CH₄ tax (\$/ton CO₂eq)",  ylabel="CO₂ tax (\$/ton)",
+      title="Marginal emission reductions from a CH₄ tax \n at different levels of pre-existing CO₂ taxes\n", titlefont=font(12,"Palatino Roman"),guidefont=font(12,"Palatino Roman"))
+Plots.plot!(collect(0:.-10),collect(0:.-10),line_z=collect(226:-1:0),  c=cgrad([:darkgreen,:lightgreen]), legend=false,# colorbartitle="pre-exisiting CO₂ tax level", )#, rev=true]))
+ylim=(0,225),xlim=(0,226),colorbartitle="",colorbar_titlefontsize=12,colorbartickvals=[n:-1:0], colorbarlabelalias= [0:1:n], rightmargin=8mm)
+annotate!(270,116,Plots.text("GHG emission reductions MMt CO₂eq", 11,"Palatino Roman", rotation=90))
