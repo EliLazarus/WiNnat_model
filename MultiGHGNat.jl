@@ -3,7 +3,7 @@ using MPSGE
 using DataFrames, JLD2
 using JuMP
 using MPSGE.JuMP.Containers
-using CSV, Plots, Plots.PlotMeasures
+using CSV
 
 ### Run the economic data aggregation/disaggregation script if it hasn't been
 if !@isdefined(WplusSpAgCdata2022)
@@ -67,8 +67,8 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
 
 ## Set tax rates 
 # Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-CO2_taxrate = 48.198#<=target for all CH4 (post Consumption utility elasticities from Marc)
-CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities from Marc)
+# CO2_taxrate = 48.198#<=target for all CH4 (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities from Marc)
 
     ### Optimal combinations
 # CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
@@ -94,9 +94,56 @@ CH4_taxrate = 292.954#<=target for all CH (post Consumption utility elasticities
     # CO2_taxrate = 35.19435  + 200 * 1.130480652 # CO2 tax to match CH4 reductions at SCC
     # CH4_taxrate = .08 ## Test combo to reach 3053.83 SCCO2 reductions with combo
     # CO2_taxrate = .19393 ## Test combo to reach 3053.83 SCCO2 reductions with combo
-### SCC
+### SCCCO2
+    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+### Optimum CO2 tax ($236/t) incorporating the additional cost of the CO2 associated with that amount of CH4
+    # CO2_taxrate = CO2_taxrate + 127.11/2846.45 * 200 * 1.130480652 # 10.09646371274535 #
+    # CO2_taxrate = CO2_taxrate + (129.946-127.11)/2901.84 * 200 * 1.130480652 # 0.22096622343561312
+    # CO2_taxrate = CO2_taxrate + (130.007-129.946)/2903.02 * 200 * 1.130480652 # 0.004750867701359823
+    # CO2_taxrate = CO2_taxrate + (130.008-130.007)/2903.046 * 200 * 1.130480652 # 7.788237954241151e-5
+### SCCH4
+    # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
+### Optimum CH4 tax ($468/t) incorporating the additional cost of the CO2 associated with that amount of CH4
+    # CH4_taxrate = CH4_taxrate + 637.948/939.226 * 200 * 1.130480652 # 153.570678618798 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (993.739-637.948)/1334.35 * 200 * 1.130480652 # 153.570678618798 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1122.603-993.739)/1476.464 * 200 * 1.130480652 # 19.73339800216301 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1163.562-1122.603)/1521.543 * 200 * 1.130480652 # 6.086368512131147 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1176.077-1163.562)/1535.307 * 200 * 1.130480652 # 1.8430145058649652 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1179.856-1176.077)/1539.463 * 200 * 1.130480652 # 0.5550099461835712 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1180.993-1179.856)/1540.713 * 200 * 1.130480652 # 0.16685216537069994 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.335-1180.993)/1541.089 * 200 * 1.130480652 # 0.05017547759851781 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.437-1181.335)/1541.202 * 200 * 1.130480652 # 0.014963518929231045 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.468-1181.437)/1541.235 * 200 * 1.130480652 # 0.004547638771790086 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.477-1181.468)/1541.246 * 200 * 1.130480652 # 0.0013202728010994287 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.48-1181.477)/1541.249 * 200 * 1.130480652 # 0.00044009007706344696 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.481-1181.48)/1541.25 * 200 * 1.130480652 # 0.00014669659717414665 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (1181.481-1181.481)/1541.25 * 200 * 1.130480652 # 0.00014669659717414665 SCC of the CO2 portion
+### Combined optimum of both (CO2: 234.9, CH4: 277.6)
     # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
     # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
+    # CO2_taxrate = CO2_taxrate + 127.11/3330.8 * 200 * 1.130480652 # 8.628281234281253
+    # CH4_taxrate = CH4_taxrate + 637.948/3330.8 * 200 * 1.130480652 # 43.30418343833889 SCC of the CO2 portion
+    # CO2_taxrate = CO2_taxrate + (129.54-127.11)/3423.223 * 200 * 1.130480652 # 0.16049599949287507
+    # CH4_taxrate = CH4_taxrate + (742.524-637.948)/3423.223 * 200 * 1.130480652 # 6.907008083525497 SCC of the CO2 portion
+    # CO2_taxrate = CO2_taxrate + (129.585-129.54)/3432.093 * 200 * 1.130480652 # 0.0029644668335046856
+    # CH4_taxrate = CH4_taxrate + (758.884-742.524)/3432.093 * 200 * 1.130480652 # 1.0777483865804345 SCC of the CO2 portion
+    # CO2_taxrate = CO2_taxrate + (129.586-129.585)/3433.375 * 200 * 1.130480652 # 6.585244268426245e-5
+    # CH4_taxrate = CH4_taxrate + (761.429-758.884)/3433.375 * 200 * 1.130480652 # 0.16759446663064498 SCC of the CO2 portion
+    # CO2_taxrate = CO2_taxrate + (129.586-129.586)/3433.572 * 200 * 1.130480652 # 6.585244268426245e-5
+    # CH4_taxrate = CH4_taxrate + (761.824-761.429)/3433.572 * 200 * 1.130480652 # 0.16759446663064498 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (761.886-761.824)/3433.603 * 200 * 1.130480652 # 0.004082580334652163 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (761.895-761.886)/3433.608 * 200 * 1.130480652 # 0.0005926317662363584 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (761.897-761.895)/3433.608 * 200 * 1.130480652 # 0.000131695948056683 SCC of the CO2 portion
+    # CH4_taxrate = CH4_taxrate + (761.897-761.897)/3433.609 * 200 * 1.130480652 # 0.0 SCC of the CO2 portion
+#   
+CO2_taxrate = 72.62654854 # marginal tax rate = EV/t (cost): $226.0961/t 
+CH4_taxrate = 880.1551194 # tax rate (benefit) = EV/t (cost): $226.0961304/t 
+
+# CH4_taxrate = 731;CO2_taxrate = 31.019373;# 2579.0 
+### This one
+# CH4_taxrate = 733;CO2_taxrate = 30.782606;# 2579.01 # tax rate (benefit) = EV/t (cost): $226.0961304/t 
+# CH4_taxrate = 735;CO2_taxrate = 30.54468;# 2579.00 
+
 # CH4_taxrate = 1356.16 # target = 
     # CH4_taxrate = 1356.16 + 200 * 1.130480652# Rate that gets same GHG reduction as CO2 at SCC 
 ### Alt specs
