@@ -932,10 +932,12 @@ println(outerjoin(TaxRev,EqVar, on=:solve))
 # print(sort!(fullvrbnch, [:bmkmarg]))
 ## End for Multiloop function version of model
 # end
-EVperton_both = value(RA)*(EqVar[5,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:both_taxes_combined]*10^-3)
 EVperton_CH4 = value(RA)*(EqVar[3,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:CH4tax_reduc]*10^-3)
+println("EV_ton, CH4 tax =\t",EVperton_CH4)
 EVperton_CO2 = value(RA)*(EqVar[4,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:CO2tax_reduc]*10^-3)
-
+println("EV_ton, CO2 tax =\t",EVperton_CO2)
+EVperton_both = value(RA)*(EqVar[5,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:both_taxes_combined]*10^-3)
+println("EV_ton, both taxes =\t",EVperton_both)
 #### for Paris Reduction etc tables
 # println(Int64(round(TotGHGbnchmk*10^3, digits=0)))
 # println(Int64(round(TotCO2bnchmk*10^3, digits=0)))
@@ -946,38 +948,53 @@ EVperton_CO2 = value(RA)*(EqVar[4,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[
 # #### Full table of results from CO2 tax
 # println("\$",Int64(round(value(CO2_taxrate),digits=0)),"/t")
 # println("-")
+# # println(Int64(round(ReductTarget, digits=0)))
+# # For SCC
+# println(Int64(round(EmissionReductionResults_Mt[3,:CO2tax_reduc],digits=0)))
+# # println("(",Int64(round(EmissionReductionResults_Mt[3,:CO2tax_reduc]/Emissions_Mt[3,:Bnchmrk_Emissions]*100,digits=0)),"%)")# % CO2 of CO2 tax
 # println(Int64(round(EmissionReductionResults_Mt[1,:CO2tax_reduc],digits=0)))
-# println("(",Int64(round(EmissionReductionResults_Mt[1,:CO2tax_reduc]/Emissions_Mt[1,:Bnchmrk_Emissions],digits=2)*100),"%)")# % CO2 of CO2 tax
+# println("(",Int64(round(EmissionReductionResults_Mt[1,:CO2tax_reduc]/Emissions_Mt[1,:Bnchmrk_Emissions]*100,digits=0)),"%)")# % CO2 of CO2 tax
 # println(Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc],digits=0)))
 # println("(",Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc]/Emissions_Mt[2,:Bnchmrk_Emissions]*100,digits=0)),"%)") # % CH4 of CH4 tax
-# println(Int64(round(ReductTarget, digits=0)))
-# println(Int64(round(EmissionReductionResults_Mt[1,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc]*100, digits=0)),"%") # % CO2 of CO2 tax
-# println(Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc], digits=2)*100),"%") # % CO2 of CO2 tax
-# println(Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc], digits=2)*100),"%") # % CO2 of CO2 tax
+# println(Int64(round(EmissionReductionResults_Mt[3,:CO2tax_reduc],digits=0)))
+# # println(Int64(round(ReductTarget, digits=0)))
+# println(Int64(round(EmissionReductionResults_Mt[1,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc]*100, digits=0)),"%") # % CO2 of GHG from CO2 tax
+# println(Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc], digits=2)*100),"%") # % CH4 of GHG from CO2 tax
+# println(Int64(round(EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[3,:CO2tax_reduc], digits=2)*100),"%") # Spillovers = above
 # println("\$",Int64(round(TaxRev[4,:Change_in_Rev])))
-# println("\$",-1*Int64(round(value(RA)*(EqVar[4,:Ut_perc]*10^-2))))
+# println("\$",-1*Int64(round(EqVar[4,:MEVdelta])))#    value(RA)*(EqVar[4,:Ut_perc]*10^-2))))
 # println("\$",-1*Int64(round(EVperton_CO2)),"/t")
 # println(round(EqVar[4,:Ut_perc], digits=2),"%")
+# # println("\$",-1*Int64(round(EVperton_CO2)),"/t")
 
-# #### Full table of results from CH4 tax
+# # # #### Full table of results from CH4 tax
 # println("-")
 # println("\$",Int64(round(value(CH4_taxrate),digits=0)),"/t")
+# # println(Int64(round(ReductTarget, digits=0)))
+# # For SCC
+# # println(Int64(round(EmissionReductionResults_Mt[3,:CH4tax_reduc],digits=0)))
+# # println("(",Int64(round(EmissionReductionResults_Mt[3,:CH4tax_reduc]/Emissions_Mt[3,:Bnchmrk_Emissions]*100,digits=0)),"%)") # % CO2 of CH4 tax
 # println(Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc],digits=0)))
 # println("(",Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc]/Emissions_Mt[1,:Bnchmrk_Emissions]*100,digits=0)),"%)") # % CO2 of CH4 tax
 # println(Int64(round(EmissionReductionResults_Mt[2,:CH4tax_reduc],digits=0)))
 # println("(",Int64(round(EmissionReductionResults_Mt[2,:CH4tax_reduc]/Emissions_Mt[2,:Bnchmrk_Emissions],digits=2)*100),"%)") # % CH4 of CH4 tax
-# println(Int64(round(ReductTarget, digits=0)))
-# println(Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc], digits=2)*100),"%") # % CH4 of CH4 tax
-# println(Int64(round(EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc]*100, digits=0)),"%") # % CH4 of CH4 tax
-# println(Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc], digits=2)*100),"%") # % CH4 of CH4 tax
+# println(Int64(round(EmissionReductionResults_Mt[3,:CH4tax_reduc],digits=0)))
+# # println(Int64(round(ReductTarget, digits=0)))
+# println(Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc], digits=2)*100),"%") # % CO2 of GHG from CH4 tax
+# println(Int64(round(EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc]*100, digits=0)),"%") # % CH4 of GHG from CH4 tax
+# println(Int64(round(EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[3,:CH4tax_reduc], digits=2)*100),"%") # % Spillovers = CH4 from above
 # println("\$",Int64(round(TaxRev[3,:Change_in_Rev])))
 # println("\$",-1*Int64(round(value(RA)*(EqVar[3,:Ut_perc]*10^-2))))
 # println("\$",-1*Int64(round(EVperton_CH4)),"/t")
 # println(round(EqVar[3,:Ut_perc], digits=2),"%")
+# # println("\$",-1*Int64(round(EVperton_CH4)),"/t")
 
-# #### Full table of results from both/bocmbined
+# # #### Full table of results from both/bocmbined
 # println("\$",Int64(round(value(CO2_taxrate),digits=0)),"/t")
 # println("\$",Int64(round(value(CH4_taxrate),digits=0)),"/t")
+# # For SCC
+# # println(Int64(round(EmissionReductionResults_Mt[3,:both_taxes_combined],digits=0)))
+# # println("(",Int64(round(EmissionReductionResults_Mt[3,:both_taxes_combined]/Emissions_Mt[3,:Bnchmrk_Emissions]*100,digits=0)),"%)") # % CO2 of CH4 tax
 # println(Int64(round(EmissionReductionResults_Mt[1,:both_taxes_combined],digits=0)))
 # println("(",Int64(round(EmissionReductionResults_Mt[1,:both_taxes_combined]/Emissions_Mt[1,:Bnchmrk_Emissions]*100,digits=0)),"%)") # % CO2 of CH4 tax
 # println(Int64(round(EmissionReductionResults_Mt[2,:both_taxes_combined],digits=0)))
@@ -990,8 +1007,9 @@ EVperton_CO2 = value(RA)*(EqVar[4,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[
 # println("\$",-1*Int64(round(value(RA)*(EqVar[5,:Ut_perc]*10^-2))))
 # println("\$",-1*Int64(round(EVperton_both)),"/t")
 # println(round(EqVar[5,:Ut_perc], digits=2),"%")
+# println("\$",-1*Int64(round(EVperton_both)),"/t")
 
-## For alternative specification table
+# For alternative specification table
 # println(Int64(round(TotGHGbnchmk*10^3, digits=0)))
 # println(Int64(round(TotCH4bnchmk/TotGHGbnchmk, digits=2)*100),"%")
 # println("\$",Int64(round(value(CO2_taxrate),digits=0)),"/t")
