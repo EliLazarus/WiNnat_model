@@ -968,14 +968,14 @@ EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReduc
 ### TODO Bring back later : not worth the dataframe generation right now, or figuing out the whole change to Compare, but maybe later
 # EmissionReductionResults_Mt.pc_diff .= -EmissionReductionResults_Mt.Interactions ./ EmissionReductionResults_Mt.Sum_of_each_tax .* 100 
 
-println(
-sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
-# Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), 
-Symbol("Y[uel]"), Symbol("Y[rnw]"), Symbol("Y[oil]"), Symbol("Y[gas]") 
-# Symbol("Y[uwt]"), Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")
-], Compare))
-,
-)
+# println(
+# sort(filter(x -> x.var in [Symbol("Y[rec]"), Symbol("PVAM[uel]"),Symbol("PVAM[rnw]"),
+# # Symbol("Y[oil]"), Symbol("Y[gas]"), Symbol("Y[pet]"), Symbol("Y[coa]"), Symbol("Y[agr]"), 
+# Symbol("Y[uel]"), Symbol("Y[rnw]"), Symbol("Y[oil]"), Symbol("Y[gas]") 
+# # Symbol("Y[uwt]"), Symbol("Y[wst]"), Symbol("PVA[compen]"), Symbol("PVA[surplus]"), Symbol("RA")
+# ], Compare))
+# ,
+# )
 println(Emissions_Mt)
 println(EmissionReductionResults_Mt)# ;println("RA check, it's the 'both' bc that's the last simulation:",
 # sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip]))
