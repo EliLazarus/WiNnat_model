@@ -125,8 +125,6 @@ CH4abatement="yes" # Comment out CH4abatement="no" to allow CH4 abatment
 
 Kmobile="yes" # Allow kapital & Labor to flow between sectors (original WiNDC)
 # Kmobile="no" # Fix kapital in sectors, allow Labor to flow between
-print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
-print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
 
 only_oilgaspip = true
 only_oilgaspip = false ####> Comment out to implement tax ONLY on oil, gas, pip =>turn **OFF** Methane tax for coal, agriculture, and waste
@@ -273,22 +271,24 @@ TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
 TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 2020 was 0.6902703880400002
 TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 202 was 5.0315703880400005
 
-realtaxpc = []
+realCO2taxpc = []
 for ff in [:coa,:oil,:gas]
-push!(realtaxpc,CO2Int[ff]*CO2_taxrate)
+push!(realCO2taxpc,CO2Int[ff]*CO2_taxrate)
 end
-CO2_realtaxpc = DenseAxisArray(realtaxpc,([CO2_taxrate]))
+CO2_realtaxpc = DenseAxisArray(realCO2taxpc,([CO2_taxrate])) # The index is the $/t rate, the values at tax % on inputs
 
-### NOT USED: 
-# Crude oil barrels production 2020: 4144184x10^3
-# Average price per barrel 2020: $36.86
-# value_of_oil_2020 = 36.86 * 4144184*10^3
-# # Natural gas markets production 2020: 36,520,826 x 10^6 ft^3  (total withdrawals: 40,729,927 x 10^6 ft^3)
-# # Average natural gas spot price 2020 #3.32/thousand ft^3 $2.03 / million Btu
-# value_of_gas_2020 = 3.32 * 36520826 * 10^3
-# oil_fraction = value_of_oil_2020/(value_of_gas_2020+value_of_oil_2020)
-# imports of crude oil 2020: 2150267 X10^3 barrel ; imports of oil products 727623 x 10^3 barrels
-# imports of natural gas 2929: 2.55 trillion ft^3 ; 5.25 trillion ft^3
+function get_real_ch4tax(solve::Symbol)
+    df = DataFrame(Solve=Symbol[],Sector=String[],Index=Symbol[],tax_rate=Float64[])
+    for vam in [[VAS] ;VAMcommodSet]
+        for c in CH4sectors
+            if (vam in VAMcommodSet && VAM_costover[MPSGE.name(vam),c]>1 && value(MPSGE.tax_revenue(vam[c],RA))<0) || (vam == VAS && value(MPSGE.tax_revenue(vam[c],RA))<0)
+                push!(df, [solve split(string(vam),"[")[1] c value(MPSGE.taxes(MPSGE.netputs(vam[c],PVA[:compen])[1],RA))])#value(MPSGE.tax_revenue(vam[c], RA))])
+            end
+        end
+    end
+    return df
+end
+
 ## End data preparations
 ###
 
@@ -565,6 +565,7 @@ fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 solve!(MultiNat)#, output_minor_iterations_frequency=1)
 # fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :var))#:bmkmarg))#:bnchmrk))#
+realCH4taxpcc_bnch = get_real_ch4tax(:bnch)
 
 if !@isdefined(CESutility_multinat)
     include("CESUtility.jl")
@@ -639,6 +640,8 @@ set_value!(tm,0)
 
 solve!(MultiNat)
 totrevWiNcntfac = totalrevenue()
+
+realCH4taxpc_WiNcntfac = get_real_ch4tax(:WiNcntfac)
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
@@ -691,6 +694,7 @@ solve!(MultiNat , cumulative_iteration_limit = 0)# Temp measure to address resid
 set_value!(CH₄_tax, CH4_taxrate)
 set_value!(CO₂_tax,0.) # Set CO2 tax to 0 for running separately.
 solve!(MultiNat)
+realCH4taxpc_ch4 = get_real_ch4tax(:CH₄)
 
 totrevch4 = totalrevenue()
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
@@ -746,6 +750,7 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
+realCH4taxpc_co2 = get_real_ch4tax(:CO₂)
 totrevco2 = totalrevenue()
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
@@ -794,6 +799,7 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, CH4_taxrate)
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
+realCH4taxpc_both = get_real_ch4tax(:both)
 totrevboth = totalrevenue()
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
@@ -1016,3 +1022,8 @@ println("EV_ton, both taxes =\t",EVperton_both)
 # println("\$",Int64(round(value(CH4_taxrate),digits=0)),"/t")
 # println("\$",Int64(round(TaxRev[5,:Change_in_Rev])))
 # println(round(EqVar[5,:Ut_perc], digits=2),"%")
+
+# realCH4taxpc_WiNcntfac
+# realCH4taxpc_ch4
+# realCH4taxpc_co2
+# realCH4taxpc_both
