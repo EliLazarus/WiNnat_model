@@ -95,14 +95,51 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
     # CH4_taxrate = .08 ## Test combo to reach 3053.83 SCCO2 reductions with combo
     # CO2_taxrate = .19393 ## Test combo to reach 3053.83 SCCO2 reductions with combo
 ### SCCCO2
-    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+######## if !@isdefined(CO2price)
+########     CO2price = DataFrame(iter=Int[],CO2tax=Float64[], CO2reduc=Float64[],CH4reduc=Float64[])
+######## end
+########     CO2iter=1
+    CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+
+    ######## Optimum CO2 tax ($216/t) subtract the spilllover benefit of the CH4 reduction associated with that tax rate.
+###### CO2iter=2
+###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - 200 * 1.130480652 * 127.11002457204812 / (2719.3414026721402)  ###### 10.568398900759114-> 215.52773149924087
+###### CO2iter=3
+###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - (127.11002457204812 - 124.02382054981165) / 2661.6547040891874 * 200 * 1.130480652 # 0.2621597707548472-> 215.26557172848604
+###### CO2iter=4
+###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - (124.02382054981165 - 123.94566491601378) / 2660.1870457751643 * 200 * 1.130480652 # 0.006642648079472584-> 215.25892908040657
+###### CO2iter=5
+###### CO2_taxrate = CO2_taxrate - (123.94566491601378 - 123.94368356521501) / 2660.1498343131825 * 200 * 1.130480652 # 0.00016840244966237751-> 215.2587606779569
 ### Optimum CO2 tax ($236/t) incorporating the additional cost of the CO2 associated with that amount of CH4
     # CO2_taxrate = CO2_taxrate + 127.11/2846.45 * 200 * 1.130480652 # 10.09646371274535 #
     # CO2_taxrate = CO2_taxrate + (129.946-127.11)/2901.84 * 200 * 1.130480652 # 0.22096622343561312
     # CO2_taxrate = CO2_taxrate + (130.007-129.946)/2903.02 * 200 * 1.130480652 # 0.004750867701359823
     # CO2_taxrate = CO2_taxrate + (130.008-130.007)/2903.046 * 200 * 1.130480652 # 7.788237954241151e-5
+# 3020.619085404541
+# CO2_taxrate = 259.4866 # CO2 on its own that gets the total reductions from combined SCGHGs ->3020.619085404541
+# CH4_taxrate = 1373.61135 # CH4 on its own that gets the total reductions from combined SCGHGs ->3020.619085404541
+
+    ## Optimal price, the cost (with CH4 in CO2 eq = reductions) of the direct CH4 emissions reductions from the SCC, but incorporating the CO2 reductions
+    ## So it's the price that reduces total emissions by the amount of CH4 emission reductions (301.27768273240076) from the price at the SCC
+    # CO2_taxrate = 204.560589 # (2719.3414026721402 MMt)
 ### SCCH4
-    # CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
+    CH4_taxrate =  200 * 1.130480652 #* 2# SC CH4 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+    ## Optimal price, the cost (with CH4 in CO2 eq = reductions) of the direct CH4 emissions reductions from the SCC, but incorporating the CO2 reductions
+    ## So it's the price that reduces total emissions by the amount of CH4 emission reductions (301.27768273240076) from the price at the SCC
+    # CH4_taxrate =  35.813294 # (301.27768273240076 Total GHG reductions)
+    CO2_taxrate = 33.292; CH4_taxrate = 1030 # (3020.619085 total GHG reductions, min EV - CO2 from SCCO2 + CH4 from SCCH4)
+
+    # CH4_taxrate =  69    ???
+### Optimum CH4 tax ($216/t) subtract the spilllover benefit of the CH4 reduction associated with that tax rate.
+####### CH4iter=2
+####### CH4_taxrate = CH4price[CH4iter-1,:CH4tax] - 200 * 1.130480652 * 127.11002457204812 / (2719.3414026721402)  # 10.568398900759114-> 215.52773149924087
+####### CH4iter=3
+####### CH4_taxrate = CH4price[CH4iter-1,:CH4tax] - (127.11002457204812 - 124.02382054981165) / 2661.6547040891874 * 200 * 1.130480652 # 0.2621597707548472-> 215.26557172848604
+####### CH4iter=4
+####### CH4_taxrate = CH4price[CH4iter-1,:CH4tax] - (124.02382054981165 - 123.94566491601378) / 2660.1870457751643 * 200 * 1.130480652 # 0.006642648079472584-> 215.25892908040657
+####### CH4iter=5
+####### CH4_taxrate = CH4_taxrate - (123.94566491601378 - 123.94368356521501) / 2660.1498343131825 * 200 * 1.130480652 # 0.00016840244966237751-> 215.2587606779569
+####### CH4_taxrate = 200 * 1.130480652# -2 #* 2#<= using SC CO2 because CH4 data is in MtCO2eq #
 ### Optimum CH4 tax ($468/t) incorporating the additional cost of the CO2 associated with that amount of CH4
     # CH4_taxrate = CH4_taxrate + 637.948/939.226 * 200 * 1.130480652 # 153.570678618798 SCC of the CO2 portion
     # CH4_taxrate = CH4_taxrate + (993.739-637.948)/1334.35 * 200 * 1.130480652 # 153.570678618798 SCC of the CO2 portion
@@ -135,10 +172,10 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
     # CH4_taxrate = CH4_taxrate + (761.895-761.886)/3433.608 * 200 * 1.130480652 # 0.0005926317662363584 SCC of the CO2 portion
     # CH4_taxrate = CH4_taxrate + (761.897-761.895)/3433.608 * 200 * 1.130480652 # 0.000131695948056683 SCC of the CO2 portion
     # CH4_taxrate = CH4_taxrate + (761.897-761.897)/3433.609 * 200 * 1.130480652 # 0.0 SCC of the CO2 portion
-#   
-CO2_taxrate = 72.62654854 # marginal tax rate = EV/t (cost): $226.0961/t 
-CH4_taxrate = 880.1551194 # tax rate (benefit) = EV/t (cost): $226.0961304/t 
 
+### Rates that equal marginal benefit   
+# CO2_taxrate = 72.62654854 # marginal tax rate = EV/t (cost): $226.0961/t 
+# CH4_taxrate = 880.1551194 # tax rate (benefit) = EV/t (cost): $226.0961304/t 
 # CH4_taxrate = 731;CO2_taxrate = 31.019373;# 2579.0 
 ### This one
 # CH4_taxrate = 733;CO2_taxrate = 30.782606;# 2579.01 # tax rate (benefit) = EV/t (cost): $226.0961304/t 
@@ -986,11 +1023,46 @@ println(outerjoin(TaxRev,EqVar, on=:solve))
 ## End for Multiloop function version of model
 # end
 EVperton_CH4 = value(RA)*(EqVar[3,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:CH4tax_reduc]*10^-3)
-println("EV_ton, CH4 tax =\t",EVperton_CH4)
+# println("EV_ton, CH4 tax =\t",EVperton_CH4)
 EVperton_CO2 = value(RA)*(EqVar[4,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:CO2tax_reduc]*10^-3)
-println("EV_ton, CO2 tax =\t",EVperton_CO2)
+# println("EV_ton, CO2 tax =\t",EVperton_CO2)
 EVperton_both = value(RA)*(EqVar[5,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:both_taxes_combined]*10^-3)
-println("EV_ton, both taxes =\t",EVperton_both)
+# println("EV_ton, both taxes =\t",EVperton_both)
+
+# println("CO2 reductions: ",EmissionReductionResults_Mt[1,:CO2tax_reduc])
+# println("CH4 reductions: ",EmissionReductionResults_Mt[2,:CO2tax_reduc]) 
+# if CO2_taxrate ==  200 * 1.130480652
+#     println("benefit as a % of direct: ",(EmissionReductionResults_Mt[2,:CO2tax_reduc])/(EmissionReductionResults_Mt[2,:CO2tax_reduc]))
+#     println(CO2_taxrate* (EmissionReductionResults_Mt[2,:CO2tax_reduc])/(EmissionReductionResults_Mt[2,:CO2tax_reduc])," difference in CO2 price")
+#     println("CO2_taxrate = CO2_taxrate - ($(EmissionReductionResults_Mt[2,:CO2tax_reduc])) / ($(EmissionReductionResults_Mt[2,:CO2tax_reduc])) * 200 * 1.130480652 # ",
+#         200 * 1.130480652 * EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[2,:CO2tax_reduc],"-> ",
+#         CO2_taxrate - (200 * 1.130480652*(EmissionReductionResults_Mt[2,:CO2tax_reduc])/(EmissionReductionResults_Mt[2,:CO2tax_reduc])))
+#     else
+#     println("benefit as a % of direct: ",(CO2price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[2,:CO2tax_reduc])/(EmissionReductionResults_Mt[2,:CO2tax_reduc]))    
+#     println("CO2_taxrate = CO2_taxrate - ($(CO2price[CO2iter-1,:CH4reduc]) - $(EmissionReductionResults_Mt[1,:CO2tax_reduc])) / $(EmissionReductionResults_Mt[2,:CO2tax_reduc]) * 200 * 1.130480652 # ",
+#         200 * 1.130480652 * (CO2price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[1,:CO2tax_reduc])/EmissionReductionResults_Mt[2,:CO2tax_reduc],"-> ",
+#         CO2_taxrate - (200 * 1.130480652 *(CO2price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[1,:CO2tax_reduc])/EmissionReductionResults_Mt[2,:CO2tax_reduc]))
+# end
+# push!(CO2price,[CO2iter CO2_taxrate EmissionReductionResults_Mt[1,:CO2tax_reduc] EmissionReductionResults_Mt[2,:CO2tax_reduc]])
+
+# if CH4_taxrate ==  200 * 1.130480652
+#     println("benefit as a % of direct: ",(EmissionReductionResults_Mt[1,:CH4tax_reduc])/(EmissionReductionResults_Mt[2,:CH4tax_reduc]))
+#     println(CH4_taxrate* (EmissionReductionResults_Mt[1,:CH4tax_reduc])/(EmissionReductionResults_Mt[2,:CH4tax_reduc])," difference in CO2 price")
+#     println("CH4_taxrate = CH4_taxrate - ($(EmissionReductionResults_Mt[1,:CH4tax_reduc])) / ($(EmissionReductionResults_Mt[2,:CH4tax_reduc])) * 200 * 1.130480652 # ",
+#         200 * 1.130480652 * EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:CH4tax_reduc],"-> ",
+#         CH4_taxrate - (200 * 1.130480652*(EmissionReductionResults_Mt[1,:CH4tax_reduc])/(EmissionReductionResults_Mt[2,:CH4tax_reduc])))
+#     else
+#     println("benefit as a % of direct: ",(CH4price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[1,:CH4tax_reduc])/(EmissionReductionResults_Mt[2,:CH4tax_reduc]))    
+#     println("CH4_taxrate = CH4_taxrate - ($(CH4price[CO2iter-1,:CH4reduc]) - $(EmissionReductionResults_Mt[1,:CH4tax_reduc])) / $(EmissionReductionResults_Mt[2,:CH4tax_reduc]) * 200 * 1.130480652 # ",
+#         200 * 1.130480652 * (CH4price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[1,:CH4tax_reduc])/EmissionReductionResults_Mt[2,:CH4tax_reduc],"-> ",
+#         CH4_taxrate - (200 * 1.130480652 *(CH4price[CO2iter-1,:CH4reduc]-EmissionReductionResults_Mt[1,:CH4tax_reduc])/EmissionReductionResults_Mt[2,:CH4tax_reduc]))
+# end
+# push!(CH4price,[CH4iter CH4_taxrate EmissionReductionResults_Mt[1,:CH4tax_reduc] EmissionReductionResults_Mt[2,:CH4tax_reduc]])
+   200 * 1.130480652 * EmissionReductionResults_Mt[2,:CH4tax_reduc]/(EmissionReductionResults_Mt[1,:CH4tax_reduc]+EmissionReductionResults_Mt[2,:CH4tax_reduc])
+(EmissionReductionResults_Mt[1,:CO2tax_reduc]+EmissionReductionResults_Mt[2,:CO2tax_reduc])
+EmissionReductionResults_Mt[2,:CH4tax_reduc]+EmissionReductionResults_Mt[1,:CO2tax_reduc]
+println(EmissionReductionResults_Mt[3,:CO2tax_reduc])
+println(EmissionReductionResults_Mt[3,:CH4tax_reduc])
 #### for Paris Reduction etc tables
 # println(Int64(round(TotGHGbnchmk*10^3, digits=0)))
 # println(Int64(round(TotCO2bnchmk*10^3, digits=0)))

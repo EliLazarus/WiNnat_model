@@ -93,7 +93,7 @@ filter(x->x.EVCES2==minimum(resultdf[:,:EVCES2]),resultdf)
 
 subset(bnchM1, :var => ByRow(x -> occursin(r"RA", x))) # need vars as strings for regex
 
-# Show entire DataFrame in replace
+# Show entire DataFrame in repl
 show(stdout,"text/plain",df)
 
 # Copy to clipboard
@@ -112,8 +112,6 @@ N = [netputs(S,C)[1]] #[:veh_elect, :fuels, :pers_transp, :transp, :s]
 else
     N = [n for n∈netputs(S,C) if nest∈parent_name_chain(n)] #Then it checks that the actual nest name is there.
 end
-
-#### TODO Add this in a PR
     if isempty(N)
         error("This netput (input or output) doesn't appear in a nest of that name")
     end
