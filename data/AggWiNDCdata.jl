@@ -570,21 +570,21 @@ WplusSpAgCdata2022 = Dict(
   :y_0      => y_m0, # 2-dimensional DenseAxisArray{Float64,2,...} 
 )
 
-### MPSGE DataFrame format ###
-outerjoin(
-    WiNDC.armington_supply(WplusSpAgC; output = :as),
-    get_subtable(WplusSpAgC, "exports", output = :ex) |>
-        x -> select(x, Not(:sectors)),
-    get_subtable(WplusSpAgC, "margin_demand", output = :md) |>
-        x -> unstack(x, :sectors, :md), # :Trade, :Trans
-    WiNDC.gross_output(WplusSpAgC; output = :go),
-    get_subtable(WplusSpAgC, "imports", output = :im)|>
-        x -> select(x, Not(:sectors)),
-    WiNDC.absorption_tax_rate(WplusSpAgC, output = :atr),
-    WiNDC.import_tariff_rate(WplusSpAgC, output = :itr),
-    on = filter(y -> y!=:sectors, domain(WplusSpAgC))
-) |>
-x -> coalesce.(x, 0) 
+# ### MPSGE DataFrame format ###
+# outerjoin(
+#     WiNDC.armington_supply(WplusSpAgC; output = :as),
+#     get_subtable(WplusSpAgC, "exports", output = :ex) |>
+#         x -> select(x, Not(:sectors)),
+#     get_subtable(WplusSpAgC, "margin_demand", output = :md) |>
+#         x -> unstack(x, :sectors, :md), # :Trade, :Trans
+#     WiNDC.gross_output(WplusSpAgC; output = :go),
+#     get_subtable(WplusSpAgC, "imports", output = :im)|>
+#         x -> select(x, Not(:sectors)),
+#     WiNDC.absorption_tax_rate(WplusSpAgC, output = :atr),
+#     WiNDC.import_tariff_rate(WplusSpAgC, output = :itr),
+#     on = filter(y -> y!=:sectors, domain(WplusSpAgC))
+# ) |>
+# x -> coalesce.(x, 0) 
 
 
 # Apparently there is an error here using the summary data. I have the value added
