@@ -51,7 +51,7 @@ ta_0 = P[:ta_0] #	"Tax net subsidy rate on intermediate demand", benchmark data 
 ty_0DAA = DenseAxisArray([ty_0[i,:value] for i in Ip], Ip)
 tm_0DAA = DenseAxisArray([tm_0[i,:value] for i in Ip], Ip)
 ta_0DAA = DenseAxisArray([ta_0[i,:value] for i in Ip], Ip)
-
+tx_0DAA = DenseAxisArray([0 for i in Ip], Ip)
 ## Base Marginal Abatement Cost EPA data (2022). $/t and MMtCO2eq
 MAC_CH4_data=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, limit=14)
 MAC_CH4_totemiss=CSV.read(joinpath(@__DIR__,"./data/EPA_CH4_MAC_2022_data.csv"), DataFrame, header=2, skipto=17)
@@ -407,20 +407,16 @@ Elas[:rnw,:E3_e_E_El] = deepcopy(Elas[:uel,:E3_e_E_El])
 ### Proportion of residential electricity consumption for vehicle charging
 veh_chrg_pc = 5252/1509233 # https://www.eia.gov/totalenergy/data/monthly/pdf/sec7_19.pdf
 # Alternative, 2020, similar, veh_chrg_pc = 3.2/824.3 # electric vehicle charging/total https://www.eia.gov/consumption/residential/data/2020/c&e/pdf/ce5.1a.pdf 
-
 # function Multiloop(CO2_taxrate,CH4_taxrate) 
 
 MultiNat = MPSGEModel()
 
 @parameters(MultiNat, begin
-    # ta[Jp], ta_0DAA[Jp]#ta_0[Jp]
-    # ty[Jp], ty_0DAA[Jp] #ty_0[Jp]
-    # tm[Jp], tm_0DAA[Jp] #tm_0[Jp]
-    ta[j=Jp], ta_0DAA[j]#ta_0[Jp]
-    ty[j=Jp], ty_0DAA[j] #ty_0[Jp]
-    tm[j=Jp], tm_0DAA[j] #tm_0[Jp]
+    ta[j=Jp], ta_0DAA[j]
+    ty[j=Jp], ty_0DAA[j]
+    tm[j=Jp], tm_0DAA[j]
+    tx[j=Jp], tx_0DAA[j] # all 0s, set up for export tax to represent foreign tariffs
     CH₄_tax, 0.
-    # CH4_secs[Jp], CH4_tax_switch_on_sectors[Jp]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
     CH4_secs[j=Jp], CH4_tax_switch_on_sectors[j]  #Boolean vector only CH4sectors matter, 1 = tax, 0 = no tax 
     CO₂_tax, 0.
 end)
@@ -478,7 +474,7 @@ end)
 
 
 @consumer(MultiNat, RA, description = "Representative Agent")
-
+@consumer(MultiNat, ROW, description = "Sink for export tax")
 # Domestic production for all sectors
 # for j∈Jp
 #         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
@@ -563,7 +559,7 @@ end
 for i∈Ip
     @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_E3_Av_Armington]], begin
         [@output(PA[i], a_0[i,:value], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i,:value])]... 
-        [@output(PFX, x_0[i,:exports], t)]...
+        [@output(PFX, x_0[i,:exports], t, taxes=[Tax(ROW,tx[i])])]...
         [@input(PM[m], md_0[i,m], s) for m∈M]...
         @input(PY[i], y_0[i,:value], dm)
         @input(PFX, m_0[i,:imports], dm, taxes = [Tax(RA,tm[i]),
@@ -623,6 +619,11 @@ elseif (Kmobile=="no")
     [@endowment(PVAL, sum(va_0[:compen,j])) for j∈Jp]...
     end, elasticity = 1)
 end
+
+@demand(MultiNat, ROW, begin # Add Rest of World to distribute 'export tax' revenue.
+    @final_demand(PC, 0)
+    @endowment(PFX, 0)
+    end, elasticity = .999999) # elasticity doesn't matter, only one demand good
 
 # ## CO2 emissions for fossil fuel sectors are the activity levels times the (base) total emissions intensity 
 @aux_constraint(MultiNat, CO2em[:coa],  CO2em[:coa] - Y[:coa]*TotalCO2EmGt_coal)
