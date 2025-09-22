@@ -12,7 +12,8 @@ set_value!(tx,tx_0DAA[Jp]); # make sure export tax set back to 0
 #     set_value!(tx[i],0)
 # end
 solve!(MultiNat, cumulative_iteration_limit=10000)
-sort(generate_report(MultiNat),:value) # just checking that we're back to benchmark
+benchmark_results = generate_report(MultiNat) # just checking that we're back to benchmark
+benchmark_results.var = Symbol.(benchmark_results.var)
 
 #### Add experiment for emissions impact of tarriff
 for i in Ip
@@ -24,7 +25,7 @@ end
 solve!(MultiNat, cumulative_iteration_limit=10000)
 imptar_results = generate_report(MultiNat)
 imptar_results.var = Symbol.(imptar_results.var)
-print(sort(imptar_results,:var))
+# print(sort(imptar_results,:var))
 
 CO2_tariff_15 = value(CO2TotEm)
 CH4_tariff_15 = value(CH4TotEm)
@@ -41,7 +42,7 @@ solve!(MultiNat, cumulative_iteration_limit=10000)
 
 exptar_results = generate_report(MultiNat)
 exptar_results.var = Symbol.(exptar_results.var)
-print(sort(exptar_results,:var))
+# print(sort(exptar_results,:var))
 
 CO2_Xtariff_15 = value(CO2TotEm)
 CH4_Xtariff_15 = value(CH4TotEm)
@@ -57,6 +58,18 @@ for i in Ip
 end
 
 solve!(MultiNat, cumulative_iteration_limit=10000)
+imXtar_results = generate_report(MultiNat)
+imXtar_results.var = Symbol.(exptar_results.var)
+
+
+Tarrif_Results =
+innerjoin(benchmark_results,imptar_results,exptar_results,imXtar_results, on = :var, makeunique=true) |>
+X -> rename(X, "value" => "bnch", "value_1" =>"imports", "value_2" => "exports","value_3" =>"both") |>
+X -> select(X, [:var, :bnch,:imports,:exports,:both, :margin, :margin_1, :margin_2, :margin_3 ] )|>
+X -> sort(X, :both, rev=true)
+print(Tarrif_Results)
+
+
 
 CO2_ImXtariff_15 = value(CO2TotEm)
 CH4_ImXtariff_15 = value(CH4TotEm)
@@ -103,3 +116,29 @@ print(EmissionsTariffs_Mt)
 # ["Em_reductions", "Unit", "Bnchmrk_Emissions", "CO2tax_reduc", "CH4tax_reduc","Sum_of_each_tax", "both_taxes_combined" ,"Interactions"])
 # EmissReductionsTariffs_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReductionResults[:,3:end].*10^3); EmissionReductionResults_Mt[:,2] = ["Mt" ,"MtCO2eq" ,"MtCO2eq"];
 
+CH4deltas = DataFrame(CH4tax=Int64[], CO2overCH4=Float64[], dCO2dCH4=Float64[],dCO2=Float64[],dCH4=Float64[], totredCO2=Float64[] , totredCH4=Float64[] , pcdCO2=Float64[] , pcdCH4=Float64[])
+set_value!(CH₄_tax, 0)
+solve!(MultiNat);
+prev_em = (TotGHGbnchmk - value(TotEm))*10^6;
+prev_emCO2 = (TotCO2bnchmk - value(CO2TotEm))*10^6;
+prev_emCH4 = (TotCH4bnchmk - value(CH4TotEm))*10^6;
+for i in 0:300
+    set_value!(CH₄_tax, i)
+    solve!(MultiNat);
+    marg_em_reduct = (TotGHGbnchmk - value(TotEm))*10^6 - prev_em
+    marg_em_reductCO2 = (TotCO2bnchmk - value(CO2TotEm))*10^6 - prev_emCO2
+    marg_em_reductCH4 = (TotCH4bnchmk - value(CH4TotEm))*10^6 - prev_emCH4
+    print(i,": ")
+    push!(CH4deltas, [i round(TotCO2bnchmk - value(CO2TotEm), digits=8)/round(TotCH4bnchmk - value(CH4TotEm), digits=8) marg_em_reductCO2/marg_em_reductCH4 marg_em_reductCO2 marg_em_reductCH4;;
+     round((TotCO2bnchmk - value(CO2TotEm))*10^6,digits=2) round((TotCH4bnchmk - value(CH4TotEm))*10^6,digits=2) marg_em_reductCO2/(TotCO2bnchmk*10^4) marg_em_reductCH4/(TotCH4bnchmk*10^4)])
+    prev_em = (TotGHGbnchmk - value(TotEm))*10^6;
+    prev_emCO2 = (TotCO2bnchmk - value(CO2TotEm))*10^6;
+    prev_emCH4 = (TotCH4bnchmk - value(CH4TotEm))*10^6;
+
+end
+CH4deltas.totredCH4 =  map(x -> @sprintf("%.2f", x), CH4deltas.totredCH4)
+CH4deltas.totredCO2 =  map(x -> @sprintf("%.2f", x), CH4deltas.totredCO2)
+
+
+(TotalCO2EmGt_coal+TotalCO2EmGt_gas+TotalCO2EmGt_gas)/
+sum(MAC_CH4_WiNDC_tot[1,[:oil, :gas,:coa]])
