@@ -371,7 +371,7 @@ CO2Int[:oil] =   TotalCO2EmGt_oil/sum(id_0[:oil,:])
 
 TotCO2bnchmk =  TotalCO2EmGt_coal + TotalCO2EmGt_oil + TotalCO2EmGt_gas
 TotCH4bnchmk = sum(MAC_CH4_WiNDC_tot[1,2:end]) # 2020 was 0.6902703880400002
-TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 202 was 5.0315703880400005
+TotGHGbnchmk =  TotCO2bnchmk + TotCH4bnchmk # 2020 was 5.0315703880400005
 
 realCO2taxpc = []
 for ff in [:coa,:oil,:gas]
@@ -477,7 +477,7 @@ end)
 @consumer(MultiNat, ROW, description = "Sink for export tax")
 # Domestic production for all sectors
 # for j∈Jp
-#         @production(MultiNat, Y[j], [t= 0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s = Elas[j,:E3_m_ID]],begin # [t=0, s = 0, sv=> s = 0]
+#         @production(MultiNat, Y[j], [t=0, s=Elas[j, :SAGE_klem_Y], va=> s=Elas[j,:SAGE_kle_VAE],sm => s=Elas[j,:E3_m_ID]],begin # [t=0, s=0, sv=> s=0]
 #         [@output(PY[i],ys_0[i,j], t, taxes = [Tax(RA,ty[j])]) for i∈Ip]... 
 #         [@input(PA[i], id_0[i,j], sm, taxes = [Tax(RA,CO₂_tax * CO2Int[i])]) for i∈Ip]...
 #         @input(PVAM[j], sum(va_0[VA,j]), va)
@@ -486,8 +486,8 @@ end)
 
 ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
 for j∈Jp
-    @production(MultiNat, Y[j], [t= 0,
-    s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s= Elas[j,:E3_m_ID],
+    @production(MultiNat, Y[j], [t=0,
+    s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s=Elas[j,:E3_m_ID],
     va=>vae=0, En=>vae=Elas[j,:SAGE_ene], PrimENRG=>En=Elas[j,:SAGE_en], Elec=>En=Elas[j,:SAGE_en],
     oilgas=>PrimENRG=Elas[j,:E3_e_E_El], inElec=>Elec=Elas[:uel,:SAGE_en]### Elec preference between coa/gas/rnw doesn't change between sectors - common to all sectors 
     ],begin
@@ -506,14 +506,14 @@ end
 # # Total value added cost as a function labor (compen) and kapital (surplus), standard (no mitigation)
 if (Kmobile=="yes")
 for j∈Jp
-        @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
+        @production(MultiNat, VAS[j], [t=0, s=0, va => s=Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s=0, va => s= 1], begin 
         [@output(PVAM[j],sum(va_0[VA,j]), t)]... 
         [@input(PVA[va], va_0[va,j], va, taxes = [Tax(RA,CH₄_tax* CH4_secs[j]* VASInt[j])]) for va∈VA]...
         end)
 end
 elseif (Kmobile=="no")
     for j∈Jp
-        @production(MultiNat, VAS[j], [t=0, s = 0, va => s = Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s = 0, va => s = 1], begin 
+        @production(MultiNat, VAS[j], [t=0, s=0, va => s=Elas[j,:SAGE_kl_VA]], begin # #     @production(MultiNat, VAS[j], [t=0, s=0, va => s= 1], begin 
         [@output(PVAM[j],sum(va_0[VA,j]), t)]... 
         @input(PVAK[j], va_0[:surplus,j], va, taxes = [Tax(RA,CH₄_tax* CH4_secs[j]* VASInt[j])])
         @input(PVAL, va_0[:compen,j], va, taxes = [Tax(RA,CH₄_tax*CH4_secs[j]* VASInt[j])])
@@ -527,7 +527,7 @@ if CH4abatement=="yes"
         for c∈CH4sectors # Here we filter for sector-specific methane tax cases (CH$sectors is boolean)
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-                    @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
+                    @production(MultiNat, vam[c], [t=0, s=0, va => s=Elas[c,:SAGE_kl_VA]], begin
                         [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         [@input(PVA[va], va_0[va,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])]) for va∈VA]... #CH4_secs is a boolean to be able to turn of any sector from the CH4 tax
                     end)
@@ -538,7 +538,7 @@ if CH4abatement=="yes"
         for c∈CH4sectors # Here we filter for sector-specific methane tax cases (CH$sectors is boolean)
             for vam in VAMcommodSet
                 if VAM_costover[MPSGE.name(vam),c]>1 # Some sectors are still cumulatively -negative costs at $5/t, so filtering those out.
-                    @production(MultiNat, vam[c], [t=0, s = 0, va => s = Elas[c,:SAGE_kl_VA]], begin
+                    @production(MultiNat, vam[c], [t=0, s=0, va => s=Elas[c,:SAGE_kl_VA]], begin
                        [@output(PVAM[c],sum(va_0[VA,c]), t)]... 
                         @input(PVAK[c],va_0[:surplus,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])])
                         @input(PVAL,    va_0[:compen,c]*VAM_costover[MPSGE.name(vam),c], va, taxes = [Tax(RA, CH₄_tax*CH4_secs[c]*VAM_CH4EmInt[MPSGE.name(vam),c])])
@@ -550,14 +550,14 @@ if CH4abatement=="yes"
 end
 
 for m∈M
-    @production(MultiNat, MS[m], [t = 0, s = 0], begin
+    @production(MultiNat, MS[m], [t=0, s=0], begin
         [@output(PM[m], sum(ms_0[i,m] for i∈Ip), t)]...
         [@input(PY[i], ms_0[i,m], s) for i∈Ip]...
     end)
 end
  
 for i∈Ip
-    @production(MultiNat, A[i], [t = 2, s = 0, dm => s = Elas[i,:SAGE_E3_Av_Armington]], begin
+    @production(MultiNat, A[i], [t= 2, s=0, dm => s=Elas[i,:SAGE_E3_Av_Armington]], begin
         [@output(PA[i], a_0[i,:value], t, taxes=[Tax(RA,ta[i])],reference_price=1-ta_0[i,:value])]... 
         [@output(PFX, x_0[i,:exports], t, taxes=[Tax(ROW,tx[i])])]...
         [@input(PM[m], md_0[i,m], s) for m∈M]...
