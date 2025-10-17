@@ -5,10 +5,13 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
     # Arguments are: which tax to change, other tax to either change simultaneously OR keep at 0, st=initial \$ tax value, fin= final \$ tax value,
     # and final (optional) argument can be set to 0 to remove other tax, by default """
     # MargEVt = DataFrame(EV = Float64[], Totreduced=Float64[], CH4EV_t=Float64[], CO2EV_t=Float64[],TotEV_t=Float64[] ) # Welfare cost per ton reduced
+
     margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], 
-   MevCES=[], EVCESpc=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
-    # margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utilityCES=[], Mev=[], MevCES=[], Equiv_Variarion=Float64[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
-        CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
+#    MevCES=[], 
+EVCESpc=Float64[], #EV_pcnt=[], EV_pcntCES=[], Equiv_Variarion=Float64[],
+        CH4Emissions=Float64[],CO2Emissions=Float64[], 
+        # CH4perc_red=Float64[], CO2perc_red=Float64[], margcost=Float64[], margben=Float64[], 
+        margGHGred=Float64[], margCO2red=Float64[],margCH4red=Float64[])
     # margemiss2 = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], MevCES=[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
     # # margemiss = DataFrame(tax1=Float64[], tax2=Float64[], Emissions=Float64[], utilityCES=[], Mev=[], MevCES=[], Equiv_Variarion=Float64[], EVCES2=Float64[], #EV_pcnt=[], EV_pcntCES=[], 
     #     CH4Emissions=Float64[],CO2Emissions=Float64[], CH4perc_red=[], CO2perc_red=[])
@@ -34,6 +37,12 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
     # ResultsTroubleshoot = DataFrame(var=[], value=Float64[], margin=Float64[], x1=Float64[]) 
     ### Establish benchmark Utility
        set_value!(tax1, 0); set_value!(tax2, cnst*0); solve!(MultiNat, output="no");
+       ### Set up for to allow marginal results in loop
+    prev_em = value(TotEm)
+    prev_emCO2 = value(CO2TotEm)
+    prev_emCH4 = value(CH4TotEm)
+    prev_MEV = value(RA)
+    CH4perc_red = 0;  CO2perc_red = 0
        utilCESbnchmk = CESutility_multinat(pce_0)
     for (i,j) in zip(start:interval:finish,vec)
         print(i,":",j,", ")
@@ -78,19 +87,32 @@ function plottaxemisscurve(tax1, tax2, start, interval, finish ,vec, cnst=1)
         # utilCESf    = sum([(pce_0[i,:pce]/sum(pce_0))^(1/elasRA)*(value(FDem)*value(compensated_demand(FDem,PA[i])))^((elasRA-1)/elasRA) for i in Ip if value(compensated_demand(FDem,PA[i]))>0])^(elasRA/(elasRA-1))
         # Mev = prod([(1/value(PA[i]))^(pce_0[i,:pce]/sum(pce_0[:,:pce])) for i in Ip])*income
         # MevCES = prod([(1/value(PA[s]))^(value(FDem)*value(compensated_demand(FDem,PA[s]))/totdem) for s in Ip])*income
-        EV_CES = -((utilCESf-utilCESbnchmk)/utilCESbnchmk)*100
-        MevCES = value(RA)*(1+EV_CES) # Money metric equivalent variation (for CES *change* in utility x baseline Expenditues)
+        EV_CES = ((utilCESf-utilCESbnchmk)/utilCESbnchmk)*100 # X 100 to see % as integers
+        # MevCES = value(RA)*(1+EV_CES*10^-2) # Reverse the x 100 :: Money metric equivalent variation (for CES *change* in utility x baseline Expenditues)
         # EV  = Mev - value(RA)
         # EVCES  =  value(RA) - MevCES
         # ResultsTroubleshoot =vcat(ResultsTroubleshoot, [Results fill(i,length(Results[:,1]))])
         ## version without generate results
         # MevCES=0  ; EV_CES=0  # just values to put in so EV doesn't have to calculate.
+        CH4perc_red = 100*(TotCH4bnchmk-value(CH4TotEm))/(TotGHGbnchmk-value(TotEm))
+        CO2perc_red =  100*(TotCO2bnchmk-value(CO2TotEm))/(TotGHGbnchmk-value(TotEm))
+        marg_em_reduct = prev_em - value(TotEm)
+        marg_em_reductCO2 = prev_emCO2 - value(CO2TotEm)
+        marg_em_reductCH4 = prev_emCH4 - value(CH4TotEm) 
+        
+# margcost =  (MevCES - prev_MEV) # bill$ - bill$ = bill$  
+margben  = (prev_em - value(TotEm)) * 200 * 1.130480652 #Gt x $s = $bill
         push!(margemiss, [i j value(TotEm)  ;;
-        MevCES  EV_CES  ;;
+        # MevCES  
+        EV_CES  ;;
                value(CH4TotEm)    value(CO2TotEm)    ;;
-              100*(TotCH4bnchmk-value(CH4TotEm))/(TotGHGbnchmk-value(TotEm)) ;;
-              100*(TotCO2bnchmk-value(CO2TotEm))/(TotGHGbnchmk-value(TotEm)) ])
-
+                # CH4perc_red  CO2perc_red margcost  margben ;;
+                marg_em_reduct*10^9 marg_em_reductCO2*10^9 marg_em_reductCH4*10^9])
+prev_em = value(TotEm)
+prev_emCO2 = value(CO2TotEm)
+prev_emCH4 = value(CH4TotEm)
+# prev_MEV = MevCES
+# EVpertonGHG_both = value(RA)*(EqVar[5,:Ut_perc]*10^-2)/(EmissionReductionResults_Mt[3,:both_taxes_combined]*10^-3)
 
         # push!(margemiss2, [i j only(filter(:var => ==(:TotEm), Results)[:, :value])  MevCES  EV_CES  ;;
         #        only(filter(:var => ==(:CH4TotEm), Results)[:, :value])    only(filter(:var => ==(:CO2TotEm), Results)[:, :value])    ;;
@@ -186,14 +208,15 @@ co2vec = [
 259.486,	248.414,	247.13,	246.744,	244.058,	243.702,	243.347,	242.992,	242.638,	242.284,	241.929,	241.576,	239.879,	239.533,	239.186,	238.84,	238.495,	238.15,	237.122,	236.784,	236.447,	236.11,	235.774,	235.438,	232.914,	232.589,	232.266,	231.942,	231.619,	231.296,	230.973,	230.651,	230.329,	230.007,	229.686,	229.366,	225.887,	225.583,	225.28,	224.977,	224.675,	224.373,	224.072,	223.771,	223.47,	223.169,	222.869,	222.569,	220.127,	219.838,	219.55,	219.262,	218.974,	218.687,	218.4,	218.113,	217.826,	217.54,	217.255,	216.969,	215.602,	215.319,	215.038,	214.756,	214.475,	214.194,	213.913,	213.632,	213.352,	213.072,	212.793,	212.514,	212.235,	211.956,	211.678,	211.4,	211.122,	210.845,	210.568,	210.291,	210.015,	209.738,	209.462,	209.187,	208.911,	208.636,	208.362,	208.087,	207.813,	207.539,	207.265,	206.992,	206.719,	206.446,	206.174,	205.901,	205.63,	205.358,	205.086,	204.815,	204.545,	204.274,	204.004,	203.734,	203.464,	203.195,	202.926,	202.657,	202.388,	202.12,	201.852,	201.584,	201.316,	201.049,	200.782,	200.515,	200.249,	199.982,	199.716,	199.451,	194.751,	194.499,	194.247,	193.995,	193.744,	193.492,	193.242,	192.991,	192.74,	192.49,	192.24,	191.99,	191.741,	191.492,	191.243,	190.994,	190.745,	190.497,	190.249,	190.001,	189.753,	189.506,	189.259,	189.012,	188.765,	188.518,	188.272,	188.026,	187.78,	187.535,	187.289,	187.044,	186.799,	186.554,	186.31,	186.066,	185.822,	185.578,	185.334,	185.091,	184.848,	184.605,	184.362,	184.119,	183.877,	183.635,	183.393,	183.152,	182.91,	182.669,	182.428,	182.187,	181.947,	181.706,	181.466,	181.226,	180.986,	180.747,	180.508,	180.269,	180.03,	179.791,	179.553,	179.314,	179.076,	178.839,	178.601,	178.363,	178.126,	177.889,	177.651,	177.414,	177.178,	176.942,	176.706,	176.47,	176.235,	175.999,	175.764,	175.529,	175.295,	175.06,	174.826,	174.592,	174.358,	174.124,	173.891,	173.657,	173.424,	173.191,	172.958,	172.726,	172.494,	172.262,	172.03,	171.798,	171.566,	171.335,	171.104,	170.873,	170.642,	170.412,	170.181,	169.951,	169.721,	169.491,	169.262,	169.032,	168.803,	168.574,	168.346,	168.117,	167.888,	167.66,	167.432,	167.204,	166.977,	166.749,	166.522,	166.295,	166.068,	165.841,	165.615,	165.388,	165.162,	164.936,	164.71,	164.485,	164.259,	164.034,	163.809,	163.584,	163.36,	163.135,	162.911,	162.687,	162.463,	162.239,	162.016,	161.792,	161.569,	161.346,	161.123,	160.901,	160.678,	160.456,	160.234,	160.012,	159.79,	159.569,	159.347,	159.126,	158.905,	158.684,	158.464,	158.243,	158.023,	157.803,	157.583,	157.363,	157.143,	156.924,	156.705,	156.486,	156.267,	156.048,	155.83,	155.611,	155.393,	155.175,	154.957,	154.74,	154.522,	154.305,	154.088,	153.871,	153.654,	153.437,	153.221,	153.005,	152.789,	152.573,	152.357,	152.141,	151.926,	151.711,	151.496,	151.281,	151.066,	150.852,	150.637,	150.423,	150.209,	149.995,	149.781,	149.568,	149.355,	149.141,	148.928,	148.716,	148.503,	148.29,	148.078,	147.866,	147.654,	147.442,	147.23,	147.019,	146.808,	146.596,	146.385,	146.175,	145.964,	145.753,	145.543,	145.333,	145.123,	144.913,	144.703,	144.494,	144.284,	144.075,	143.866,	143.657,	143.449,	143.24,	143.032,	142.824,	142.616,	142.408,	142.2,	141.992,	141.785,	141.578,	141.371,	141.164,	140.957,	140.75,	140.544,	140.338,	140.132,	139.926,	139.72,	139.514,	139.309,	139.104,	138.898,	138.693,	138.489,	138.284,	138.079,	137.875,	137.671,	137.467,	137.263,	137.059,	136.856,	136.652,	136.449,	136.246,	136.043,	135.84,	135.638,	135.435,	135.233,	135.031,	134.829,	134.627,	134.425,	134.224,	134.022,	133.821,	133.62,	133.419,	133.219,	133.018,	132.818,	132.617,	132.417,	132.217,	132.017,	131.818,	131.618,	131.419,	131.22,	131.021,	130.822,	130.623,	130.424,	130.226,	130.028,	129.83,	129.632,	129.434,	129.236,	129.039,	128.841,	128.644,	128.447,	128.25,	128.053,	127.857,	127.66,	127.464,	127.268,	127.072,	126.876,	126.68,	126.485,	126.289,	126.094,	125.899,	125.704,	125.509,	125.315,	125.12,	124.926,	124.731,	124.537,	124.343,	124.15,	123.956,	123.763,	123.569,	123.376,	123.183,	122.99,	122.798,	122.605,	122.413,	122.22,	122.028,	121.836,	121.644,	121.453,	121.261,	121.07,	120.879,	120.687,	120.496,	120.306,	120.115,	119.924,	119.734,	119.544,	119.354,	119.164,	118.974,	118.784,	118.595,	118.406,	118.216,	118.027,	117.838,	117.65,	117.461,	117.273,	117.084,	116.896,	116.708,	116.52,	116.332,	116.145,	115.957,	115.77,	115.583,	115.396,	115.209,	115.022,	114.836,	114.649,	114.463,	114.277,	114.091,	113.905,	113.719,	113.533,	113.348,	113.162,	112.977,	112.792,	112.607,	112.423,	112.238,	112.054,	111.869,	111.685,	111.501,	111.317,	111.133,	110.95,	110.766,	110.583,	110.4,	110.217,	110.034,	109.851,	109.668,	109.486,	109.303,	109.121,	108.939,	108.757,	108.575,	108.394,	108.212,	108.031,	107.85,	107.669,	107.488,	107.307,	107.126,	106.946,	106.765,	106.585,	106.405,	106.225,	106.045,	105.865,	105.686,	105.506,	105.327,	105.148,	104.969,	104.79,	104.611,	104.433,	104.254,	104.076,	103.898,	103.72,	103.542,	103.364,	103.186,	103.009,	102.831,	102.654,	102.477,	102.3,	102.123,	101.947,	101.77,	101.594,	101.417,	101.241,	101.065,	100.889,	100.714,	100.538,	100.363,	100.187,	100.012,	99.837,	99.662,	99.487,	99.313,	99.138,	98.964,	98.79,	98.616,	98.442,	98.268,	98.094,	97.921,	97.747,	97.574,	97.401,	97.228,	97.055,	96.882,	96.71,	96.537,	96.365,	96.193,	96.02,	95.849,	95.677,	93.831,	93.666,	93.5,	93.335,	93.17,	93.005,	92.84,	92.676,	92.511,	92.347,	92.182,	92.018,	91.854,	91.69,	91.526,	91.363,	91.199,	91.036,	90.872,	90.709,	90.546,	90.383,	90.22,	90.058,	89.895,	89.733,	89.57,	89.408,	89.246,	89.084,	88.922,	88.761,	88.599,	88.438,	88.276,	88.115,	87.954,	87.793,	87.632,	87.472,	87.311,	87.151,	86.99,	86.83,	86.67,	86.51,	86.35,	86.19,	86.031,	85.871,	85.712,	85.553,	85.394,	85.235,	85.076,	84.917,	84.759,	84.6,	84.442,	84.283,	84.125,	83.967,	83.809,	83.652,	83.494,	83.337,	83.179,	83.022,	82.865,	82.708,	82.551,	82.394,	82.237,	82.081,	81.924,	81.768,	81.612,	81.456,	81.3,	81.144,	80.988,	80.833,	80.677,	80.522,	80.367,	80.212,	80.057,	79.902,	79.747,	79.593,	79.438,	79.284,	79.13,	78.976,	78.822,	78.668,	78.514,	78.36,	78.207,	78.053,	77.9,	77.747,	77.594,	77.441,	77.288,	77.135,	76.983,	76.83,	76.678,	76.526,	76.374,	76.222,	76.07,	75.918,	75.767,	75.615,	75.464,	75.313,	75.162,	75.011,	74.86,	74.709,	74.558,	74.408,	74.257,	74.107,	73.957,	73.807,	73.657,	73.507,	73.357,	73.208,	73.058,	72.909,	72.76,	72.611,	72.462,	72.313,	72.164,	72.016,	71.867,	71.719,	71.57,	71.422,	71.274,	71.126,	70.979,	70.831,	70.683,	70.536,	70.389,	70.241,	70.094,	69.947,	69.8,	69.654,	69.507,	69.361,	69.214,	69.068,	68.922,	68.776,	68.63,	68.484,	68.338,	68.193,	68.047,	67.902,	67.757,	67.612,	67.467,	67.322,	67.177,	67.033,	66.888,	66.744,	66.599,	66.455,	66.311,	66.167,	66.023,	65.88,	65.736,	65.593,	65.449,	65.306,	65.163,	65.02,	64.877,	64.734,	64.592,	64.449,	64.307,	64.165,	64.022,	63.88,	63.738,	63.597,	63.455,	63.313,	63.172,	63.03,	62.889,	62.748,	62.607,	62.466,	62.325,	62.185,	62.044,	61.904,	61.763,	61.623,	61.483,	61.343,	61.203,	61.063,	60.924,	60.784,	60.645,	60.506,	60.367,	60.227,	60.089,	59.95,	59.811,	59.672,	59.534,	59.396,	59.257,	59.119,	58.981,	58.843,	58.705,	58.568,	58.43,	58.293,	58.155,	58.018,	57.881,	57.744,	57.607,	57.471,	57.334,	57.197,	57.061,	56.925,	56.788,	56.652,	56.516,	56.381,	56.245,	56.109,	55.974,	55.838,	55.703,	55.568,	55.433,	55.298,	55.163,	55.028,	54.894,	54.759,	54.625,	54.491,	54.357,	54.223,	54.089,	53.955,	53.821,	53.688,	53.554,	53.421,	53.288,	53.154,	53.021,	52.889,	52.756,	52.623,	52.491,	52.358,	52.226,	52.094,	51.962,	51.83,	51.698,	51.566,	51.434,	51.303,	51.171,	51.04,	50.908,	50.777,	50.646,	50.515,	50.385,	50.254,	50.123,	49.993,	49.863,	49.732,	49.602,	49.472,	49.343,	49.213,	49.083,	48.954,	48.824,	48.695,	48.566,	48.437,	48.308,	48.179,	48.05,	47.921,	47.793,	47.665,	47.536,	47.408,	47.28,	47.152,	47.024,	46.897,	46.769,	46.642,	46.515,	46.388,	46.261,	46.134,	46.007,	45.88,	45.753,	45.626,	45.5,	45.374,	45.247,	45.121,	44.995,	44.869,	44.743,	44.618,	44.492,	44.367,	44.241,	44.116,	43.991,	43.866,	43.741,	43.616,	43.491,	43.367,	43.242,	43.118,	42.994,	42.869,	42.745,	42.621,	42.498,	42.374,	42.25,	42.127,	42.003,	41.88,	41.757,	41.634,	41.511,	41.388,	41.265,	41.143,	41.02,	40.898,	40.776,	40.653,	40.531,	40.409,	40.288,	40.166,	40.044,	39.923,	39.801,	39.68,	39.559,	39.438,	39.317,	39.196,	39.075,	38.954,	38.834,	38.714,	38.593,	38.473,	38.353,	38.233,	38.113,	37.993,	37.874,	37.754,	37.635,	37.515,	37.396,	37.277,	37.158,	37.039,	36.92,	36.802,	36.683,	36.565,	36.446,	36.328,	36.21,	36.092,	35.974,	35.856,	35.739,	35.621,	35.504,	35.386,	35.269,	35.152,	35.035,	34.918,	34.801,	34.684,	34.568,	34.451,	34.335,	34.219,	34.103,	33.987,	33.871,	33.755,	33.639,	33.523,	33.408,	33.292,	33.177,	33.062,	32.947,	32.832,	32.717,	32.602,	32.488,	32.373,	32.259,	32.144,	32.03,	31.916,	31.802,	31.688,	31.574,	31.461,	31.347,	31.234,	31.12,	31.007,	30.894,	30.781,	30.668,	30.555,	30.443,	30.33,	30.217,	30.105,	29.993,	29.881,	29.769,	29.657,	29.545,	29.433,	29.321,	29.21,	29.098,	28.987,	28.876,	28.765,	28.654,	28.543,	28.432,	28.321,	28.211,	28.1,	27.99,	27.88,	27.77,	27.66,	27.55,	27.44,	27.33,	27.221,	27.111,	27.002,	26.893,	26.783,	26.674,	26.565,	26.456,	26.348,	26.239,	26.131,	26.022,	25.914,	25.806,	25.697,	25.589,	25.482,	25.374,	25.266,	25.159,	25.051,	24.944,	24.836,	24.729,	24.622,	24.515,	24.408,	24.302,	24.195,	24.089,	23.982,	23.876,	23.77,	23.664,	23.558,	23.452,	23.346,	23.24,	23.135,	23.029,	22.924,	22.819,	22.714,	22.609,	22.504,	22.399,	22.294,	22.189,	22.085,	21.981,	21.876,	21.772,	21.668,	21.564,	21.46,	21.356,	21.253,	21.149,	21.046,	20.942,	20.839,	20.736,	20.633,	20.53,	20.427,	20.324,	20.222,	20.119,	20.017,	19.915,	19.812,	19.71,	19.608,	19.506,	19.405,	19.303,	19.201,	19.1,	18.999,	18.897,	18.796,	18.695,	18.594,	18.493,	18.393,	18.292,	18.191,	18.091,	17.991,	17.89,	17.79,	17.69,	17.59,	17.491,	17.391,	17.291,	17.192,	17.093,	16.993,	16.894,	16.795,	16.696,	16.597,	16.498,	16.4,	16.301,	16.203,	16.104,	16.006,	15.908,	15.454,	15.359,	15.265,	15.17,	15.076,	14.982,	14.888,	14.794,	14.7,	14.606,	14.512,	14.418,	14.325,	14.231,	14.138,	14.045,	13.952,	13.859,	13.766,	13.673,	13.58,	13.487,	13.395,	13.302,	13.21,	13.118,	13.026,	12.934,	12.842,	12.75,	12.658,	12.566,	12.475,	12.383,	12.292,	12.2,	12.109,	12.018,	11.927,	11.836,	11.745,	11.655,	11.564,	11.473,	11.383,	11.293,	11.202,	11.112,	11.022,	10.932,	10.842,	10.753,	10.663,	10.573,	10.484,	10.395,	10.305,	10.216,	10.127,	10.038,	9.949,	9.86,	9.772,	9.683,	9.594,	9.506,	9.418,	9.329,	9.241,	9.153,	9.065,	8.978,	8.89,	8.802,	8.715,	8.627,	8.54,	8.452,	8.365,	8.278,	8.191,	8.104,	8.017,	7.931,	7.844,	7.758,	7.671,	7.585,	7.499,	7.413,	7.327,	7.241,	7.155,	7.069,	6.983,	6.898,	6.812,	6.727,	6.642,	6.557,	6.471,	6.386,	6.302,	6.217,	6.132,	6.047,	5.963,	5.879,	5.794,	5.71,	5.626,	5.542,	5.458,	5.374,	5.29,	5.207,	5.123,	5.04,	4.956,	4.873,	4.79,	4.707,	4.624,	4.541,	4.458,	4.375,	4.292,	4.21,	4.128,	4.045,	3.963,	3.881,	3.799,	3.717,	3.635,	3.553,	3.471,	3.39,	3.308,	3.227,	3.146,	3.064,	2.983,	2.902,	2.821,	2.74,	2.66,	2.579,	2.499,	2.418,	2.338,	2.257,	2.177,	2.097,	2.017,	1.937,	1.857,	1.778,	1.698,	1.619,	1.539,	1.46,	1.381,	1.301,	1.222,	1.143,	1.065,	0.986,	0.907,	0.828,	0.75,	0.672,	0.593,	0.515,	0.437,	0.359,	0.281,	0.203,	0.125,	0.048,	0
 ]; # Reductions to combined direct (3020.619085404541) Standard, UteElas updated (1373.61135 ch4) 1375 steps 
 # start = time()
-checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1,5,#1375,#400,#Int(ceil(200 * 1.130480652)),#283, #293
-# zeros(401)) ### just CH4 policy
+checkch4CO2 = plottaxemisscurve(CH₄_tax, CO₂_tax, 0, 1,410,#1375,#400,#Int(ceil(200 * 1.130480652)),#283, #293
+zeros(411)) ### just CH4 policy
 # # # # # # # # # collect(0:1:491)) ### For combination with increasing tax 2
 # # # # # reverse(co2vec))
-co2vec)
+# co2vec)
 # withprint = time()-start
-# resultdf = copy(checkch4CO2); clipboard(sprint(show, "text/tab-separated-values", resultdf)); print("**ready!!!**",co2vec[2])
-
+resultdf = copy(checkch4CO2); clipboard(sprint(show, "text/tab-separated-values", resultdf)); print("**ready!!!**",co2vec[2])
+# storeCH4=deepcopy(resultdf)
+storeCH4noAbate = deepcopy(resultdf)
 ### DataFrame returns from function
 # # EVboth = checkch4CO2[4]  ### return 4 from function
 # # print(EVboth)
@@ -221,16 +244,17 @@ co2vec)
 
 
 # checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, Int(ceil(200 * 1.130480652)), ch4vec)
-# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 400, zeros(401), 0) #Breaks at $540
+# checkCO2 = plottaxemisscurve(CO₂_tax, CH₄_tax, 0, 1, 410, zeros(411), 0) #Breaks at $540
 
 ### Set up df from loop for plots
 ### for CO2 as tax 1
 # resultdf = copy(checkCO2)#[1:1300,:]  ## For CO2
+# storeCO2 = deepcopy(resultdf)
 ### For CH4 as tax 1
-resultdf = copy(checkch4CO2)#[1])
+# resultdf = copy(checkch4CO2)#[1])
 # resultdf2 = copy(checkch4CO2[2])
 tax1 = names(resultdf)[1]; tax2 = names(resultdf)[2]
-clipboard(sprint(show, "text/tab-separated-values", resultdf))
+# clipboard(sprint(show, "text/tab-separated-values", storeCO2))
 # print(resultdf)
 # 1
 # # # # # # # plt = plot(resultdf[!,tax1], resultdf[!,:Emissions].*10^3,  label="Total GHG Emissions", ylim=(0,TotGHGbnchmk*10^3+200), xlabel="$(replace(tax1,"_"=>" ")) & $(replace(tax2,"_"=>" "))  \$/t", xlims=(0,resultdf[end,:CH₄_tax]))#title= "RA:\$$(value(RA)) fxd:$isfixed",)
@@ -253,34 +277,36 @@ pltEV = plot!(resultdf[!,tax1], resultdf[!,:Emissions].*10^3, label="Total GHG E
 # pltEV = plot!(resultdf[!,tax1], repeat([TotGHGbnchmk*10^3],length(resultdf[:,1])), label="Benchmark Emissions", linestyle=:dashdot, linewidth=2, color=:darkgrey)
 reduction_target = ReductTarget #1117.47  # -961.344/(TotGHGbnchmk*10^3) for CH4 SCC, # 3053.83/(TotGHGbnchmk*10^3)
 pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-reduction_target],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
-xxpltEV = plot!(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linewidth= 4)#linestyle=:dash)#, ylim=(0,5000))
+pltEV = plot!(resultdf[!,tax1], resultdf[!,:CO2Emissions].*10^3, label="CO₂ Emissions", color=:blue, linewidth= 4)#linestyle=:dash)#, ylim=(0,5000))
 pltEV = plot!(resultdf[!,tax1], resultdf[!,:CH4Emissions].*10^3, label="CH₄ Emissions", linewidth=4, color=:darkgreen)#, linestyle=:dashdotdot)
 # pltEV = plot!(resultdf[!,tax1],repeat([TotGHGbnchmk*10^3-ReductTarget],length(resultdf[:,tax1])), color=:yellow, label="Reduction target",linewidth=1.5)
 # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(0,TotGHGbnchmk*10^3+200), color=:red, linewidth=2)
-pltEV = scatter!([NaN], [NaN], color = :red, label="Equivalent Variation % change (right axis)", markershape= :circle,markersize= 10, markerstrokewidth=10, markercolor="red") ## EV line
+pltEV = scatter!([NaN], [NaN], color = :red, label="% change Equivalent Variation (right axis)", markershape= :circle,markersize= 3, markerstrokewidth=0, markercolor="red") ## EV line
 
 # # #     # pltEV = plot!(resultdf[!,tax1],resultdf[!,:EVCES2], legend=:right, label="Equivalent Variation:\n% change", ylabel= "Percentage change",
 # # #     # guidefont=font(9,"Palatino Roman"), linewidth=2, xlim=(0,resultdf[end,tax1]), ylim=(0,2),color=:brown,markershape=:x, markersize=10,
 # # #     # yticks=([0.0,0.5,1.0,1.5,2.0],["0.0%","0.5%","1.%","1.5%","2.0%"]), legendfont=font(9,"Palatino Roman"))
 # # ### Supplementary spaced line for EV, to use as markers
-setupEV1 = resultdf[!,:EVCESpc]
+setupEV1 = -resultdf[!,:EVCESpc]
 setupEV = setupEV1[collect(1:10:length(setupEV1)),:]
 setuptaxes = resultdf[:,tax1][collect(1:10:length(resultdf[:,tax1])),:]
   
-pltEV = plot!(twinx(),resultdf[:,tax1],setupEV1,
+pltEV = plot!(twinx(),resultdf[:,tax1],setupEV1,alpha=0.3,
  xlim=(0,resultdf[end,tax1]), legend=false,color=:brown,ylab="Total cost as % of initial income",
- yguidefontsize=9,guidefont=font(12,"Palatino Roman"), tickfont=(9,"Palantino Roman"),
-ylim=(0,2),yticks=([0,.2,.4,.6,.8,1,1.2,1.4,1.6,1.8,2],["-0.0%","-0.2%","-0.4%","-0.6%","-0.8%","-1.0%","-1.2%","-1.4%","-1.6%","-1.8%","-2.0%"]),ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
-pltEV = plot!(twinx(),resultdf[:,tax1],setupEV1,
+ yguidefontsize=11,guidefont=font(9,"Palatino Roman"), tickfont=(9,"Palantino Roman"),y_foreground_color_axis=:red, y_foreground_color_border=:red,
+# ylim=(0,2),yticks=([0,.2,.4,.6,.8,1,1.2,1.4,1.6,1.8,2],["-0.0%","-0.2%","-0.4%","-0.6%","-0.8%","-1.0%","-1.2%","-1.4%","-1.6%","-1.8%","-2.0%"]),ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
+ylim=(0,16),yticks=([0,5,10,15],["0.0%","5%","10%","15.0%"]))#,ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
+pltEV = plot!(twinx(),resultdf[:,tax1],setupEV1, alpha=0.3,
  xlim=(0,resultdf[end,tax1]), legend=false,color=:brown,ylab="Total cost as % of initial income",
- yguidefontsize=9,guidefont=font(12,"Palatino Roman"), tickfont=(9,"Palantino Roman"),
- y_foreground_color_text=:red, y_foreground_color_axis=:red,y_foreground_color_border=:red,y_guidefontcolor=:red,
-ylim=(0,2),yticks=([0,.2,.4,.6,.8,1,1.2,1.4,1.6,1.8,2],["-0.0%","-0.2%","-0.4%","-0.6%","-0.8%","-1.0%","-1.2%","-1.4%","-1.6%","-1.8%","-2.0%"]),ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
-pltEV = plot!(twinx(), setuptaxes, setupEV,
-ylim=(0,2),line=false,yticks=false,#yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]), tickfontsize=11,,legendfont=font(11,"Palatino Roman")
+ yguidefontsize=11,guidefont=font(9,"Palatino Roman"), tickfont=(9,"Palantino Roman"),
+ y_foreground_color_text=:brown, y_foreground_color_axis=:red,y_foreground_color_border=:red,y_guidefontcolor=:red,borderalpha=0.5,
+# ylim=(0,2),yticks=([0,.2,.4,.6,.8,1,1.2,1.4,1.6,1.8,2],["-0.0%","-0.2%","-0.4%","-0.6%","-0.8%","-1.0%","-1.2%","-1.4%","-1.6%","-1.8%","-2.0%"]),ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
+ylim=(0,16),yticks=([0,5,10,15],["0.0%","5%","10%","15.0%"]))#,#ytickfontsize=9,ytickfont="Palantino Roman",legendfont=font(9,"Palatino Roman"))
+pltEV = plot!(twinx(), setuptaxes, setupEV, alpha=0.3, y_foreground_color_border=:white, borderalpha=0.5,
+ylim=(0,16),line=false,yticks=false,#yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]), tickfontsize=11,,legendfont=font(11,"Palatino Roman")
 xlim=(0,resultdf[end,tax1]+1),markershape= :circle,markersize= 3, markerstrokewidth=3, markerstrokecolor="red",legend=false)#,yticks=([0,.20,.40,.60,.80,1],["0%","20%","40%","60%","80%","100%"]),tickfontsize=11,legendfont=font(11,"Palatino Roman"))
 # 2nd y-axis labels for Tax 2
-pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xtickfont=(10,"Palantino Roman"),xlabel="$(replace(tax2,"_"=>" ")) \$/t", linewidth=0, legend=false, guidefont=font(12,"Palatino Roman"),xticks=([0,maximum(resultdf[!,tax2])],["\$0","\$$(Int(round(maximum(resultdf[!,tax2]);digits=0)))"]))
+# pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true, xlim=(resultdf[end,tax2],resultdf[1,tax2]),xtickfont=(10,"Palantino Roman"),xlabel="$(replace(tax2,"_"=>" ")) \$/t", linewidth=0, legend=false, guidefont=font(12,"Palatino Roman"),xticks=([0,maximum(resultdf[!,tax2])],["\$0","\$$(Int(round(maximum(resultdf[!,tax2]);digits=0)))"]))
 # display(pltEV)
 # # # # # sleep(2)
 # # # # # end
@@ -290,19 +316,20 @@ pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true,
 # # #  ylim=(0,1), yticks=([0.0,0.2,0.4,0.6,0.8,1.0],["0.0%","0.2%","0.4%","0.6%","0.8%","1.0%"]), legendfont=font(9,"Palatino Roman"))
 
 
-# png(pltEV, joinpath(@__DIR__,"./Results/TargetEV_nolegend_NewUteElas"))
+# png(pltEV, joinpath(@__DIR__,"./Results/GHGReductions_perc_CH4taxEV_noAbate"))
 
 # #######################
 # ### % Reduction version
 # ####################### 
 # ###  % reduction of total, label x-axis by tax1
-# pltEV = plot(resultdf[!,tax1], (resultdf[!,:Emissions].-resultdf[1,:Emissions])./resultdf[1,:Emissions], legend=:bottomleft, label="Total GHG Emissions", ylim=(-1,.1), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq",yticks=([-1,-0.8,-0.6,-0.4,-0.2,0],	["-100%","-80%","-60%","-40%","-20%","0%"]), #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])", 
-# xlims=(0,resultdf[end,tax1]), color=:black, linewidth=1, ylab="% change in emissions", linestyle=:solid,
-# yguidefontsize=12, legendfont=font(10,"Palatino Roman"),guidefont=font(11,"Palatino Roman"), tickfont=(12,"Palantino Roman"),
-# )
+pltEV = plot(resultdf[!,tax1], (resultdf[!,:Emissions].-resultdf[1,:Emissions])./resultdf[1,:Emissions], legend=:bottomleft, label="Total GHG Emissions", ylim=(-1,.1), xlabel="$(replace(tax1,"_"=>" ")) \$/t CO₂eq",yticks=([-1,-0.8,-0.6,-0.4,-0.2,0],	["-100%","-80%","-60%","-40%","-20%","0%"]), #title= "Emissions with $(names(resultdf)[1]) $(names(resultdf)[2])", 
+xlims=(0,resultdf[end,tax1]), color=:black, linewidth=2, ylab="% change in emissions", linestyle=:solid,
+yguidefontsize=11, legendfont=font(8,"Palatino Roman"),guidefont=font(9,"Palatino Roman"), tickfont=(9,"Palantino Roman"),
+)
 # ## % reduction of each
-# pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CH4Emissions].-resultdf[1,:CH4Emissions])./resultdf[1,:CH4Emissions], label="CH₄ Emissions", color=:darkgreen, linestyle=:dash)
-# pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CO2Emissions].-resultdf[1,:CO2Emissions])./resultdf[1,:CO2Emissions], label="CO₂ Emissions", color=:blue, linestyle=:dashdot, linewidth=1)#, ylim=(0,5000))
+pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CH4Emissions].-resultdf[1,:CH4Emissions])./resultdf[1,:CH4Emissions], label="CH₄ Emissions", color=:darkgreen, linestyle=:dashdot, linewidth=2)
+pltEV = plot!(resultdf[!,tax1], (resultdf[!,:CO2Emissions].-resultdf[1,:CO2Emissions])./resultdf[1,:CO2Emissions], label="CO₂ Emissions", color=:blue, linestyle=:dash, linewidth=2)#, ylim=(0,5000))
+pltEV = scatter!([NaN], [NaN], color = :red, alpha=0.5, label="Welfare cost (%EV, right y-axis)", markershape= :circle,markersize= 3, markerstrokewidth=0, markercolor="red") ## EV line
 # # ## SCC line
 # # # pltEV = plot!([226.1], seriestype=:vline, label="SCCO₂", ylim=(-1,.1), color=:red, linewidth=0.2)
 # # ## Legend entry for right y-axis series
@@ -367,7 +394,7 @@ pltEV = plot!(twiny(),resultdf[!,tax2],resultdf[!,:Emissions].*10^3, xflip=true,
 # pltEV = plot!(twinx(),resultdf[2:end,tax1],resultdf[2:end,:CO2perc_red],legend=:right, label="CO₂ spillover %\nright axis", legendfont=font(9,"Palatino Roman"), color=:orange, xlim=(0,maximum(resultdf[:,tax1])), ylim=(0,100),yticks=([0,10,20,30,40,50,60,70,80,90,100],["0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"]))
 ##################
 
-# png(pltEV, joinpath(@__DIR__,"./Results/Spillover_CH4_reduct_perc_NoAbate_NewUtil"))
+# png(pltEV, joinpath(@__DIR__,"./Results/GHGReductions_perc_CO2taxEV"))
 # savefig(pltEV, joinpath(@__DIR__,"./Results/Opt.svg"))
 # filter(:EV_pcnt => ==(minimum(EVdf_slice.EV_pcnt)),EVdf_slice)
 # print(sort(EVdf,:EV_pcnt)[1:120,:])

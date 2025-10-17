@@ -65,13 +65,15 @@ ReductTargetbase = 1117.47074039339 # 2022 imputed from Paris (= linear 2005 to 
 CH4toGHG2005 = .113943621 #fraction of CH4 to gross GHG in 2005, GHG Inv CO2eq=28
 CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation to adjust for different CH4 emissions scenarios
 
+SCGHG = 200 * 1.130480652
+
 ## Set tax rates 
 # Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-# CO2_taxrate = 48.198#<=target for all CH4 (Nested CES consumption utility, elasticities from Marc)
-# CH4_taxrate = 292.954#<=target for all CH (Nested CES consumption utility, elasticities from Marc)
+CO2_taxrate = 48.198#<=target for all CH4 (Nested CES consumption utility, elasticities from Marc)
+CH4_taxrate = 292.954#<=target for all CH (Nested CES consumption utility, elasticities from Marc)
 ### Paris Target lowest cost combination (Nested CES consumption utility, elasticities from Marc)
-# CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
-# CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
                 #### Redundant, temp for reference
                 #### CO2_taxrate = 29.2774    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (from Cobb-Douglas Utilities)
                 #### CH4_taxrate = 60 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (from Cobb-Douglas Utilities)
@@ -79,7 +81,7 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
                 #### CH4_taxrate = 282.885#<=target for all CH
                 #### CO2_taxrate = 5.6134#<= Paris target with SCCH4 for all CH4
                 #### CO2_taxrate = 45.271#<=re target w oilgas multi
-### Optimal combinations
+### Optimal combinations for Paris
     # CO2_taxrate = 18.44176473    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
     # CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
     # CO2_taxrate = 10.39 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
@@ -95,74 +97,65 @@ CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation
     ### SCCCO2
 ### Version ΔCH4/ΔCO2 x \Delta SCCO2
 # Optimum CO2 tax ($237/t) incorporating the additional cost of the CO2 associated with that amount of CH4
-CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
-# CO2_taxrate = CO2_taxrate + 127.11002457204812/2719.3414026721402 * 200 * 1.130480652 # Δ: 10.56839890075912 = 236.6645293007591-(200*1.130480652) [0.046742944614138617]
-# CO2_taxrate = 200 * 1.130480652 + .1 # CH4/CO2: [0.04675664135837693] 127.39569955056795/2724.65463406823 * 200 * 1.130480652
-# CO2_taxrate =  200 * 1.130480652 - 1 # CH4/CO2: [0.04672922057023451] (126.82327535984061/2714.003653650159* 200 * 1.130480652 +127.39569955056795/2724.65463406823 * 200 * 1.130480652)/2
-# CO2_taxrate = 238.25257576825084 # (127.39569955056795-127.11002457204812)/(2724.65463406823-2719.3414026721402) * 200 * 1.130480652 + 200 * 1.130480652
-## Oltimal combination of taxes:: marginal benefit (tons reduced x SCC) = marginal cost (Δ MEV)
-# CH4_taxrate = 270 #(from 269.9) with CO2_Tax 21.835  SCCO2 & SCCH4 with CO2 EV_ton, both taxes =    -458.73443613181297
-# CO2_taxrate = 17.776 #(from 17.676) * 1.130480652  #   -102.65914688792492
-
-
-### Work to find point where marginal benefit (Δ $/t taxes) = marginal cost (ΔEV/t)
-# EV_ton, both taxes =    -461.3295040164493 SCCO2 & SCCH4
-# EV_ton, both taxes =    -461.4791658068911  SCCO2+0.1 & SCCH4 461.4791658068911-461.3295040164493(0.14966179044182581)
-# EV_ton, both taxes =    -462.82560585967104  SCCO2+1 & SCCH4 :: 462.82560585967104-461.3295040164493 (1.4961018432217656)
-##### EV_ton, both taxes =    -462.8615427082287 SCCO2+1 & SCCH4+1 :: 462.8615427082287-461.3295040164493
-# 0.046742944614138617 @ SCCO2
-# 0.04674293096430572 #(0.04675664135837693+0.04672922057023451)/2
-
-                ##### Iterative process to incorporate additional complementary emissions from the tax increase
-                    # CO2_taxrate = CO2_taxrate + (130.07617653009518-127.11002457204812)/(2774.2878542413946-2719.3414026721402) * 10.56839890075912
-                    # CO2_taxrate = CO2_taxrate + ( 130.2330396772464-130.07617653009518)/(2777.1800274483858-2774.2878542413946) * 0.5705095815586674 # = 237.23503888231778-236.6645293007591
-                    # CO2_taxrate = CO2_taxrate + (130.2415381688826-130.2330396772464)/(2777.336679617156-2777.1800274483858) * 0.030942797003604028 # = 237.26598167932138-237.23503888231778
-                    # CO2_taxrate = CO2_taxrate + (130.24199919071856-130.2415381688826)/(2777.3451774890714-2777.336679617156) * 0.00167866875767686 # = 237.26766034807906 -237.26598167932138
-                    # CO2_taxrate = CO2_taxrate + (-130.24199919071856)/(-2777.3451774890714) * 9.107020679266498e-5 # = 237.26775141828585-237.26766034807906
-
-                ######## if !@isdefined(CO2price)
-                ########     CO2price = DataFrame(iter=Int[],CO2tax=Float64[], CO2reduc=Float64[],CH4reduc=Float64[])
-                ######## end
-                ########     CO2iter=1
-                    # CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
-
-                    ######## Optimum CO2 tax ($216/t) subtract the spilllover benefit of the CH4 reduction associated with that tax rate.
-                ###### CO2iter=2
-                ###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - 200 * 1.130480652 * 127.11002457204812 / (2719.3414026721402)  ###### 10.568398900759114-> 215.52773149924087
-                ###### CO2iter=3
-                ###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - (127.11002457204812 - 124.02382054981165) / 2661.6547040891874 * 200 * 1.130480652 # 0.2621597707548472-> 215.26557172848604
-                ###### CO2iter=4
-                ###### CO2_taxrate = CO2price[CO2iter-1,:CO2tax] - (124.02382054981165 - 123.94566491601378) / 2660.1870457751643 * 200 * 1.130480652 # 0.006642648079472584-> 215.25892908040657
-                ###### CO2iter=5
-                ###### CO2_taxrate = CO2_taxrate - (123.94566491601378 - 123.94368356521501) / 2660.1498343131825 * 200 * 1.130480652 # 0.00016840244966237751-> 215.2587606779569
-
-                ### Version over total difference and x SCC
-                ### Optimum CO2 tax ($236/t) incorporating the additional cost of the CO2 associated with that amount of CH4
-                    # CO2_taxrate = CO2_taxrate + 127.11/2846.45 * 200 * 1.130480652 # 10.09646371274535 #
-                    # CO2_taxrate = CO2_taxrate + (129.946-127.11)/2901.84 * 200 * 1.130480652 # 0.22096622343561312
-                    # CO2_taxrate = CO2_taxrate + (130.007-129.946)/2903.02 * 200 * 1.130480652 # 0.004750867701359823
-                    # CO2_taxrate = CO2_taxrate + (130.008-130.007)/2903.046 * 200 * 1.130480652 # 7.788237954241151e-5
+# CO2_taxrate =  SCGHG  #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+# CO2_taxrate = SCGHG + 127.11002457204812/2719.3414026721402 * SCGHG # -# Δ: 10.56839890075912 = 236.6645293007591-(200*1.130480652) [0.046742944614138617]
+#### (127.39569955056795-127.11002457204812)/(2724.65463406823-2719.3414026721402) Ratio at the margin (SCCO2 + 1) -->  0.05376671129551907
+# ((EmissionReductionResults_Mt[1,:CO2tax_reduc]/EmissionReductionResults_Mt[1,:Sum_of_each_tax])*
+        # (EmissionReductionResults_Mt[1,:Interactions]/EmissionReductionResults_Mt[3,:Sum_of_each_tax])
+        # +
+        # (EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax])*
+        # (EmissionReductionResults_Mt[2,:Interactions]/EmissionReductionResults_Mt[3,:Sum_of_each_tax]))*     
+        # SCGHG
+# CO2_taxrate = 207.52891160027443
+        # CO2_taxrate = 200 * 1.130480652 + .1 # CH4/CO2: [0.04675664135837693] 127.39569955056795/2724.65463406823 * 200 * 1.130480652
+            # CO2_taxrate =  200 * 1.130480652 - 1 # CH4/CO2: [0.04672922057023451] (126.82327535984061/2714.003653650159* 200 * 1.130480652 +127.39569955056795/2724.65463406823 * 200 * 1.130480652)/2
+            # CO2_taxrate = 238.25257576825084 # (127.39569955056795-127.11002457204812)/(2724.65463406823-2719.3414026721402) * 200 * 1.130480652 + 200 * 1.130480652
+            ## Oltimal combination of taxes:: marginal benefit (tons reduced x SCC) = marginal cost (Δ MEV)
+            # CH4_taxrate = 270 #(from 269.9) with CO2_Tax 21.835  SCCO2 & SCCH4 with CO2 EV_ton, both taxes =    -458.73443613181297
+            # CO2_taxrate = 17.776 #(from 17.676) * 1.130480652  #   -102.65914688792492
 
             ## Optimal price, the cost (with CH4 in CO2 eq = reductions) of the direct CH4 emissions reductions from the SCC, but incorporating the CO2 reductions
             ## So it's the price that reduces total emissions by the amount of CH4 emission reductions (301.27768273240076) from the price at the SCC
             # CO2_taxrate = 204.560589 # (2719.3414026721402 MMt)
 ### SCCH4
-    # CH4_taxrate =  200 * 1.130480652 #* 2# SC CH4 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
+    # CH4_taxrate = SCGHG # 200 * 1.130480652 #* 2# SC CH4 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
 ### Optimal CH4 tax:: Version ΔCO2/ΔCH4 x \Delta SCCO2
-#     CH4_taxrate = 200 * 1.130480652
-#     CH4_taxrate = CH4_taxrate + 637.9479632557219/301.2776827323572 * 200 * 1.130480652 +1 # 704.8490356286785 (478.7529052286785 SCC of the CO2 portion [2.1174750066783035 x SCC])
-#     CH4_taxrate = 200 * 1.130480652  #CO2/CH4: [2.1235971765261725] 
-# CH4_taxrate = 200 * 1.130480652 +.1 #CO2/CH4: [2.1113381073050443]
-# CH4_taxrate = 200 * 1.130480652 #CO2/CH4: [2.1113381073050443]
-# 2.1174750066783035 @ SCCH4
-# 2.117467641915608 = (2.1235971765261725+2.1113381073050443)/2 * 200 * 1.130480652 +200 * 1.130480652
-# 478.7529050900957 +200 * 1.130480652
+    # CH4_taxrate = SCGHG
+    # CH4_taxrate = CH4_taxrate + 637.9479632557219/301.2776827323572 * SCGHG # -# 704.8490356286785 (478.7529052286785 SCC of the CO2 portion [2.1174750066783035 x SCC])
+
+    ###    (640.4027205455742-637.9479632557219)/(301.5650649871174-301.2776827323572) Ratio at the margin (SCHGH + 1) --> 8.541784501971808
+    #     (EmissionReductionResults_Mt[1,:Interactions]/EmissionReductionResults_Mt[3,:Sum_of_each_tax])
+    #     +
+    #     (EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax])*
+    #     (EmissionReductionResults_Mt[2,:Interactions]/EmissionReductionResults_Mt[3,:Sum_of_each_tax]))*     
+    #     SCGHG
+    #     CH4_taxrate = 685.2873207942273
+### Quantity of GHG reductions from CO2 tax to adjust from overlap
+# CO2_taxrate = 142.78404 # GHG reductions -> 2267.5078529824714 = 2904.364030775726 (total GHG from SCCO2*) - 615.7451507979843  - 21.111026995270763
+# Adjusted CO2 
+#    EmissionReductionResults_Mt[3,:CO2tax_reduc]-
+#                 (EmissionReductionResults_Mt[1,:CO2tax_reduc]/EmissionReductionResults_Mt[1,:Sum_of_each_tax]*EmissionReductionResults_Mt[1,:Interactions]+
+#                 EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax]*EmissionReductionResults_Mt[2,:Interactions])
+### Quantity of GHG reductions from CH4 tax to adjust from overlap
+# CH4_taxrate = 499.365 # GHG reductions -> 1610.13502093482 = 2037.7215944758027 - 360.4366412345451 -67.1499323064377
+
+# (EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax])*EmissionReductionResults_Mt[2,:Interactions]
+# EmissionReductionResults_Mt[3,:CH4tax_reduc]-
+#                 (EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[1,:Sum_of_each_tax]*EmissionReductionResults_Mt[1,:Interactions]+
+#                 EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax]*EmissionReductionResults_Mt[2,:Interactions])
+
+
+                    #     CH4_taxrate = 200 * 1.130480652  #CO2/CH4: [2.1235971765261725] 
+                # CH4_taxrate = 200 * 1.130480652 +.1 #CO2/CH4: [2.1113381073050443]
+                # CH4_taxrate = 200 * 1.130480652 #CO2/CH4: [2.1113381073050443]
+                # 2.1174750066783035 @ SCCH4
+                # 2.117467641915608 = (2.1235971765261725+2.1113381073050443)/2 * 200 * 1.130480652 +200 * 1.130480652
+                # 478.7529050900957 +200 * 1.130480652
 ###############################################
 # Marginal cost = marginal benefit, Each individual tax on its own
-# CH4_taxrate = 351.48 ;CO2_taxrate = 0 #(from 351.38)
 # CO2_taxrate = 31.67; CH4_taxrate = 0 # (from 31.57)
+# CH4_taxrate = 351.48 #;CO2_taxrate = 0 #(from 351.38)
 ###############################################
-# CO2_taxrate = 28;
 ### Work to find point where marginal benefit (Δ $/t taxes) = marginal cost (ΔEV/t)
 # EV_ton, both taxes =    -461.3295040164493 SCCO2 & SCCH4
 # CH4_taxrate = 200 * 1.130480652 +1 
@@ -172,8 +165,8 @@ CO2_taxrate =  200 * 1.130480652 #* 2# SC CO2 EPA 2023 SCGHG report, 2022 year, 
 
         #### 600, 44.65 balance benefits and costs to 4 digits   601 & 44.5555 : CH4 up 1, CO2 down .0944999   44.65-44.5555 OR CH4 down 1, CO2 up 
         #### 800, 21.985 balance benefits and costs to 4 digits 801, 21.835: CH4 up 1, CO2 down 0.14999 
-CH4_taxrate =267.435 #(from 267.43) with CO2_Tax 18.4052  SCCO2 & SCCH4 with CO2 EV_ton, both taxes =    -458.73443613181297
-CO2_taxrate = 18.4052 #(from 18.4051) * 1.130480652  #   -102.65914688792492
+# CH4_taxrate = 267.435 #(from 267.43) with CO2_Tax 18.4052  SCCO2 & SCCH4 with CO2 EV_ton, both taxes =    -458.73443613181297
+# CO2_taxrate = 18.4052 #(from 18.4051) * 1.130480652  #   -102.65914688792492
 ## 267.44 from 267.43      18.4052 from 18.4051
 
     # CO2_taxrate = 18.50515 &
@@ -1085,7 +1078,7 @@ EmissionReductionResults_Mt = hcat(EmissionReductionResults[:,1:2],EmissionReduc
 println(Emissions_Mt)
 println(EmissionReductionResults_Mt)# ;println("RA check, it's the 'both' bc that's the last simulation:",
 # sum([value(FDem)*value(compensated_demand(FDem,PA[i])) for i in Ip]))
-# println(outerjoin(TaxRev,EqVar, on=:solve))
+println(outerjoin(TaxRev,EqVar, on=:solve))
 #Check Benchmark
 # fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var]);
 # print(sort!(fullvrbnch, [:bmkmarg]))
@@ -1119,8 +1112,8 @@ println("Benefits_ton, both taxes =\$$(200 * 1.130480652)\t")
 # println(EqVar[5,:MEVdelta]*10^9,"\t= \$Cost: EV")
 # println(" ",EmissionReductionResults_Mt[3,:both_taxes_combined]*10^6*200 * 1.130480652,"\t= \$Benefit: Total tons reduced x SCC")
         marg_em_reduct = prev_em - EmissionReductionResults_Mt[3,:both_taxes_combined]*10^6
-        marg_em_reductCO2 = prev_emCO2 - EmissionReductionResults_Mt[1,:both_taxes_combined]*10^6
-        marg_em_reductCH4 = prev_emCH4 - EmissionReductionResults_Mt[2,:both_taxes_combined]*10^6
+        # marg_em_reductCO2 = prev_emCO2 - EmissionReductionResults_Mt[1,:both_taxes_combined]*10^6
+        # marg_em_reductCH4 = prev_emCH4 - EmissionReductionResults_Mt[2,:both_taxes_combined]*10^6
 # println(marg_em_reduct, " Δ GHG")
 # println(marg_em_reductCO2, " Δ CO2")
 # println(marg_em_reductCH4, " Δ CH4")
@@ -1134,11 +1127,11 @@ println("Benefits_ton, both taxes =\$$(200 * 1.130480652)\t")
 # println(marg_em_reductCH4/marg_em_reductCO2, " Δ fraction on margin CO2 SCC tax")
 # println(marg_em_reduct, "= marginal reduction")
         marg_MEVdelta = prev_MEVdelta - EqVar[5,:MEVdelta]*10^9
-println(" ",marg_MEVdelta, "= marginal cost")
-println(marg_em_reduct * 200 * 1.130480652, "= marginal benefit")
+        println(" ",marg_MEVdelta, "= marginal cost")
+        println(marg_em_reduct * 200 * 1.130480652, "= marginal benefit")
         prev_em = EmissionReductionResults_Mt[3,:both_taxes_combined]*10^6;
-        prev_emCO2 = EmissionReductionResults_Mt[1,:both_taxes_combined]*10^6;
-        prev_emCH4 = EmissionReductionResults_Mt[2,:both_taxes_combined]*10^6;
+        # prev_emCO2 = EmissionReductionResults_Mt[1,:both_taxes_combined]*10^6;
+#          prev_emCH4 = EmissionReductionResults_Mt[2,:both_taxes_combined]*10^6;
         prev_MEVdelta = EqVar[5,:MEVdelta]*10^9;
 # println("CO2 reductions: ",EmissionReductionResults_Mt[1,:CO2tax_reduc])
 # println("CH4 reductions: ",EmissionReductionResults_Mt[2,:CO2tax_reduc]) 
