@@ -136,6 +136,7 @@ for i in 0:300
     prev_emCH4 = (TotCH4bnchmk - value(CH4TotEm))*10^6;
 
 end
+# import Printf.@sprintf
 CH4deltas.totredCH4 =  map(x -> @sprintf("%.2f", x), CH4deltas.totredCH4)
 CH4deltas.totredCO2 =  map(x -> @sprintf("%.2f", x), CH4deltas.totredCO2)
 
