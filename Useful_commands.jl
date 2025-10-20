@@ -119,3 +119,19 @@ end
 end
 
 
+for i in [i for i in Ip if i ∉[:fnd,:hou,:fbt,:amd,:fin,:slg,:grd,:sle,:mvt,:soc,:fdd,:gmt,:ott]];println(i,": ",x_0[i,:exports],"\t",value(compensated_demand(A[i],PFX, :t)*value(A[i])))
+       end
+for i in [i for i in Ip if i ∉[:res,:rec,:con,:fnd,:hou,:fbt,:ore,:man,:amd,:rnt,:fin,:slg,:grd,:pip,:sle,:trn,:mvt,:soc,:trk,:fdd,:gmt,:wtt,:wht,:wrh,:ott,:ugs,:uwt]];
+       println(i,": ",m_0[i,:imports],"\t",value(compensated_demand(A[i],PFX, :dm))*value(A[i]))
+       end
+value(PFX)
+
+sum(m_0[:,:imports])-sum(x_0[:,:exports])
+bopdef_0
+sum([value(compensated_demand(A[i],PFX, :dm))*value(A[i]) for i in Ip if i ∉[:res,:rec,:con,:fnd,:hou,:fbt,:ore,:man,:amd,:rnt,:fin,:slg,:grd,:pip,:sle,:trn,:mvt,:soc,:trk,:fdd,:gmt,:wtt,:wht,:wrh,:ott,:ugs,
+:uwt]])+
+sum([value(compensated_demand(A[i],PFX, :t ))*value(A[i]) for i in Ip if i ∉[:fnd,:hou,:fbt,:amd,:fin,:slg,:grd,:sle,:mvt,:soc,:fdd,:gmt,:ott]])
+
+
+value(Y[:coa])*TotalCO2EmGt_coal +value(Y[:gas])*TotalCO2EmGt_gas + value(Y[:oil])*TotalCO2EmGt_oil
+value(CO2TotEm)
