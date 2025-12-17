@@ -266,16 +266,22 @@ GWP20year = true
 # GWP20year = false###> Comment out to implement 20-year GWP simulation 
 EPACO2eqNonCO2_to_GHGInv_multiplier = 28/25 # The non-CO2 MAC data (emissions and abatement) uses 25, as a step to convert to 20yr from GHG Inventory value which has 28/81.2
 GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
-###*********
-#TODO This is WRONG, I should NOT have the EPACO2eqNonCO2_to_GHGInv_multiplier factor. It's not relevant.
-###*********
+#######*********
+#TODO The above is slightly WRONG. All CH4 baseline emissions should use the AR6 CH4 GWP 100-year CO2eq of 27.9 instead of the AR% (25)
+# The factor immediately below makes that adjustment for all CH4 emissions and abatement potential in the model
+# CH4_CO2eq_AR4_EPANonCO2_toAR6_GHGInv_multiplier = 27.9/25 # Factor to multiply all CH4 to use AR6 CO2eq. The non-CO2 MAC data (emissions and abatement) uses 25 (IPPC AR4), AR6 used 27.9
+# GWP20_multiplier = 81.2/27.9 # Factor to update methane emissions and abatement from IPCC AR6 100-yr (27.9 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
+# if GWP20year; GWPmulti = GWP20_multiplier * CH4_CO2eq_AR4_EPANonCO2_toAR6_GHGInv_multiplier; print("{Yes 20 year GWP} "); end
+
+#######*********
+
 if GWP20year; GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print("{20 year GWP} "); end
 if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 20-year GWP simulation 
-CO2_taxrate = 56.6298#<= 20-yr GWP, Individual (post Consumption utility elasticities from Marc)
-CH4_taxrate = 64.8137#<= w 20-yr GWP, Individual (post Consumption utility elasticities from Marc) 
+# CO2_taxrate = 56.6298#<= 20-yr GWP, Individual (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 64.8137#<= w 20-yr GWP, Individual (post Consumption utility elasticities from Marc) 
     ###Least-cost combination
-    # CO2_taxrate = 9.122#<= 20-yr GWP (post Consumption utility elasticities from Marc)
-    # CH4_taxrate = 47#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
+    CO2_taxrate = 9.122#<= 20-yr GWP (post Consumption utility elasticities from Marc)
+    CH4_taxrate = 47#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
 ### Oil/Gas tax, 20-yr GWP
 # CO2_taxrate =  56.6298 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
 # CH4_taxrate =  134.89 #<=oil/gas tax, 20=yr GWP (post Consumption utility elasticities from Marc)
