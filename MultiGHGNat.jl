@@ -65,25 +65,17 @@ ReductTargetbase = 1117.47074039339 # 2022 imputed from Paris (= linear 2005 to 
 CH4toGHG2005 = .113943621 #fraction of CH4 to gross GHG in 2005, GHG Inv CO2eq=28
 CH4oftarget = CH4toGHG2005*ReductTargetbase# % of CH4 in 2005/2035 extrapolation to adjust for different CH4 emissions scenarios
 
-SCGHG = 200 * 1.130480652
+SCGHG = 200 * 1.130480652 # SC CO2 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
 
 ## Set tax rates 
 # Paris Target reduction from 2022 = ReductTarget t  (= linear 2005 to 2005*(1-0.61) in 2035, gross emissions reduction assuming 2022 sink) diff to actual 2022
-CO2_taxrate = 48.198#<=target for all CH4 (Nested CES consumption utility, elasticities from Marc)
-CH4_taxrate = 292.954#<=target for all CH (Nested CES consumption utility, elasticities from Marc)
+# CO2_taxrate = 48.198#<=target for all CH4 (Nested CES consumption utility, elasticities from Marc)
+# CH4_taxrate = 292.954#<=target for all CH (Nested CES consumption utility, elasticities from Marc)
 ### Paris Target lowest cost combination (Nested CES consumption utility, elasticities from Marc)
-CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
-CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
-                #### Redundant, temp for reference
-                #### CO2_taxrate = 29.2774    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (from Cobb-Douglas Utilities)
-                #### CH4_taxrate = 60 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (from Cobb-Douglas Utilities)
-                #### CO2_taxrate = 42.68#<=target for all CH4
-                #### CH4_taxrate = 282.885#<=target for all CH
-                #### CO2_taxrate = 5.6134#<= Paris target with SCCH4 for all CH4
-                #### CO2_taxrate = 45.271#<=re target w oilgas multi
-### Optimal combinations for Paris
-    # CO2_taxrate = 18.44176473    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
-    # CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement
+# CO2_taxrate = 21.1719    #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+# CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas, w abatement (post Consumption utility elasticities from Marc)
+           
+#??? delete?
     # CO2_taxrate = 10.39 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement
     # CH4_taxrate = 39.92 #~ value for optimum combimation, all CH4, YES GWP, 1x oil/gas, w abatement 362.55
     # CO2_taxrate = 0.2095 #~ value for optimum combimation, all CH4, YES GWP, 5x oil/gas, w abatement
@@ -118,9 +110,8 @@ CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas,
             ## So it's the price that reduces total emissions by the amount of CH4 emission reductions (301.27768273240076) from the price at the SCC
             # CO2_taxrate = 204.560589 # (2719.3414026721402 MMt)
 ### SCCH4
-    # CH4_taxrate = SCGHG # 200 * 1.130480652 #* 2# SC CH4 EPA 2023 SCGHG report, 2022 year, 2020US$, central 2% near-term discount rate x BLS CPI adjustment from 2020$
-### Optimal CH4 tax:: Version ΔCO2/ΔCH4 x \Delta SCCO2
     # CH4_taxrate = SCGHG
+### Optimal CH4 tax:: Version ΔCO2/ΔCH4 x \Delta SCCO2
     # CH4_taxrate = CH4_taxrate + 637.9479632557219/301.2776827323572 * SCGHG # -# 704.8490356286785 (478.7529052286785 SCC of the CO2 portion [2.1174750066783035 x SCC])
 
     ###    (640.4027205455742-637.9479632557219)/(301.5650649871174-301.2776827323572) Ratio at the margin (SCHGH + 1) --> 8.541784501971808
@@ -136,16 +127,8 @@ CH4_taxrate = 119 #~ value for optimum combimation, all CH4, no GWP, 1x oil/gas,
 #    EmissionReductionResults_Mt[3,:CO2tax_reduc]-
 #                 (EmissionReductionResults_Mt[1,:CO2tax_reduc]/EmissionReductionResults_Mt[1,:Sum_of_each_tax]*EmissionReductionResults_Mt[1,:Interactions]+
 #                 EmissionReductionResults_Mt[2,:CO2tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax]*EmissionReductionResults_Mt[2,:Interactions])
-### Quantity of GHG reductions from CH4 tax to adjust from overlap
-# CH4_taxrate = 499.365 # GHG reductions -> 1610.13502093482 = 2037.7215944758027 - 360.4366412345451 -67.1499323064377
 
-# (EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax])*EmissionReductionResults_Mt[2,:Interactions]
-# EmissionReductionResults_Mt[3,:CH4tax_reduc]-
-#                 (EmissionReductionResults_Mt[1,:CH4tax_reduc]/EmissionReductionResults_Mt[1,:Sum_of_each_tax]*EmissionReductionResults_Mt[1,:Interactions]+
-#                 EmissionReductionResults_Mt[2,:CH4tax_reduc]/EmissionReductionResults_Mt[2,:Sum_of_each_tax]*EmissionReductionResults_Mt[2,:Interactions])
-
-
-                    #     CH4_taxrate = 200 * 1.130480652  #CO2/CH4: [2.1235971765261725] 
+#     CH4_taxrate = 200 * 1.130480652  #CO2/CH4: [2.1235971765261725] 
                 # CH4_taxrate = 200 * 1.130480652 +.1 #CO2/CH4: [2.1113381073050443]
                 # CH4_taxrate = 200 * 1.130480652 #CO2/CH4: [2.1113381073050443]
                 # 2.1174750066783035 @ SCCH4
@@ -280,14 +263,17 @@ if only_oilgaspip; CH4_tax_switch_on_sectors[[:coa,:agr,:wst]] .=0 ; print("[CH4
 ### Then the SCCH4 rate would be "EPA 2022 SCCH4/SCCO2" (1799/200) = 8.995 higher. 
 ### That translate to approx 0.3598. 1799 * 1.130480652
 GWP20year = true
-GWP20year = false###> Comment out to implement 20-year GWP simulation 
+# GWP20year = false###> Comment out to implement 20-year GWP simulation 
 EPACO2eqNonCO2_to_GHGInv_multiplier = 28/25 # The non-CO2 MAC data (emissions and abatement) uses 25, as a step to convert to 20yr from GHG Inventory value which has 28/81.2
 GWP20_multiplier = (81.2)/25 # Emissions and abatement from non-MAC (100-yr, 25 CO2eq) to IPCC AR6 20-year, 81.2 CO2eq.
+###*********
+#TODO This is WRONG, I should NOT have the EPACO2eqNonCO2_to_GHGInv_multiplier factor. It's not relevant.
+###*********
 if GWP20year; GWPmulti = GWP20_multiplier / EPACO2eqNonCO2_to_GHGInv_multiplier; print("{20 year GWP} "); end
 if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 20-year GWP simulation 
-# CO2_taxrate = 56.6298#<= 20-yr GWP (post Consumption utility elasticities from Marc)
-# CH4_taxrate = 64.8137#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
-    ###Optimal 
+CO2_taxrate = 56.6298#<= 20-yr GWP, Individual (post Consumption utility elasticities from Marc)
+CH4_taxrate = 64.8137#<= w 20-yr GWP, Individual (post Consumption utility elasticities from Marc) 
+    ###Least-cost combination
     # CO2_taxrate = 9.122#<= 20-yr GWP (post Consumption utility elasticities from Marc)
     # CH4_taxrate = 47#<= w 20-yr GWP (post Consumption utility elasticities from Marc) 
 ### Oil/Gas tax, 20-yr GWP
@@ -299,7 +285,7 @@ if !GWP20year; GWPmulti = 1; print("{NO GWP multiple} "); end # Comment out for 
 
 CH4x5 = true
 CH4x5 = false ###> Comment out to implement x 5 multiple CH4 emissions
-if CH4x5; Undercount_oilgasch4_multiplier = 5; print("::5 x CH₄::"); end#(Plant et al 2022   #Alvarez 2018 said 1.6)
+if CH4x5; Undercount_oilgasch4_multiplier = 5; print("Yes::5 x CH₄::"); end#(Plant et al 2022   #Alvarez 2018 said 1.6)
 if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# default (comment out for oilgas multi)
 # CO2_taxrate = 49.7935#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
 # CH4_taxrate = 43.803#79999#<=updated target x 5 oil/gas (post Consumption utility elasticities from Marc)
@@ -526,7 +512,7 @@ end)
 #         end)
 # end
 
-ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT oil and min
+ID = [i for i ∈ Ip if i∉[:oil, :coa, :gas, :uel, :pet, :rnw] ] # Intermediate inputs EXCEPT the energy relevant
 for j∈Jp
     @production(MultiNat, Y[j], [t=0,
     s=Elas[j, :SAGE_klem_Y], vae=>s=Elas[j,:SAGE_kle_VAE], sm=>s=Elas[j,:E3_m_ID],
@@ -538,10 +524,10 @@ for j∈Jp
      @input(PVAM[j], sum(va_0[VA,j]), va)
         @input(PA[:pet], id_0[:pet,j], PrimENRG) 
           @input(PA[:oil], id_0[:oil,j],   oilgas, taxes=[Tax(RA,CO₂_tax * CO2Int[:oil])]) 
-          @input(PA[:gas], id_0[:gas,j]/2, oilgas, taxes=[Tax(RA,CO₂_tax * CO2Int[:gas])])
+          @input(PA[:gas], id_0[:gas,j]/2, oilgas, taxes=[Tax(RA,CO₂_tax * CO2Int[:gas])]) # https://www.eia.gov/energyexplained/use-of-energy/industry.php shows ≈ 1:1 gas:oil
         @input(PA[:uel], id_0[:uel,j] , Elec)
           @input(PA[:rnw], id_0[:rnw,j],   inElec)
-          @input(PA[:gas], id_0[:gas,j]/2, inElec, taxes=[Tax(RA,CO₂_tax * CO2Int[:gas])])
+          @input(PA[:gas], id_0[:gas,j]/2, inElec, taxes=[Tax(RA,CO₂_tax * CO2Int[:gas])]) # https://www.eia.gov/naturalgas/annual/pdf/table_b01.pdf shows ≈ 1:1 industrial/commercial:industrial
           @input(PA[:coa], id_0[:coa,j],   inElec, taxes=[Tax(RA,CO₂_tax * CO2Int[:coa])])
 end)
 end
@@ -699,7 +685,6 @@ end
 ## Total GHG (CO2 & CH4) emissions in Mt CO2eq
 @aux_constraint(MultiNat, TotEm, TotEm - (CH4TotEm + CO2TotEm))
 set_silent(MultiNat)
-
 ### print for emissions excise taxes
 if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CH₄"); println("Yes CH4 tariff!!!"); end
 if contains(string(MultiNat.productions[Symbol("A[oil]")]),"CO₂"); println("Yes CO2 tariff!!!"); end 
