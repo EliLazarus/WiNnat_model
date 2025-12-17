@@ -711,7 +711,7 @@ fix(RA, sum(pce_0[Ip,:pce])) # Numeraire, fixed at benchmark
 solve!(MultiNat)#, output_minor_iterations_frequency=1)
 # fullvrbnch = generate_report(MultiNat); rename!(fullvrbnch, :value => :bnchmrk, :margin => :bmkmarg); fullvrbnch[!,:var] = Symbol.(fullvrbnch[:,:var])
 # print(sort(fullvrbnch, :var))#:bmkmarg))#:bnchmrk))#
-realCH4taxpcc_bnch = get_real_ch4tax(:bnch)
+if CH4abatement=="yes" ; realCH4taxpcc_bnch = get_real_ch4tax(:bnch) ;end
 
 if !@isdefined(CESutility_multinat)
     include("CESUtility.jl")
@@ -723,7 +723,10 @@ function totalrevenue()
 -(sum([value(MPSGE.tax_revenue(MultiNat[:Y][i],MultiNat[:RA])) for i in Ip])+ # taxes are negative in production, but positive for revenue
 sum([value(MPSGE.tax_revenue(MultiNat[:A][i],MultiNat[:RA])) for i in [i for i in Ip if i∉[:fbt,:mvt,:gmt]]])+
 sum([value(MPSGE.tax_revenue(MultiNat[:VAS][i],MultiNat[:RA])) for i in Ip])+
-sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet]))
+if CH4abatement=="yes"
+    sum([sum([value(MPSGE.tax_revenue(vam[c],MultiNat[:RA])) for c in CH4sectors if VAM_costover[MPSGE.name(vam),c]>1]) for vam in VAMcommodSet])
+else 0
+end)
 end
 totrevbnch = totalrevenue()
 income      = totrevbnch + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
@@ -787,7 +790,7 @@ set_value!(tm,0)
 solve!(MultiNat)
 totrevWiNcntfac = totalrevenue()
 
-realCH4taxpc_WiNcntfac = get_real_ch4tax(:WiNcntfac)
+if CH4abatement=="yes"; realCH4taxpc_WiNcntfac = get_real_ch4tax(:WiNcntfac); end
 income          = totrevWiNcntfac +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:WiNcntfac totrevWiNcntfac totrevWiNcntfac - totrevbnch income])
 
@@ -840,7 +843,7 @@ solve!(MultiNat , cumulative_iteration_limit = 0)# Temp measure to address resid
 set_value!(CH₄_tax, CH4_taxrate)
 set_value!(CO₂_tax,0.) # Set CO2 tax to 0 for running separately.
 solve!(MultiNat)
-realCH4taxpc_ch4 = get_real_ch4tax(:CH₄)
+if CH4abatement=="yes"; realCH4taxpc_ch4 = get_real_ch4tax(:CH₄); end
 
 totrevch4 = totalrevenue()
 income      = totrevch4 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
@@ -896,7 +899,7 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, 0.0) ## Set CH4 taxes back to 0 to generate CO2 tax ONLY
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
-realCH4taxpc_co2 = get_real_ch4tax(:CO₂)
+if CH4abatement=="yes"; realCH4taxpc_co2 = get_real_ch4tax(:CO₂); end
 totrevco2 = totalrevenue()
 income      = totrevco2 +  sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:co2 totrevco2 totrevco2-totrevbnch income])
@@ -945,7 +948,7 @@ set_value!(CO₂_tax, CO2_taxrate)
 set_value!(CH₄_tax, CH4_taxrate)
 solve!(MultiNat, cumulative_iteration_limit=10000) #;
 
-realCH4taxpc_both = get_real_ch4tax(:both)
+if CH4abatement=="yes"; realCH4taxpc_both = get_real_ch4tax(:both); end
 totrevboth = totalrevenue()
 income      = totrevboth + sum(va_0[[:surplus,:compen],:])+ only(bopdef_0) -sum(fd_0)
 push!(TaxRev, [:both totrevboth totrevboth-totrevbnch income])
