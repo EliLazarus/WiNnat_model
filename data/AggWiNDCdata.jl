@@ -1,11 +1,15 @@
-using WiNDC, DataFrames, MPSGE, NamedArrays, CSV, JuMP.Containers
+using DataFrames, MPSGE, NamedArrays, CSV, JuMP.Containers #WiNDC
 
 ##cd to top level of the data files
 raw_data_directory = joinpath(@__DIR__,"./detailed_data/national")
 # all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :raw_detailed); # only for  2007, 2012, 2017
 # Data is PROJECTED from summary => detailed bc detailed only 2007, 2012, 2017 
-all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :detailed);
-all_summary_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :summary);
+# all_det_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :detailed);
+include("detailed_national_data_calibrate.jl")
+all_det_national_data = national_tables(raw_data_directory; aggregation = :detailed);
+
+
+# all_summary_national_data = WiNDC.national_tables(raw_data_directory; aggregation = :summary);
 # For the summary level data, no issue using all years. Several years are failing
 # calibration for the detailed data. 2022 works, as does 2017. Others do too, but
 # those are the "important" ones for me at the moment.
@@ -20,13 +24,13 @@ projected_det_national_data_yr =
         all_det_national_data.sets
     )
 
-raw_summary_national_data_yr = 
-NationalTable(
-    get_table(all_summary_national_data)|>
-        x -> subset(x, :year => ByRow(==(year))) |>#,
-        filter(x -> x[:commodities] !="S00401" && x[:commodities] !="S00402" && x[:commodities] !="S00300" && x[:commodities] !="S00900"), 
-    all_summary_national_data.sets
-)
+# raw_summary_national_data_yr = 
+# NationalTable(
+#     get_table(all_summary_national_data)|>
+#         x -> subset(x, :year => ByRow(==(year))) |>#,
+#         filter(x -> x[:commodities] !="S00401" && x[:commodities] !="S00402" && x[:commodities] !="S00300" && x[:commodities] !="S00900"), 
+#     all_summary_national_data.sets
+# )
 
 # Calibrate the model. The JuMP model is also returned. 
 # callibrated_det_national_data,M = calibrate(projected_det_national_data_yr)
@@ -462,7 +466,7 @@ function table_to_naCxS(
     X::WiNDCtable,
     subtable::String;
     columns_to_ignore = [:year])
-    domain_columns = String.([a for a∈WiNDC.domain(X) if a∉columns_to_ignore])
+    domain_columns = String.([a for a∈domain(X) if a∉columns_to_ignore])
     sets = get_set.(Ref(X), domain_columns) |>
             x -> map(y -> Symbol.(y[!,:element]), x)     
     out = NamedArray(
@@ -542,12 +546,12 @@ m_m0 = table_to_naCxSecs(WplusSpAgC,"imports","commodities");
 x_m0 = table_to_naCxSecs(WplusSpAgC,"exports","commodities");
 md_m0 = table_to_naCxSecs(WplusSpAgC,"margin_demand","commodities");
 ms_m0 = table_to_naCxSecs(WplusSpAgC,"margin_supply","commodities");
-y_m0    = table_to_nafn(WplusSpAgC,WiNDC.gross_output(WplusSpAgC),"commodities");
-a_m0    = table_to_nafn(WplusSpAgC,WiNDC.armington_supply(WplusSpAgC),"commodities");
-ty_m0   = table_to_nafn(WplusSpAgC,WiNDC.other_tax_rate(WplusSpAgC),"sectors"); # sectors only
-ta_m0    = table_to_nafn(WplusSpAgC,WiNDC.absorption_tax_rate(WplusSpAgC),"commodities");
-tm_m0   = table_to_nafn(WplusSpAgC,WiNDC.import_tariff_rate(WplusSpAgC),"commodities");
-bopdef_m0  = NamedArray(WiNDC.balance_of_payments(WplusSpAgC)[:,:value],([Symbol(year)]),(:bop)) # not commodities or sectors
+y_m0    = table_to_nafn(WplusSpAgC,gross_output(WplusSpAgC),"commodities");
+a_m0    = table_to_nafn(WplusSpAgC,armington_supply(WplusSpAgC),"commodities");
+ty_m0   = table_to_nafn(WplusSpAgC,other_tax_rate(WplusSpAgC),"sectors"); # sectors only
+ta_m0    = table_to_nafn(WplusSpAgC,absorption_tax_rate(WplusSpAgC),"commodities");
+tm_m0   = table_to_nafn(WplusSpAgC,import_tariff_rate(WplusSpAgC),"commodities");
+bopdef_m0  = NamedArray(balance_of_payments(WplusSpAgC)[:,:value],([Symbol(year)]),(:bop)) # not commodities or sectors
 va_m0 = table_to_naSecsxC(WplusSpAgC, "value_added","sectors");
 
 # WiNDC2022data2022 = Dict(
