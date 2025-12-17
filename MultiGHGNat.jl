@@ -311,7 +311,9 @@ if !CH4x5; Undercount_oilgasch4_multiplier = 1; print("::1 x CH₄::");end# defa
     # CO2_taxrate = 0 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
     # CH4_taxrate = 11.2758 #<=oil/gas tax, Both 20=yr GWP & x 5 oil/gas (post Consumption utility elasticities from Marc)
 
+### Ratio factor for CH4 emissions in the 500% oil/gas (& pipeline) CH4 scenario : here just for adjusting the target which is based on all CH4 emissions
 multioil_CH4ratio = (sum(only(MAC_CH4_totemiss[:,["agr_livestock", "agr_rice", "COL", "wst_land", "wst_water"]]))+ only(MAC_CH4_totemiss[:,:GAS])*Undercount_oilgasch4_multiplier)/sum(only(MAC_CH4_totemiss[:,2:end]))
+### Adjust the reduction target to account for CH4 scenarios [1) 20-year GWP and 2) 500% CH4 from oil/gas (& pipeline)]. Factors are 1 by default, for central specification
 ReductTarget = ReductTargetbase - CH4oftarget + GWPmulti * multioil_CH4ratio *CH4oftarget;println(": Reduction target=",ReductTarget)
 print("CO2tax: $CO2_taxrate, "); println("CH4tax: $CH4_taxrate")
 print("$CH4abatement CH4 Abatement: "); print("$Kmobile mobile Kapital: ")
