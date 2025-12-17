@@ -170,7 +170,7 @@ print(sort(df_benchmark, :bnchmrk))#:bmkmarg)
 # end
 
 # # Counterfactual
-# # fix(RA,12453.896315446877)
+fix(RA,12453.896315446877)
 
 # # 12453.896315446877/sum(fd_0[i,:pce] for i∈Ip)
 # # 13154.978277803244/sum(fd_0[i,:pce] for i∈Ip)
@@ -180,12 +180,12 @@ print(sort(df_benchmark, :bnchmrk))#:bmkmarg)
 # # for i in Ip; fdW+=sum(fd_0[i,:pce])*-value(PA[i])
 # # end
 
-# set_value!(ta_m,0)
-# set_value!(tm_m,0)
+set_value!(ta_m,0)
+set_value!(tm_m,0)
 
-# solve!(WiNnat)
+solve!(WiNnat)
 
-# df = generate_report(WiNnat);
-# df |>
-#     x -> sort(x, :margin, rev=true)
-# [Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
+df = generate_report(WiNnat);
+df |>
+    x -> sort(x, :margin, rev=true)
+[Y value.(Y)][sortperm([Y value.(Y)][:,2], rev= true), :]
